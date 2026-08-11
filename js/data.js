@@ -1,0 +1,457 @@
+/** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
+/** @typedef {'red'|'yellow'|'green'} RiskTier */
+/** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+
+export const CHECK_CATEGORIES = {
+  identity: 'Identity & policy integrity',
+  timing: 'Timing anomalies',
+  garage: 'Repair & garage patterns',
+  financial: 'Financial & value signals',
+  behavioural: 'Behavioural & history signals',
+};
+
+/**
+ * 20 use-cases. Hard fails have weight null.
+ * Soft signal default weights sum to 100.
+ */
+export const CHECK_DEFINITIONS = [
+  { id: 1, name: 'Plate number: policy vs claim', category: 'identity', hardFail: true, weight: null },
+  { id: 2, name: 'VIN / chassis number: policy vs claim', category: 'identity', hardFail: true, weight: null },
+  { id: 3, name: 'Policy active on date of loss', category: 'identity', hardFail: true, weight: null },
+  { id: 4, name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', hardFail: true, weight: null },
+  { id: 5, name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', hardFail: false, weight: 6 },
+  { id: 6, name: 'Loss occurred after a minimum cover period', category: 'timing', hardFail: false, weight: 7 },
+  { id: 7, name: 'Loss not immediately before policy expiry', category: 'timing', hardFail: false, weight: 6 },
+  { id: 8, name: 'Delay between date of loss and reporting is normal', category: 'timing', hardFail: false, weight: 8 },
+  { id: 9, name: 'Loss date is not on a recently-added endorsement', category: 'timing', hardFail: false, weight: 7 },
+  { id: 10, name: 'Garage is network / auto-assigned', category: 'garage', hardFail: false, weight: 8 },
+  { id: 11, name: 'Garage not on an internal watchlist', category: 'garage', hardFail: false, weight: 9 },
+  { id: 12, name: 'Repair estimate within normal range for damage type', category: 'garage', hardFail: false, weight: 8 },
+  { id: 13, name: 'Parts claimed consistent with reported damage', category: 'garage', hardFail: false, weight: 7 },
+  { id: 14, name: 'Claim amount within sum-insured / IDV limit', category: 'financial', hardFail: true, weight: null },
+  { id: 15, name: 'Claim amount vs claimant\'s historical average', category: 'financial', hardFail: false, weight: 8 },
+  { id: 16, name: 'No duplicate claim for the same incident/date', category: 'financial', hardFail: true, weight: null },
+  { id: 17, name: 'Salvage / total-loss value consistent with claim', category: 'financial', hardFail: false, weight: 6 },
+  { id: 18, name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', hardFail: false, weight: 8 },
+  { id: 19, name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', hardFail: false, weight: 7 },
+  { id: 20, name: 'Location of loss consistent with registered/usual area', category: 'behavioural', hardFail: false, weight: 5 },
+];
+
+export const DEFAULT_WEIGHTS = Object.fromEntries(
+  CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => [c.id, c.weight])
+);
+
+export const USERS = [
+  {
+    username: 'claim.user',
+    password: 'demo123',
+    role: /** @type {Role} */ ('claim_user'),
+    name: 'Fatima Al-Najjar',
+    initials: 'FN',
+    id: 'u-fatima',
+  },
+  {
+    username: 'claim.head',
+    password: 'demo123',
+    role: /** @type {Role} */ ('claim_head'),
+    name: 'Khalid Al-Mansouri',
+    initials: 'KM',
+    id: 'u-khalid',
+  },
+  {
+    username: 'admin',
+    password: 'demo123',
+    role: /** @type {Role} */ ('admin'),
+    name: 'Sara Al-Harbi',
+    initials: 'SH',
+    id: 'u-sara',
+  },
+];
+
+export const ROLE_LABELS = {
+  claim_user: 'Claim User',
+  claim_head: 'Claim Head',
+  admin: 'Admin',
+};
+
+export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
+
+/**
+ * Helper to build a full check result map from overrides.
+ * Unspecified checks default to pass with generic evidence.
+ */
+function buildChecks(overrides = {}) {
+  return CHECK_DEFINITIONS.map((def) => {
+    const o = overrides[def.id] || {};
+    return {
+      checkId: def.id,
+      state: /** @type {CheckState} */ (o.state || 'pass'),
+      evidence:
+        o.evidence ||
+        (def.hardFail
+          ? 'Matched policy record — no discrepancy found'
+          : 'Within expected range for this claim profile'),
+    };
+  });
+}
+
+/**
+ * Sample claims — Middle East motor insurance.
+ * dueInDays: days until settlement deadline (negative = overdue).
+ * filedAt relative to "today" (2026-08-11).
+ */
+export const RAW_CLAIMS = [
+  {
+    id: 'CLM-2026-08412',
+    claimant: 'Omar Al-Rashid',
+    amount: 48500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-04',
+    dueInDays: 5,
+    plate: 'D 45821',
+    vehicle: 'Toyota Land Cruiser 2022 · White',
+    checks: buildChecks({
+      10: { state: 'fail', evidence: 'Claimant self-selected Al Noor Body Shop (not network)' },
+      11: { state: 'fail', evidence: 'Al Noor Body Shop appears on regional watchlist' },
+      12: { state: 'fail', evidence: 'Estimate AED 48,500 is 1.8× median for front-end collision' },
+      13: { state: 'fail', evidence: 'ECU + bumper claimed; photos support bumper-only damage' },
+      15: { state: 'fail', evidence: '3.1× the claimant\'s historical average (AED 15,600)' },
+      18: { state: 'fail', evidence: '3 claims in last 12 months (peer median: 1.1)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08391',
+    claimant: 'Layla Hassan',
+    amount: 127500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-08-02',
+    dueInDays: 3,
+    plate: 'AD 12-88421',
+    vehicle: 'BMW X5 2023 · Black',
+    checks: buildChecks({
+      1: {
+        state: 'fail',
+        evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421',
+      },
+      5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
+      11: { state: 'fail', evidence: 'Gulf Star Motors appears on internal watchlist (Q2 2025)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08455',
+    claimant: 'Yusuf Al-Qahtani',
+    amount: 8200,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-09',
+    dueInDays: 1,
+    plate: 'D 91204',
+    vehicle: 'Nissan Patrol 2021 · Grey',
+    checks: buildChecks({
+      8: { state: 'pass', evidence: 'Reported within 1 day of loss' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08344',
+    claimant: 'Noura Al-Mazrouei',
+    amount: 34200,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Sharjah',
+    filedAt: '2026-07-28',
+    dueInDays: 7,
+    plate: 'SHJ 6-33011',
+    vehicle: 'Lexus RX 2020 · Pearl',
+    checks: buildChecks({
+      8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
+      10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
+      13: {
+        state: 'cant_evaluate',
+        evidence: 'Parts schedule missing from claim record — cannot verify consistency',
+      },
+      15: { state: 'fail', evidence: '2.2× the claimant\'s historical average' },
+      20: { state: 'fail', evidence: 'Loss in Al Ain; registered/usual area is Sharjah Industrial' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08298',
+    claimant: 'Ahmed Bin Zayed',
+    amount: 96500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-07-22',
+    dueInDays: 4,
+    plate: 'AD 1-55210',
+    vehicle: 'Mercedes GLE 2024 · White',
+    checks: buildChecks({
+      14: {
+        state: 'fail',
+        evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500',
+      },
+      6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
+      18: { state: 'fail', evidence: '4 claims in last 12 months (peer median: 1.2)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08401',
+    claimant: 'Mariam Al-Suwaidi',
+    amount: 21500,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Dubai',
+    filedAt: '2026-08-05',
+    dueInDays: 6,
+    plate: 'D 22018',
+    vehicle: 'Honda Accord 2022 · Silver',
+    checks: buildChecks({
+      8: { state: 'fail', evidence: 'Reported 47 days after date of loss' },
+      9: { state: 'fail', evidence: 'Glass cover endorsement added 3 days before loss date' },
+      11: { state: 'fail', evidence: 'Garage linked to elevated scrap-parts pattern' },
+      18: { state: 'fail', evidence: '2 claims in 4 months after 3 quiet years' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08372',
+    claimant: 'Faisal Al-Otaibi',
+    amount: 67800,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Riyadh',
+    filedAt: '2026-07-30',
+    dueInDays: 2,
+    plate: 'RYD 4831 أب',
+    vehicle: 'Toyota Camry 2023 · White',
+    checks: buildChecks({
+      16: {
+        state: 'fail',
+        evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)',
+      },
+      11: { state: 'fail', evidence: 'Najd Auto Repair flagged on regional watchlist' },
+      19: { state: 'fail', evidence: 'Prior flagged claim CLM-2025-06118 on same VIN' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08428',
+    claimant: 'Hessa Al-Dhaheri',
+    amount: 14900,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-08-07',
+    dueInDays: 8,
+    plate: 'AD 17-90112',
+    vehicle: 'Kia Sportage 2021 · Blue',
+    checks: buildChecks({}),
+  },
+  {
+    id: 'CLM-2026-08255',
+    claimant: 'Tariq Al-Hashimi',
+    amount: 112000,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Jeddah',
+    filedAt: '2026-07-18',
+    dueInDays: 9,
+    plate: 'JED 2290 س ر',
+    vehicle: 'Range Rover Sport 2022 · Black',
+    checks: buildChecks({
+      2: {
+        state: 'fail',
+        evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012',
+      },
+      4: {
+        state: 'fail',
+        evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver',
+      },
+      17: { state: 'fail', evidence: 'Salvage quote AED 18k inconsistent with total-loss claim of AED 112k' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08460',
+    claimant: 'Aisha Rahman',
+    amount: 5600,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-10',
+    dueInDays: 10,
+    plate: 'D 77123',
+    vehicle: 'Hyundai Tucson 2020 · Red',
+    checks: buildChecks({
+      12: {
+        state: 'cant_evaluate',
+        evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked',
+      },
+    }),
+  },
+  {
+    id: 'CLM-2026-08315',
+    claimant: 'Rashid Al-Maktoum',
+    amount: 43800,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Dubai',
+    filedAt: '2026-07-25',
+    dueInDays: 4,
+    plate: 'D 10001',
+    vehicle: 'Porsche Cayenne 2023 · Grey',
+    checks: buildChecks({
+      7: { state: 'fail', evidence: 'Loss 2 days before policy expiry (renewed next day)' },
+      10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
+      15: { state: 'fail', evidence: '2.4× claimant historical average' },
+      18: { state: 'fail', evidence: '3 claims in 12 months vs peer median 1.1' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08419',
+    claimant: 'Dana Al-Kuwari',
+    amount: 18900,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Sharjah',
+    filedAt: '2026-08-06',
+    dueInDays: 11,
+    plate: 'SHJ 2-11880',
+    vehicle: 'Mazda CX-5 2022 · White',
+    checks: buildChecks({
+      6: { state: 'fail', evidence: 'Loss on day 6 of cover (minimum period: 14 days)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08280',
+    claimant: 'Salem Al-Nuaimi',
+    amount: 72500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-07-20',
+    dueInDays: 6,
+    plate: 'AD 9-44102',
+    vehicle: 'Audi Q7 2021 · Black',
+    checks: buildChecks({
+      3: {
+        state: 'fail',
+        evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active',
+      },
+      20: {
+        state: 'cant_evaluate',
+        evidence: 'GPS / location of loss not captured in claim intake',
+      },
+    }),
+  },
+  {
+    id: 'CLM-2026-08433',
+    claimant: 'Reem Al-Sabah',
+    amount: 29100,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Riyadh',
+    filedAt: '2026-08-08',
+    dueInDays: 12,
+    plate: 'RYD 9012 ق ط',
+    vehicle: 'Ford Explorer 2022 · White',
+    checks: buildChecks({
+      11: { state: 'fail', evidence: 'Workshop linked to 2 prior high-risk settlements' },
+      13: { state: 'fail', evidence: 'Bumper + ECU claimed; photos show bumper-only damage' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08358',
+    claimant: 'Hamad Al-Thani',
+    amount: 15700,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-07-29',
+    dueInDays: 5,
+    plate: 'D 33450',
+    vehicle: 'Toyota Corolla 2019 · Silver',
+    checks: buildChecks({
+      19: { state: 'fail', evidence: 'Claimant had rejected claim CLM-2025-04991 (staging suspected)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08448',
+    claimant: 'Amira Farouk',
+    amount: 9800,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Jeddah',
+    filedAt: '2026-08-09',
+    dueInDays: 14,
+    plate: 'JED 5512 و م',
+    vehicle: 'Nissan Altima 2021 · Blue',
+    checks: buildChecks({}),
+  },
+  {
+    id: 'CLM-2026-08305',
+    claimant: 'Majid Al-Ghamdi',
+    amount: 54100,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Riyadh',
+    filedAt: '2026-07-24',
+    dueInDays: 3,
+    plate: 'RYD 2201 د ع',
+    vehicle: 'Chevrolet Tahoe 2023 · Black',
+    checks: buildChecks({
+      5: { state: 'fail', evidence: 'Policy: Tahoe White · Claim: Tahoe Black' },
+      8: { state: 'fail', evidence: 'Reported 28 days after loss' },
+      12: { state: 'fail', evidence: 'Estimate 2.2× peer band for side-impact damage' },
+      15: { state: 'fail', evidence: '2.9× historical average for this claimant' },
+      17: { state: 'fail', evidence: 'Total-loss declared but repairable per surveyor note' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08470',
+    claimant: 'Khadija Al-Blooshi',
+    amount: 12300,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Sharjah',
+    filedAt: '2026-08-10',
+    dueInDays: 15,
+    plate: 'SHJ 4-77821',
+    vehicle: 'Toyota Yaris 2020 · White',
+    checks: buildChecks({
+      10: {
+        state: 'cant_evaluate',
+        evidence: 'Garage assignment channel blank — network vs self-select unknown',
+      },
+    }),
+  },
+];
+
+/** Weekly trend points for dashboard (share % and volume). Dates as Date objects. */
+export const TREND_HISTORY = [
+  { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
+  { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },
+  { date: '2026-07-14', redPct: 19, yellowPct: 29, greenPct: 52, volume: 51 },
+  { date: '2026-07-21', redPct: 24, yellowPct: 26, greenPct: 50, volume: 55 },
+  { date: '2026-07-28', redPct: 22, yellowPct: 28, greenPct: 50, volume: 49 },
+  { date: '2026-08-04', redPct: 20, yellowPct: 30, greenPct: 50, volume: 53 },
+];
