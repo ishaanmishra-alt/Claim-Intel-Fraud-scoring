@@ -7,11 +7,3040 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --navy: #0b3a5b;
+  --navy-deep: #072a42;
+  --navy-soft: #e8f1f7;
+  --accent: #0d6e8a;
+  --green: #15803d;
+  --green-bg: #ecfdf3;
+  --green-border: #bbf7d0;
+  --amber: #b45309;
+  --amber-bg: #fffbeb;
+  --amber-border: #fde68a;
+  --red: #b91c1c;
+  --red-bg: #fef2f2;
+  --red-border: #fecaca;
+  --urgent: #dc2626;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* ---------- Login ---------- */
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(13, 110, 138, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(11, 58, 91, 0.1), transparent 50%),
+    linear-gradient(160deg, #edf2f6 0%, #f7f9fb 45%, #eef3f7 100%);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 36px 32px 28px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, var(--navy) 0%, var(--accent) 100%);
+  display: grid;
+  place-items: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.brand-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.brand-name {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--navy-deep);
+}
+
+.login-helper {
+  margin: 0 0 28px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(13, 110, 138, 0.15);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 22px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.checkbox-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--navy);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--navy-deep);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--navy-soft);
+  color: var(--navy);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.login-error {
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  color: var(--red);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.demo-accounts {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.demo-accounts h3 {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.demo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demo-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.demo-chip:hover {
+  border-color: var(--accent);
+  background: var(--navy-soft);
+}
+
+.demo-chip .role {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.demo-chip .creds {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+/* ---------- App shell ---------- */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-width: 0;
+}
+
+.topbar .brand-mark {
+  margin: 0;
+}
+
+.topbar .brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.topbar .brand-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.topbar .brand-name {
+  font-size: 1.05rem;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.nav-link:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.nav-link.active {
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.persona-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.persona-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.persona-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.persona-meta .name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.persona-meta .role {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.main {
+  flex: 1;
+  padding: 28px 24px 48px;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--navy-deep);
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent);
+  margin-bottom: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Controls ---------- */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.segmented button {
+  border: none;
+  background: transparent;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: var(--surface);
+  color: var(--navy);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.tier-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.tier-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.tier-stat strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot.red { background: var(--red); }
+.dot.yellow { background: #d97706; }
+.dot.green { background: var(--green); }
+.dot.amber { background: #d97706; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
+/* ---------- Claims list ---------- */
+.claims-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claim-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.claim-row:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.score-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-family: var(--mono);
+  border: 2px solid;
+}
+
+.score-circle.sm {
+  width: 40px;
+  height: 40px;
+  font-size: 0.85rem;
+}
+
+.score-circle.lg {
+  width: 96px;
+  height: 96px;
+  font-size: 1.75rem;
+  border-width: 3px;
+}
+
+.score-circle.red {
+  color: var(--red);
+  background: var(--red-bg);
+  border-color: var(--red);
+}
+
+.score-circle.yellow {
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-color: #d97706;
+}
+
+.score-circle.green {
+  color: var(--green);
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+.claim-main {
+  min-width: 0;
+}
+
+.claim-id-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.claim-id {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.claim-name {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tag.critical {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid var(--red-border);
+}
+
+.tag.knockout {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.tag.override {
+  background: var(--navy-soft);
+  color: var(--navy);
+  border: 1px solid #bfdbfe;
+}
+
+.claim-amount {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.claim-tier {
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 88px;
+  text-align: center;
+}
+
+.claim-tier.red { color: var(--red); }
+.claim-tier.yellow { color: var(--amber); }
+.claim-tier.green { color: var(--green); }
+
+.due-badge {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 72px;
+  text-align: right;
+}
+
+.due-badge.urgent {
+  color: var(--urgent);
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+/* ---------- Claim detail ---------- */
+.claim-detail-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.claim-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.meta-item label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.meta-item .value {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.hardfail-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  color: var(--red);
+}
+
+.hardfail-banner .banner-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hardfail-banner strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.hardfail-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #991b1b;
+}
+
+.score-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.score-panel-text h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+
+.score-panel-text .tier-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.score-panel-text .summary-line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.result-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.result-filter {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.result-filter.active {
+  border-color: var(--navy);
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.result-filter .count {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  margin-left: 4px;
+  opacity: 0.8;
+}
+
+.checks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.check-row.fail {
+  border-left: 3px solid var(--red);
+}
+
+.check-row.cant_evaluate {
+  border-left: 3px solid #d97706;
+}
+
+.check-row.pass {
+  border-left: 3px solid var(--green);
+}
+
+.check-state-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+}
+
+.check-state-icon.pass {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.check-state-icon.fail {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.check-state-icon.cant_evaluate {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.check-body .check-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.check-body .evidence {
+  margin: 4px 0 0;
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.check-weight {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+/* ---------- Dashboard ---------- */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: flex-end;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 160px;
+  color: var(--text);
+}
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.stat-tile .label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+.stat-tile .value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--navy-deep);
+}
+
+.stat-tile .sub {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.risk-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.risk-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.risk-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.risk-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.risk-numbers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.risk-numbers strong {
+  color: var(--text);
+}
+
+.bar-track {
+  height: 8px;
+  background: #eef2f6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar-fill.red { background: var(--red); }
+.bar-fill.yellow { background: #d97706; }
+.bar-fill.green { background: var(--green); }
+
+.chart-wrap {
+  position: relative;
+  height: 280px;
+}
+
+.chart-empty {
+  height: 220px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+/* ---------- Config ---------- */
+.info-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  color: var(--text-secondary);
+}
+
+.info-banner .lock-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.info-banner strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 2px;
+  font-size: 0.9rem;
+}
+
+.info-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.config-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.config-section h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.config-section .section-desc {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.config-check {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-check:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.config-check:first-of-type {
+  padding-top: 0;
+}
+
+.config-check .name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.config-check .category {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.weight-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weight-input-wrap input {
+  width: 72px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+}
+
+.weight-input-wrap input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(13, 110, 138, 0.12);
+}
+
+.weight-input-wrap .pct {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.config-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: sticky;
+  bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.running-total {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.running-total .total-value {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  margin-left: 6px;
+}
+
+.running-total.at-100 .total-value {
+  color: var(--green);
+}
+
+.running-total.not-100 .total-value {
+  color: var(--amber);
+}
+
+.save-feedback {
+  font-size: 0.85rem;
+  margin-right: 12px;
+}
+
+.save-feedback.error {
+  color: var(--red);
+}
+
+.save-feedback.success {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .stat-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .claim-row {
+    grid-template-columns: 48px 1fr;
+    gap: 12px;
+  }
+
+  .claim-amount,
+  .claim-tier,
+  .due-badge {
+    grid-column: 2;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .claim-amount { margin-top: -4px; }
+  .nav-links {
+    display: none;
+  }
+
+  .mobile-nav {
+    display: flex !important;
+  }
+}
+
+.mobile-nav {
+  display: none;
+  gap: 4px;
+  padding: 8px 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+@media (max-width: 600px) {
+  .main {
+    padding: 20px 14px 40px;
+  }
+
+  .stat-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .login-card {
+    padding: 28px 20px 22px;
+  }
+
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .persona-meta .name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+  </style>
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="js/app.js"></script>
+  <script>
+(function () {
+"use strict";
+
+/* ===== js/data.js ===== */
+/** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
+/** @typedef {'red'|'yellow'|'green'} RiskTier */
+/** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+
+const CHECK_CATEGORIES = {
+  identity: 'Identity & policy integrity',
+  timing: 'Timing anomalies',
+  garage: 'Repair & garage patterns',
+  financial: 'Financial & value signals',
+  behavioural: 'Behavioural & history signals',
+};
+
+/**
+ * 20 use-cases. Hard fails have weight null.
+ * Soft signal default weights sum to 100.
+ */
+const CHECK_DEFINITIONS = [
+  { id: 1, name: 'Plate number: policy vs claim', category: 'identity', hardFail: true, weight: null },
+  { id: 2, name: 'VIN / chassis number: policy vs claim', category: 'identity', hardFail: true, weight: null },
+  { id: 3, name: 'Policy active on date of loss', category: 'identity', hardFail: true, weight: null },
+  { id: 4, name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', hardFail: true, weight: null },
+  { id: 5, name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', hardFail: false, weight: 6 },
+  { id: 6, name: 'Loss occurred after a minimum cover period', category: 'timing', hardFail: false, weight: 7 },
+  { id: 7, name: 'Loss not immediately before policy expiry', category: 'timing', hardFail: false, weight: 6 },
+  { id: 8, name: 'Delay between date of loss and reporting is normal', category: 'timing', hardFail: false, weight: 8 },
+  { id: 9, name: 'Loss date is not on a recently-added endorsement', category: 'timing', hardFail: false, weight: 7 },
+  { id: 10, name: 'Garage is network / auto-assigned', category: 'garage', hardFail: false, weight: 8 },
+  { id: 11, name: 'Garage not on an internal watchlist', category: 'garage', hardFail: false, weight: 9 },
+  { id: 12, name: 'Repair estimate within normal range for damage type', category: 'garage', hardFail: false, weight: 8 },
+  { id: 13, name: 'Parts claimed consistent with reported damage', category: 'garage', hardFail: false, weight: 7 },
+  { id: 14, name: 'Claim amount within sum-insured / IDV limit', category: 'financial', hardFail: true, weight: null },
+  { id: 15, name: 'Claim amount vs claimant\'s historical average', category: 'financial', hardFail: false, weight: 8 },
+  { id: 16, name: 'No duplicate claim for the same incident/date', category: 'financial', hardFail: true, weight: null },
+  { id: 17, name: 'Salvage / total-loss value consistent with claim', category: 'financial', hardFail: false, weight: 6 },
+  { id: 18, name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', hardFail: false, weight: 8 },
+  { id: 19, name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', hardFail: false, weight: 7 },
+  { id: 20, name: 'Location of loss consistent with registered/usual area', category: 'behavioural', hardFail: false, weight: 5 },
+];
+
+const DEFAULT_WEIGHTS = Object.fromEntries(
+  CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => [c.id, c.weight])
+);
+
+const USERS = [
+  {
+    username: 'claim.user',
+    password: 'demo123',
+    role: /** @type {Role} */ ('claim_user'),
+    name: 'Fatima Al-Najjar',
+    initials: 'FN',
+    id: 'u-fatima',
+  },
+  {
+    username: 'claim.head',
+    password: 'demo123',
+    role: /** @type {Role} */ ('claim_head'),
+    name: 'Khalid Al-Mansouri',
+    initials: 'KM',
+    id: 'u-khalid',
+  },
+  {
+    username: 'admin',
+    password: 'demo123',
+    role: /** @type {Role} */ ('admin'),
+    name: 'Sara Al-Harbi',
+    initials: 'SH',
+    id: 'u-sara',
+  },
+];
+
+const ROLE_LABELS = {
+  claim_user: 'Claim User',
+  claim_head: 'Claim Head',
+  admin: 'Admin',
+};
+
+const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
+
+/**
+ * Helper to build a full check result map from overrides.
+ * Unspecified checks default to pass with generic evidence.
+ */
+function buildChecks(overrides = {}) {
+  return CHECK_DEFINITIONS.map((def) => {
+    const o = overrides[def.id] || {};
+    return {
+      checkId: def.id,
+      state: /** @type {CheckState} */ (o.state || 'pass'),
+      evidence:
+        o.evidence ||
+        (def.hardFail
+          ? 'Matched policy record — no discrepancy found'
+          : 'Within expected range for this claim profile'),
+    };
+  });
+}
+
+/**
+ * Sample claims — Middle East motor insurance.
+ * dueInDays: days until settlement deadline (negative = overdue).
+ * filedAt relative to "today" (2026-08-11).
+ */
+const RAW_CLAIMS = [
+  {
+    id: 'CLM-2026-08412',
+    claimant: 'Omar Al-Rashid',
+    amount: 48500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-04',
+    dueInDays: 5,
+    plate: 'D 45821',
+    vehicle: 'Toyota Land Cruiser 2022 · White',
+    checks: buildChecks({
+      10: { state: 'fail', evidence: 'Claimant self-selected Al Noor Body Shop (not network)' },
+      11: { state: 'fail', evidence: 'Al Noor Body Shop appears on regional watchlist' },
+      12: { state: 'fail', evidence: 'Estimate AED 48,500 is 1.8× median for front-end collision' },
+      13: { state: 'fail', evidence: 'ECU + bumper claimed; photos support bumper-only damage' },
+      15: { state: 'fail', evidence: '3.1× the claimant\'s historical average (AED 15,600)' },
+      18: { state: 'fail', evidence: '3 claims in last 12 months (peer median: 1.1)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08391',
+    claimant: 'Layla Hassan',
+    amount: 127500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-08-02',
+    dueInDays: 3,
+    plate: 'AD 12-88421',
+    vehicle: 'BMW X5 2023 · Black',
+    checks: buildChecks({
+      1: {
+        state: 'fail',
+        evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421',
+      },
+      5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
+      11: { state: 'fail', evidence: 'Gulf Star Motors appears on internal watchlist (Q2 2025)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08455',
+    claimant: 'Yusuf Al-Qahtani',
+    amount: 8200,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-09',
+    dueInDays: 1,
+    plate: 'D 91204',
+    vehicle: 'Nissan Patrol 2021 · Grey',
+    checks: buildChecks({
+      8: { state: 'pass', evidence: 'Reported within 1 day of loss' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08344',
+    claimant: 'Noura Al-Mazrouei',
+    amount: 34200,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Sharjah',
+    filedAt: '2026-07-28',
+    dueInDays: 7,
+    plate: 'SHJ 6-33011',
+    vehicle: 'Lexus RX 2020 · Pearl',
+    checks: buildChecks({
+      8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
+      10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
+      13: {
+        state: 'cant_evaluate',
+        evidence: 'Parts schedule missing from claim record — cannot verify consistency',
+      },
+      15: { state: 'fail', evidence: '2.2× the claimant\'s historical average' },
+      20: { state: 'fail', evidence: 'Loss in Al Ain; registered/usual area is Sharjah Industrial' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08298',
+    claimant: 'Ahmed Bin Zayed',
+    amount: 96500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-07-22',
+    dueInDays: 4,
+    plate: 'AD 1-55210',
+    vehicle: 'Mercedes GLE 2024 · White',
+    checks: buildChecks({
+      14: {
+        state: 'fail',
+        evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500',
+      },
+      6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
+      18: { state: 'fail', evidence: '4 claims in last 12 months (peer median: 1.2)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08401',
+    claimant: 'Mariam Al-Suwaidi',
+    amount: 21500,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Dubai',
+    filedAt: '2026-08-05',
+    dueInDays: 6,
+    plate: 'D 22018',
+    vehicle: 'Honda Accord 2022 · Silver',
+    checks: buildChecks({
+      8: { state: 'fail', evidence: 'Reported 47 days after date of loss' },
+      9: { state: 'fail', evidence: 'Glass cover endorsement added 3 days before loss date' },
+      11: { state: 'fail', evidence: 'Garage linked to elevated scrap-parts pattern' },
+      18: { state: 'fail', evidence: '2 claims in 4 months after 3 quiet years' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08372',
+    claimant: 'Faisal Al-Otaibi',
+    amount: 67800,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Riyadh',
+    filedAt: '2026-07-30',
+    dueInDays: 2,
+    plate: 'RYD 4831 أب',
+    vehicle: 'Toyota Camry 2023 · White',
+    checks: buildChecks({
+      16: {
+        state: 'fail',
+        evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)',
+      },
+      11: { state: 'fail', evidence: 'Najd Auto Repair flagged on regional watchlist' },
+      19: { state: 'fail', evidence: 'Prior flagged claim CLM-2025-06118 on same VIN' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08428',
+    claimant: 'Hessa Al-Dhaheri',
+    amount: 14900,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-08-07',
+    dueInDays: 8,
+    plate: 'AD 17-90112',
+    vehicle: 'Kia Sportage 2021 · Blue',
+    checks: buildChecks({}),
+  },
+  {
+    id: 'CLM-2026-08255',
+    claimant: 'Tariq Al-Hashimi',
+    amount: 112000,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Jeddah',
+    filedAt: '2026-07-18',
+    dueInDays: 9,
+    plate: 'JED 2290 س ر',
+    vehicle: 'Range Rover Sport 2022 · Black',
+    checks: buildChecks({
+      2: {
+        state: 'fail',
+        evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012',
+      },
+      4: {
+        state: 'fail',
+        evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver',
+      },
+      17: { state: 'fail', evidence: 'Salvage quote AED 18k inconsistent with total-loss claim of AED 112k' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08460',
+    claimant: 'Aisha Rahman',
+    amount: 5600,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-08-10',
+    dueInDays: 10,
+    plate: 'D 77123',
+    vehicle: 'Hyundai Tucson 2020 · Red',
+    checks: buildChecks({
+      12: {
+        state: 'cant_evaluate',
+        evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked',
+      },
+    }),
+  },
+  {
+    id: 'CLM-2026-08315',
+    claimant: 'Rashid Al-Maktoum',
+    amount: 43800,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Dubai',
+    filedAt: '2026-07-25',
+    dueInDays: 4,
+    plate: 'D 10001',
+    vehicle: 'Porsche Cayenne 2023 · Grey',
+    checks: buildChecks({
+      7: { state: 'fail', evidence: 'Loss 2 days before policy expiry (renewed next day)' },
+      10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
+      15: { state: 'fail', evidence: '2.4× claimant historical average' },
+      18: { state: 'fail', evidence: '3 claims in 12 months vs peer median 1.1' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08419',
+    claimant: 'Dana Al-Kuwari',
+    amount: 18900,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Sharjah',
+    filedAt: '2026-08-06',
+    dueInDays: 11,
+    plate: 'SHJ 2-11880',
+    vehicle: 'Mazda CX-5 2022 · White',
+    checks: buildChecks({
+      6: { state: 'fail', evidence: 'Loss on day 6 of cover (minimum period: 14 days)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08280',
+    claimant: 'Salem Al-Nuaimi',
+    amount: 72500,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Abu Dhabi',
+    filedAt: '2026-07-20',
+    dueInDays: 6,
+    plate: 'AD 9-44102',
+    vehicle: 'Audi Q7 2021 · Black',
+    checks: buildChecks({
+      3: {
+        state: 'fail',
+        evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active',
+      },
+      20: {
+        state: 'cant_evaluate',
+        evidence: 'GPS / location of loss not captured in claim intake',
+      },
+    }),
+  },
+  {
+    id: 'CLM-2026-08433',
+    claimant: 'Reem Al-Sabah',
+    amount: 29100,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Riyadh',
+    filedAt: '2026-08-08',
+    dueInDays: 12,
+    plate: 'RYD 9012 ق ط',
+    vehicle: 'Ford Explorer 2022 · White',
+    checks: buildChecks({
+      11: { state: 'fail', evidence: 'Workshop linked to 2 prior high-risk settlements' },
+      13: { state: 'fail', evidence: 'Bumper + ECU claimed; photos show bumper-only damage' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08358',
+    claimant: 'Hamad Al-Thani',
+    amount: 15700,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Dubai',
+    filedAt: '2026-07-29',
+    dueInDays: 5,
+    plate: 'D 33450',
+    vehicle: 'Toyota Corolla 2019 · Silver',
+    checks: buildChecks({
+      19: { state: 'fail', evidence: 'Claimant had rejected claim CLM-2025-04991 (staging suspected)' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08448',
+    claimant: 'Amira Farouk',
+    amount: 9800,
+    currency: 'AED',
+    assignedTo: 'u-sara',
+    assignedName: 'Sara Al-Harbi',
+    branch: 'Jeddah',
+    filedAt: '2026-08-09',
+    dueInDays: 14,
+    plate: 'JED 5512 و م',
+    vehicle: 'Nissan Altima 2021 · Blue',
+    checks: buildChecks({}),
+  },
+  {
+    id: 'CLM-2026-08305',
+    claimant: 'Majid Al-Ghamdi',
+    amount: 54100,
+    currency: 'AED',
+    assignedTo: 'u-fatima',
+    assignedName: 'Fatima Al-Najjar',
+    branch: 'Riyadh',
+    filedAt: '2026-07-24',
+    dueInDays: 3,
+    plate: 'RYD 2201 د ع',
+    vehicle: 'Chevrolet Tahoe 2023 · Black',
+    checks: buildChecks({
+      5: { state: 'fail', evidence: 'Policy: Tahoe White · Claim: Tahoe Black' },
+      8: { state: 'fail', evidence: 'Reported 28 days after loss' },
+      12: { state: 'fail', evidence: 'Estimate 2.2× peer band for side-impact damage' },
+      15: { state: 'fail', evidence: '2.9× historical average for this claimant' },
+      17: { state: 'fail', evidence: 'Total-loss declared but repairable per surveyor note' },
+    }),
+  },
+  {
+    id: 'CLM-2026-08470',
+    claimant: 'Khadija Al-Blooshi',
+    amount: 12300,
+    currency: 'AED',
+    assignedTo: 'u-khalid',
+    assignedName: 'Khalid Al-Mansouri',
+    branch: 'Sharjah',
+    filedAt: '2026-08-10',
+    dueInDays: 15,
+    plate: 'SHJ 4-77821',
+    vehicle: 'Toyota Yaris 2020 · White',
+    checks: buildChecks({
+      10: {
+        state: 'cant_evaluate',
+        evidence: 'Garage assignment channel blank — network vs self-select unknown',
+      },
+    }),
+  },
+];
+
+/** Weekly trend points for dashboard (share % and volume). Dates as Date objects. */
+const TREND_HISTORY = [
+  { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
+  { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },
+  { date: '2026-07-14', redPct: 19, yellowPct: 29, greenPct: 52, volume: 51 },
+  { date: '2026-07-21', redPct: 24, yellowPct: 26, greenPct: 50, volume: 55 },
+  { date: '2026-07-28', redPct: 22, yellowPct: 28, greenPct: 50, volume: 49 },
+  { date: '2026-08-04', redPct: 20, yellowPct: 30, greenPct: 50, volume: 53 },
+];
+
+
+
+/* ===== js/state.js ===== */
+
+
+const SESSION_KEY = 'claim-intel-session';
+const WEIGHTS_KEY = 'claim-intel-weights';
+
+function getSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setSession(user, keepSignedIn) {
+  const session = {
+    userId: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    initials: user.initials,
+    keepSignedIn: !!keepSignedIn,
+  };
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return session;
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function authenticate(username, password) {
+  const user = USERS.find(
+    (u) => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password
+  );
+  return user || null;
+}
+
+function getWeights() {
+  try {
+    const raw = localStorage.getItem(WEIGHTS_KEY);
+    if (!raw) return { ...DEFAULT_WEIGHTS };
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_WEIGHTS, ...parsed };
+  } catch {
+    return { ...DEFAULT_WEIGHTS };
+  }
+}
+
+function saveWeights(weights) {
+  localStorage.setItem(WEIGHTS_KEY, JSON.stringify(weights));
+}
+
+function resetWeights() {
+  localStorage.removeItem(WEIGHTS_KEY);
+  return { ...DEFAULT_WEIGHTS };
+}
+
+
+
+/* ===== js/scoring.js ===== */
+
+/**
+ * Score a claim given current soft-signal weights.
+ * Hard fails force tier red but context score is still computed.
+ */
+function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
+  const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
+  const results = claim.checks.map((c) => {
+    const def = defById[c.checkId];
+    return {
+      ...c,
+      name: def.name,
+      category: def.category,
+      hardFail: def.hardFail,
+      weight: def.hardFail ? null : weights[c.checkId] ?? def.weight,
+    };
+  });
+
+  const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
+  const soft = results.filter((r) => !r.hardFail);
+  const evaluable = soft.filter((r) => r.state !== 'cant_evaluate');
+  const passedSoft = evaluable.filter((r) => r.state === 'pass');
+  const failedSoft = evaluable.filter((r) => r.state === 'fail');
+  const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
+
+  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const earnedWeight = passedSoft.reduce((sum, r) => sum + (r.weight || 0), 0);
+
+  // Map weighted pass ratio to 0–10. If nothing evaluable → mid unverified band.
+  let contextScore;
+  if (activeWeight === 0) {
+    contextScore = 6;
+  } else {
+    contextScore = Math.round(((earnedWeight / activeWeight) * 10) * 10) / 10;
+    // Keep one decimal max but display as number; snap to sensible range
+    contextScore = Math.min(10, Math.max(0, Math.round(contextScore * 10) / 10));
+    // Prefer whole/half for UI clarity
+    contextScore = Math.round(contextScore);
+  }
+
+  let softTier;
+  if (activeWeight === 0 || cantEval.length > 0 && failedSoft.length === 0 && passedSoft.length < soft.length * 0.5) {
+    // Heavy can't-evaluate without fails → unverified leaning
+    softTier = contextScore >= 8 ? 'green' : contextScore >= 5 ? 'yellow' : 'red';
+    if (activeWeight === 0) softTier = 'yellow';
+  } else if (contextScore >= 8) softTier = 'green';
+  else if (contextScore >= 5) softTier = 'yellow';
+  else softTier = 'red';
+
+  const forcedRed = hardFails.length > 0;
+  const tier = forcedRed ? 'red' : softTier;
+
+  return {
+    score: contextScore,
+    tier,
+    forcedRed,
+    hardFails,
+    results,
+    summary: {
+      hardFailCount: hardFails.length,
+      softFailCount: failedSoft.length,
+      softPassCount: passedSoft.length,
+      softTotal: soft.length,
+      cantEvaluateCount: cantEval.length,
+      earnedWeight,
+      activeWeight,
+    },
+  };
+}
+
+function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
+  return RAW_CLAIMS.map((claim) => {
+    const scored = scoreClaim(claim, weights);
+    return { ...claim, ...scored };
+  });
+}
+
+function tierLabel(tier) {
+  if (tier === 'red') return 'High risk';
+  if (tier === 'yellow') return 'Unverified';
+  return 'Pass';
+}
+
+function formatAED(amount) {
+  return (
+    'AED ' +
+    Number(amount).toLocaleString('en-AE', {
+      maximumFractionDigits: 0,
+    })
+  );
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mon = d.toLocaleString('en-GB', { month: 'short' });
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}-${mon}-${yy}`;
+}
+
+/** Sort checks: hard fails first, then soft fails by weight desc, then cant_eval, then pass */
+function sortChecksForDisplay(results) {
+  const rank = (r) => {
+    if (r.state === 'fail' && r.hardFail) return 0;
+    if (r.state === 'fail') return 1;
+    if (r.state === 'cant_evaluate') return 2;
+    return 3;
+  };
+  return [...results].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 1) return (b.weight || 0) - (a.weight || 0);
+    return a.checkId - b.checkId;
+  });
+}
+
+function canAccess(role, feature) {
+  const matrix = {
+    queue: ['claim_user', 'claim_head', 'admin'],
+    claim: ['claim_user', 'claim_head', 'admin'],
+    dashboard: ['claim_head', 'admin'],
+    report: ['claim_head', 'admin'],
+    config: ['admin'],
+  };
+  return (matrix[feature] || []).includes(role);
+}
+
+function homeRouteForRole(role) {
+  if (role === 'admin') return '#/dashboard';
+  return '#/queue';
+}
+
+
+
+/* ===== js/components.js ===== */
+function brandIcon(size = 22) {
+  return `
+    <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3l7 3v5.5c0 4.4-2.9 8.3-7 9.5-4.1-1.2-7-5.1-7-9.5V6l7-3z" stroke="currentColor" stroke-width="1.7" fill="rgba(255,255,255,0.12)"/>
+      <circle cx="12" cy="11" r="3.2" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M14.3 13.3L16.5 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
+function iconCheck() {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function iconX() {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+}
+
+function iconAlert() {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 4.3L2.8 17.2A2 2 0 004.5 20h15a2 2 0 001.7-2.8L13.7 4.3a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function iconLock() {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+}
+
+function iconBack() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function renderShell(session, active, content, { showMobileNav = true } = {}) {
+  const links = [
+    { hash: '#/queue', label: 'Claims', feature: 'queue' },
+    { hash: '#/dashboard', label: 'Dashboard', feature: 'dashboard' },
+    { hash: '#/report', label: 'Report', feature: 'report' },
+    { hash: '#/config', label: 'Configuration', feature: 'config' },
+  ];
+
+  const nav = links
+    .filter((l) => {
+      if (l.feature === 'dashboard' || l.feature === 'report') {
+        return session.role === 'claim_head' || session.role === 'admin';
+      }
+      if (l.feature === 'config') return session.role === 'admin';
+      return true;
+    })
+    .map(
+      (l) =>
+        `<a class="nav-link ${active === l.hash ? 'active' : ''}" href="${l.hash}">${l.label}</a>`
+    )
+    .join('');
+
+  return `
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="brand-mark">
+            <div class="brand-icon">${brandIcon(18)}</div>
+            <div class="brand-name">Claim Intel</div>
+          </div>
+          <nav class="nav-links">${nav}</nav>
+        </div>
+        <div class="topbar-right">
+          <div class="persona-badge" title="Active persona">
+            <div class="persona-avatar">${session.initials}</div>
+            <div class="persona-meta">
+              <span class="name">${session.name}</span>
+              <span class="role" data-role-label></span>
+            </div>
+          </div>
+          <button class="btn btn-ghost" type="button" data-action="logout">Sign out</button>
+        </div>
+      </header>
+      ${showMobileNav ? `<div class="mobile-nav">${nav}</div>` : ''}
+      <main class="main">${content}</main>
+    </div>
+  `;
+}
+
+
+
+/* ===== js/views/login.js ===== */
+
+
+
+
+function renderLogin(root, { error = '' } = {}) {
+  root.innerHTML = `
+    <div class="login-page">
+      <div class="login-card">
+        <div class="brand-mark">
+          <div class="brand-icon">${brandIcon(22)}</div>
+          <div class="brand-name">Claim Intel</div>
+        </div>
+        <p class="login-helper">Sign in to view fraud risk scoring. Your access is set by your licence.</p>
+        ${error ? `<div class="login-error">${error}</div>` : ''}
+        <form id="login-form" autocomplete="on">
+          <div class="field">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" required placeholder="e.g. claim.user" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required placeholder="Enter password" />
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="keep" name="keep" checked />
+            Keep me signed in for this session
+          </label>
+          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        </form>
+        <div class="demo-accounts">
+          <h3>Demo accounts</h3>
+          <div class="demo-list">
+            ${USERS.map(
+              (u) => `
+              <button type="button" class="demo-chip" data-user="${u.username}" data-pass="${u.password}">
+                <span class="role">${ROLE_LABELS[u.role]}</span>
+                <span class="creds">${u.username} / ${u.password}</span>
+              </button>
+            `
+            ).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.querySelectorAll('.demo-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      root.querySelector('#username').value = btn.dataset.user;
+      root.querySelector('#password').value = btn.dataset.pass;
+    });
+  });
+
+  root.querySelector('#login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = root.querySelector('#username').value;
+    const password = root.querySelector('#password').value;
+    const keep = root.querySelector('#keep').checked;
+    const user = authenticate(username, password);
+    if (!user) {
+      renderLogin(root, { error: 'Invalid username or password. Try a demo account below.' });
+      return;
+    }
+    setSession(user, keep);
+    location.hash = homeRouteForRole(user.role);
+  });
+}
+
+
+
+/* ===== js/views/queue.js ===== */
+
+
+
+function renderQueue(root, session, claims, state, onChange) {
+  const { scope, sort } = state;
+  const mine = claims.filter((c) => c.assignedTo === session.userId);
+  const list = scope === 'mine' ? mine : claims;
+
+  const sorted = [...list].sort((a, b) => {
+    if (sort === 'deadline') {
+      if (a.dueInDays !== b.dueInDays) return a.dueInDays - b.dueInDays;
+      return a.score - b.score;
+    }
+    // Highest risk: red first, then yellow, then green; within tier lower score first
+    const tierRank = { red: 0, yellow: 1, green: 2 };
+    if (tierRank[a.tier] !== tierRank[b.tier]) return tierRank[a.tier] - tierRank[b.tier];
+    if (a.score !== b.score) return a.score - b.score;
+    return a.dueInDays - b.dueInDays;
+  });
+
+  const counts = {
+    red: list.filter((c) => c.tier === 'red').length,
+    yellow: list.filter((c) => c.tier === 'yellow').length,
+    green: list.filter((c) => c.tier === 'green').length,
+  };
+
+  const title = scope === 'mine' ? 'My claims' : 'All claims';
+  const subtitle =
+    scope === 'mine'
+      ? `${mine.length} assigned to you · already scored`
+      : `${claims.length} claims in portfolio · already scored`;
+
+  const content = `
+    <div class="page-header">
+      <div>
+        <h1>${title} <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
+        <p class="page-subtitle">${subtitle}</p>
+      </div>
+      <div class="segmented" role="group" aria-label="Claim scope">
+        <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
+        <button type="button" data-scope="all" class="${scope === 'all' ? 'active' : ''}">All claims</button>
+      </div>
+    </div>
+
+    <div class="tier-strip">
+      <div class="tier-stat"><span class="dot red"></span><strong>${counts.red}</strong> High risk</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Unverified</div>
+      <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
+    </div>
+
+    <div class="toolbar">
+      <div>
+        <span class="toolbar-label">Sort</span>
+        <div class="segmented" role="group" aria-label="Sort mode">
+          <button type="button" data-sort="risk" class="${sort === 'risk' ? 'active' : ''}">Highest risk</button>
+          <button type="button" data-sort="deadline" class="${sort === 'deadline' ? 'active' : ''}">Deadline</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="claims-list">
+      ${
+        sorted.length === 0
+          ? `<div class="empty-state">No claims in this view.</div>`
+          : sorted
+              .map((c) => {
+                const dueClass = c.dueInDays <= 2 ? 'urgent' : '';
+                const dueText =
+                  c.dueInDays < 0
+                    ? `overdue ${Math.abs(c.dueInDays)}d`
+                    : c.dueInDays === 0
+                      ? 'due today'
+                      : `due in ${c.dueInDays}d`;
+                return `
+            <button type="button" class="claim-row" data-claim-id="${c.id}">
+              <div class="score-circle sm ${c.tier}">${c.score}</div>
+              <div class="claim-main">
+                <div class="claim-id-line">
+                  <span class="claim-id">${c.id}</span>
+                  ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
+                </div>
+                <div class="claim-name">${c.claimant}</div>
+              </div>
+              <div class="claim-amount">${formatAED(c.amount)}</div>
+              <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
+              <div class="due-badge ${dueClass}">${dueText}</div>
+            </button>
+          `;
+              })
+              .join('')
+      }
+    </div>
+  `;
+
+  root.innerHTML = renderShell(session, '#/queue', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+
+  root.querySelectorAll('[data-scope]').forEach((btn) => {
+    btn.addEventListener('click', () => onChange({ ...state, scope: btn.dataset.scope }));
+  });
+  root.querySelectorAll('[data-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => onChange({ ...state, sort: btn.dataset.sort }));
+  });
+  root.querySelectorAll('[data-claim-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      location.hash = `#/claim/${btn.dataset.claimId}`;
+    });
+  });
+}
+
+
+
+/* ===== js/views/claim.js ===== */
+
+
+
+function stateIcon(state) {
+  if (state === 'pass') return iconCheck();
+  if (state === 'fail') return iconX();
+  return iconAlert();
+}
+
+function renderClaimDetail(root, session, claim, filter, onFilter) {
+  if (!claim) {
+    root.innerHTML = renderShell(
+      session,
+      '#/queue',
+      `<div class="empty-state">Claim not found. <a href="#/queue">Back to queue</a></div>`
+    );
+    root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+    return;
+  }
+
+  const sorted = sortChecksForDisplay(claim.results);
+  const counts = {
+    all: claim.results.length,
+    pass: claim.results.filter((r) => r.state === 'pass').length,
+    fail: claim.results.filter((r) => r.state === 'fail').length,
+    cant_evaluate: claim.results.filter((r) => r.state === 'cant_evaluate').length,
+  };
+
+  const filtered =
+    filter === 'all' ? sorted : sorted.filter((r) => r.state === filter);
+
+  const s = claim.summary;
+  const summaryLine = [
+    s.hardFailCount
+      ? `${s.hardFailCount} critical fail${s.hardFailCount > 1 ? 's' : ''}`
+      : null,
+    `${s.softFailCount} of ${s.softTotal} soft checks failed`,
+    s.cantEvaluateCount
+      ? `${s.cantEvaluateCount} could not be evaluated`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const hardFailNames = claim.hardFails.map((h) => h.name).join('; ');
+
+  const content = `
+    <button type="button" class="back-link" data-action="back">${iconBack()} Back to claims</button>
+
+    <div class="claim-detail-header">
+      <div class="claim-detail-grid">
+        <div class="meta-item">
+          <label>Claim ID</label>
+          <div class="value">${claim.id}</div>
+        </div>
+        <div class="meta-item">
+          <label>Claimant</label>
+          <div class="value">${claim.claimant}</div>
+        </div>
+        <div class="meta-item">
+          <label>Claim amount</label>
+          <div class="value">${formatAED(claim.amount)}</div>
+        </div>
+        <div class="meta-item">
+          <label>Assigned to</label>
+          <div class="value">${claim.assignedName}</div>
+        </div>
+        <div class="meta-item">
+          <label>Filed</label>
+          <div class="value">${formatDate(claim.filedAt)}</div>
+        </div>
+        <div class="meta-item">
+          <label>Vehicle</label>
+          <div class="value">${claim.vehicle}</div>
+        </div>
+      </div>
+    </div>
+
+    ${
+      claim.forcedRed
+        ? `
+      <div class="hardfail-banner">
+        <div class="banner-icon">${iconAlert()}</div>
+        <div>
+          <strong>Critical check failed — routed to red</strong>
+          <p>${hardFailNames}. The score below is a context score only; the hard fail overrides the tier.</p>
+        </div>
+      </div>
+    `
+        : ''
+    }
+
+    <div class="score-panel">
+      <div class="score-circle lg ${claim.tier}">${claim.score}</div>
+      <div class="score-panel-text">
+        <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
+        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
+        <p class="summary-line">${summaryLine}</p>
+      </div>
+    </div>
+
+    <div class="result-filters">
+      <button type="button" class="result-filter ${filter === 'all' ? 'active' : ''}" data-filter="all">
+        All <span class="count">${counts.all}</span>
+      </button>
+      <button type="button" class="result-filter ${filter === 'pass' ? 'active' : ''}" data-filter="pass">
+        Passed <span class="count">${counts.pass}</span>
+      </button>
+      <button type="button" class="result-filter ${filter === 'fail' ? 'active' : ''}" data-filter="fail">
+        Failed <span class="count">${counts.fail}</span>
+      </button>
+      <button type="button" class="result-filter ${filter === 'cant_evaluate' ? 'active' : ''}" data-filter="cant_evaluate">
+        Can't evaluate <span class="count">${counts.cant_evaluate}</span>
+      </button>
+    </div>
+
+    <div class="checks-list">
+      ${
+        filtered.length === 0
+          ? `<div class="empty-state">No checks in this result state.</div>`
+          : filtered
+              .map((r) => {
+                // Weights live on Config (Admin only) — never on the claim breakdown
+                const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                return `
+            <div class="check-row ${r.state}">
+              <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
+              <div class="check-body">
+                <div class="check-name">
+                  ${r.name}
+                  ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
+                  ${r.hardFail && r.state !== 'fail' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                </div>
+                <p class="evidence">${r.evidence}</p>
+                <p class="evidence" style="margin-top:2px;font-size:0.75rem;color:var(--text-muted)">${CHECK_CATEGORIES[r.category]}</p>
+              </div>
+              <div class="check-weight">${metaLabel}</div>
+            </div>
+          `;
+              })
+              .join('')
+      }
+    </div>
+  `;
+
+  root.innerHTML = renderShell(session, '#/queue', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+
+  root.querySelector('[data-action="back"]').addEventListener('click', () => {
+    location.hash = '#/queue';
+  });
+  root.querySelectorAll('[data-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => onFilter(btn.dataset.filter));
+  });
+}
+
+
+
+/* ===== js/views/dashboard.js ===== */
+
+
+
+let chartInstance = null;
+
+function destroyChart() {
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
+  }
+}
+
+function filterClaims(claims, period, branch) {
+  const today = new Date('2026-08-11T12:00:00');
+  let days = 30;
+  if (period === '7') days = 7;
+  if (period === 'quarter') days = 90;
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - days);
+
+  return claims.filter((c) => {
+    const filed = new Date(c.filedAt + 'T12:00:00');
+    if (filed < cutoff) return false;
+    if (branch !== 'All branches' && c.branch !== branch) return false;
+    return true;
+  });
+}
+
+function drawChart(canvas, mode) {
+  destroyChart();
+  if (typeof Chart === "undefined" || !canvas) return;
+
+  if (!TREND_HISTORY.length) {
+    return;
+  }
+
+  const labels = TREND_HISTORY.map((p) => formatDate(p.date));
+
+  if (mode === 'share') {
+    chartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'High risk %',
+            data: TREND_HISTORY.map((p) => p.redPct),
+            borderColor: '#b91c1c',
+            backgroundColor: 'transparent',
+            tension: 0.25,
+            pointRadius: 3,
+          },
+          {
+            label: 'Unverified %',
+            data: TREND_HISTORY.map((p) => p.yellowPct),
+            borderColor: '#d97706',
+            backgroundColor: 'transparent',
+            tension: 0.25,
+            pointRadius: 3,
+          },
+          {
+            label: 'Pass %',
+            data: TREND_HISTORY.map((p) => p.greenPct),
+            borderColor: '#15803d',
+            backgroundColor: 'transparent',
+            tension: 0.25,
+            pointRadius: 3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'IBM Plex Sans', size: 12 } } },
+        },
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            ticks: { callback: (v) => v + '%' },
+            grid: { color: '#eef2f6' },
+          },
+          x: { grid: { display: false } },
+        },
+      },
+    });
+  } else {
+    chartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Claims scored',
+            data: TREND_HISTORY.map((p) => p.volume),
+            borderColor: '#0b3a5b',
+            backgroundColor: 'rgba(11, 58, 91, 0.08)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'IBM Plex Sans', size: 12 } } },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            grid: { color: '#eef2f6' },
+          },
+          x: { grid: { display: false } },
+        },
+      },
+    });
+  }
+}
+
+function renderDashboard(root, session, claims, state, onChange) {
+  if (!canAccess(session.role, 'dashboard')) {
+    location.hash = '#/queue';
+    return;
+  }
+
+  const { period, branch, chartMode } = state;
+  const filtered = filterClaims(claims, period, branch);
+
+  const totalCount = filtered.length;
+  const totalValue = filtered.reduce((s, c) => s + c.amount, 0);
+  const red = filtered.filter((c) => c.tier === 'red');
+  const yellow = filtered.filter((c) => c.tier === 'yellow');
+  const green = filtered.filter((c) => c.tier === 'green');
+  const cantEvalClaims = filtered.filter((c) => c.summary.cantEvaluateCount > 0);
+
+  const redValue = red.reduce((s, c) => s + c.amount, 0);
+  const yellowValue = yellow.reduce((s, c) => s + c.amount, 0);
+  const greenValue = green.reduce((s, c) => s + c.amount, 0);
+
+  const flaggedPct = totalCount ? Math.round((red.length / totalCount) * 100) : 0;
+  const cantEvalPct = totalCount ? Math.round((cantEvalClaims.length / totalCount) * 100) : 0;
+
+  const maxCount = Math.max(red.length, yellow.length, green.length, 1);
+  const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
+
+  const hasTrend = TREND_HISTORY.length >= 2;
+
+  const content = `
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Portfolio risk overview · high-level only</p>
+      </div>
+    </div>
+
+    <div class="filters-bar">
+      <div class="filter-group">
+        <label for="period">Time period</label>
+        <select id="period">
+          <option value="7" ${period === '7' ? 'selected' : ''}>Last 7 days</option>
+          <option value="30" ${period === '30' ? 'selected' : ''}>Last 30 days</option>
+          <option value="quarter" ${period === 'quarter' ? 'selected' : ''}>This quarter</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="branch">Branch / region</label>
+        <select id="branch">
+          ${BRANCHES.map((b) => `<option value="${b}" ${branch === b ? 'selected' : ''}>${b}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="stat-tiles">
+      <div class="stat-tile">
+        <div class="label">Claims scored</div>
+        <div class="value">${totalCount}</div>
+        <div class="sub">In selected period</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Total claim value</div>
+        <div class="value" style="font-size:1.2rem">${formatAED(totalValue)}</div>
+        <div class="sub">Sum of claim amounts</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Flagged high-risk</div>
+        <div class="value">${flaggedPct}%</div>
+        <div class="sub">${formatAED(redValue)} exposed</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Couldn't evaluate</div>
+        <div class="value">${cantEvalPct}%</div>
+        <div class="sub">Data-quality indicator</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Risk breakdown</h2>
+      </div>
+      <div class="risk-breakdown">
+        ${[
+          { key: 'red', label: 'High risk', count: red.length, value: redValue },
+          { key: 'yellow', label: 'Unverified', count: yellow.length, value: yellowValue },
+          { key: 'green', label: 'Pass', count: green.length, value: greenValue },
+        ]
+          .map(
+            (row) => `
+          <div class="risk-row">
+            <div class="risk-row-label"><span class="dot ${row.key}"></span>${row.label}</div>
+            <div class="risk-metrics">
+              <div class="risk-numbers">
+                <span><strong>${row.count}</strong> claims</span>
+                <span><strong>${formatAED(row.value)}</strong></span>
+              </div>
+              <div class="bar-track"><div class="bar-fill ${row.key}" style="width:${Math.round((row.value / maxValue) * 100)}%"></div></div>
+              <div class="bar-track" style="height:5px;opacity:0.65"><div class="bar-fill ${row.key}" style="width:${Math.round((row.count / maxCount) * 100)}%;opacity:0.55"></div></div>
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+      <p style="margin:12px 0 0;font-size:0.75rem;color:var(--text-muted)">Bars: claim value (primary) · count (secondary)</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Risk trend</h2>
+        <div class="segmented" role="group" aria-label="Chart mode">
+          <button type="button" data-chart="share" class="${chartMode === 'share' ? 'active' : ''}">Risk share %</button>
+          <button type="button" data-chart="volume" class="${chartMode === 'volume' ? 'active' : ''}">Claim volume</button>
+        </div>
+      </div>
+      ${
+        hasTrend
+          ? `<div class="chart-wrap"><canvas id="trend-chart"></canvas></div>`
+          : `<div class="chart-empty">Not enough history yet to show a reliable trend.</div>`
+      }
+    </div>
+  `;
+
+  root.innerHTML = renderShell(session, '#/dashboard', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+
+  root.querySelector('#period').addEventListener('change', (e) => {
+    onChange({ ...state, period: e.target.value });
+  });
+  root.querySelector('#branch').addEventListener('change', (e) => {
+    onChange({ ...state, branch: e.target.value });
+  });
+  root.querySelectorAll('[data-chart]').forEach((btn) => {
+    btn.addEventListener('click', () => onChange({ ...state, chartMode: btn.dataset.chart }));
+  });
+
+  if (hasTrend) {
+    requestAnimationFrame(() => {
+      const canvas = root.querySelector('#trend-chart');
+      drawChart(canvas, chartMode);
+    });
+  } else {
+    destroyChart();
+  }
+}
+
+
+
+
+/* ===== js/views/config.js ===== */
+
+
+
+
+function computeTotal(draft, soft) {
+  return soft.reduce((sum, c) => sum + (Number(draft[c.id]) || 0), 0);
+}
+
+function updateFooter(root, draft, soft, feedback) {
+  const total = computeTotal(draft, soft);
+  const at100 = total === 100;
+  const totalEl = root.querySelector('.running-total');
+  if (totalEl) {
+    totalEl.className = `running-total ${at100 ? 'at-100' : 'not-100'}`;
+    totalEl.innerHTML = `Running total <span class="total-value">${total}%</span>${at100 ? ' · ready to save' : ''}`;
+  }
+  const actions = root.querySelector('.footer-actions');
+  if (!actions) return;
+  let fb = actions.querySelector('.save-feedback');
+  if (!feedback) {
+    if (fb) fb.remove();
+    return;
+  }
+  if (!fb) {
+    fb = document.createElement('span');
+    fb.className = 'save-feedback';
+    actions.insertBefore(fb, actions.querySelector('[data-action="reset"]'));
+  }
+  fb.className = `save-feedback ${feedback.type === 'success' ? 'success' : 'error'}`;
+  fb.textContent = feedback.message;
+}
+
+function renderConfig(root, session, weights, draft, feedback, onDraftChange, onSaved) {
+  if (!canAccess(session.role, 'config')) {
+    location.hash = '#/queue';
+    return;
+  }
+
+  const knockouts = CHECK_DEFINITIONS.filter((c) => c.hardFail);
+  const soft = CHECK_DEFINITIONS.filter((c) => !c.hardFail);
+  const total = computeTotal(draft, soft);
+  const at100 = total === 100;
+
+  let feedbackHtml = '';
+  if (feedback?.type === 'error') {
+    feedbackHtml = `<span class="save-feedback error">${feedback.message}</span>`;
+  } else if (feedback?.type === 'success') {
+    feedbackHtml = `<span class="save-feedback success">${feedback.message}</span>`;
+  }
+
+  const content = `
+    <div class="page-header">
+      <div>
+        <h1>Configuration</h1>
+        <p class="page-subtitle">Weightage for soft-signal checks · knockouts override the score</p>
+      </div>
+    </div>
+
+    <div class="info-banner">
+      <div class="lock-icon">${iconLock()}</div>
+      <div>
+        <strong>Vendor-controlled use-cases</strong>
+        <p>Which checks are switched on is set by Claim Intel, not the customer. Active use-cases below are read-only for enablement — only weightage is editable.</p>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h2>Hard-fail knockouts</h2>
+      <p class="section-desc">These checks carry no weight. If any one fails, the claim is forced to Red regardless of the weighted score.</p>
+      ${knockouts
+        .map(
+          (c) => `
+        <div class="config-check">
+          <div>
+            <div class="name">${c.name}</div>
+            <div class="category">${CHECK_CATEGORIES[c.category]}</div>
+          </div>
+          <span class="tag override">Override</span>
+        </div>
+      `
+        )
+        .join('')}
+    </div>
+
+    <div class="config-section">
+      <h2>Weighted soft signals</h2>
+      <p class="section-desc">Whole-number percentages only. Active weights must total exactly 100%.</p>
+      ${soft
+        .map(
+          (c) => `
+        <div class="config-check">
+          <div>
+            <div class="name">${c.name}</div>
+            <div class="category">${CHECK_CATEGORIES[c.category]}</div>
+          </div>
+          <div class="weight-input-wrap">
+            <input type="number" min="0" max="100" step="1" inputmode="numeric"
+              data-weight-id="${c.id}" value="${draft[c.id] ?? 0}" />
+            <span class="pct">%</span>
+          </div>
+        </div>
+      `
+        )
+        .join('')}
+    </div>
+
+    <div class="config-footer">
+      <div class="running-total ${at100 ? 'at-100' : 'not-100'}">
+        Running total <span class="total-value">${total}%</span>
+        ${at100 ? ' · ready to save' : ''}
+      </div>
+      <div class="footer-actions">
+        ${feedbackHtml}
+        <button type="button" class="btn btn-secondary" data-action="reset">Reset defaults</button>
+        <button type="button" class="btn btn-primary" data-action="save">Save weightage</button>
+      </div>
+    </div>
+  `;
+
+  root.innerHTML = renderShell(session, '#/config', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+
+  // Local mutable draft so typing does not remount inputs
+  const localDraft = { ...draft };
+
+  root.querySelectorAll('[data-weight-id]').forEach((input) => {
+    input.addEventListener('input', () => {
+      let val = input.value;
+      if (val.includes('.') || val.includes('e') || val.includes('E')) {
+        val = String(Math.trunc(Number(val)) || 0);
+        input.value = val;
+      }
+      const id = Number(input.dataset.weightId);
+      const num = val === '' ? 0 : parseInt(val, 10);
+      localDraft[id] = Number.isFinite(num) ? Math.max(0, num) : 0;
+      onDraftChange(localDraft, null, { silent: true });
+      updateFooter(root, localDraft, soft, null);
+    });
+
+    input.addEventListener('blur', () => {
+      const id = Number(input.dataset.weightId);
+      const num = parseInt(input.value, 10);
+      if (!Number.isFinite(num)) {
+        input.value = '0';
+        localDraft[id] = 0;
+        onDraftChange(localDraft, null, { silent: true });
+        updateFooter(root, localDraft, soft, null);
+      }
+    });
+  });
+
+  root.querySelector('[data-action="save"]').addEventListener('click', () => {
+    const t = computeTotal(localDraft, soft);
+    if (t !== 100) {
+      const g = 100 - t;
+      const message =
+        g > 0
+          ? `Total is ${t}% — add ${g}% to save`
+          : `Total is ${t}% — remove ${Math.abs(g)}% to save`;
+      updateFooter(root, localDraft, soft, { type: 'error', message });
+      onDraftChange(localDraft, { type: 'error', message }, { silent: true });
+      return;
+    }
+    const cleaned = Object.fromEntries(
+      soft.map((c) => [c.id, Number(localDraft[c.id]) || 0])
+    );
+    saveWeights(cleaned);
+    onSaved(cleaned, { type: 'success', message: 'Weightage saved.' });
+  });
+
+  root.querySelector('[data-action="reset"]').addEventListener('click', () => {
+    const defaults = resetWeights();
+    onSaved(defaults, { type: 'success', message: 'Weightage saved.' });
+  });
+}
+
+
+
+/* ===== js/views/report.js ===== */
+
+
+
+function renderReport(root, session, claims) {
+  if (!canAccess(session.role, 'report')) {
+    location.hash = '#/queue';
+    return;
+  }
+
+  const byTier = {
+    red: claims.filter((c) => c.tier === 'red'),
+    yellow: claims.filter((c) => c.tier === 'yellow'),
+    green: claims.filter((c) => c.tier === 'green'),
+  };
+
+  const rows = [...claims].sort((a, b) => {
+    const rank = { red: 0, yellow: 1, green: 2 };
+    return rank[a.tier] - rank[b.tier] || a.score - b.score;
+  });
+
+  const content = `
+    <div class="page-header">
+      <div>
+        <h1>Detailed report</h1>
+        <p class="page-subtitle">Scored portfolio snapshot · ${formatDate('2026-08-11')}</p>
+      </div>
+    </div>
+
+    <div class="tier-strip">
+      <div class="tier-stat"><span class="dot red"></span><strong>${byTier.red.length}</strong> High risk · ${formatAED(byTier.red.reduce((s, c) => s + c.amount, 0))}</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${byTier.yellow.length}</strong> Unverified · ${formatAED(byTier.yellow.reduce((s, c) => s + c.amount, 0))}</div>
+      <div class="tier-stat"><span class="dot green"></span><strong>${byTier.green.length}</strong> Pass · ${formatAED(byTier.green.reduce((s, c) => s + c.amount, 0))}</div>
+    </div>
+
+    <div class="panel" style="padding:0;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
+        <thead>
+          <tr style="background:var(--surface-muted);text-align:left">
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claim</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claimant</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Branch</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Amount</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Score</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Tier</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (c) => `
+            <tr>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)"><a href="#/claim/${c.id}" style="color:var(--accent);font-weight:600">${c.id}</a></td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.claimant}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.branch}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${formatAED(c.amount)}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-weight:600">${c.score}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)" class="claim-tier ${c.tier}">${tierLabel(c.tier)}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text-muted)">
+                ${c.forcedRed ? 'Critical fail override' : c.summary.cantEvaluateCount ? `${c.summary.cantEvaluateCount} can't evaluate` : '—'}
+              </td>
+            </tr>
+          `
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  root.innerHTML = renderShell(session, '#/report', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+}
+
+
+
+/* ===== js/app.js ===== */
+
+
+
+
+
+
+
+
+const root = document.getElementById('app');
+
+/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline' }} */
+let queueState = { scope: 'mine', sort: 'risk' };
+
+/** @type {{ period: string, branch: string, chartMode: 'share'|'volume' }} */
+let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
+
+let claimFilter = 'all';
+let weights = getWeights();
+let weightDraft = { ...weights };
+let configFeedback = null;
+
+function getClaims() {
+  return scoreAllClaims(weights);
+}
+
+function parseRoute() {
+  const hash = location.hash || '#/login';
+  const path = hash.replace(/^#/, '') || '/login';
+  const parts = path.split('/').filter(Boolean);
+  return { parts, path };
+}
+
+function bindGlobalActions() {
+  root.querySelectorAll('[data-action="logout"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      clearSession();
+      destroyChart();
+      location.hash = '#/login';
+      render();
+    });
+  });
+}
+
+function render() {
+  const session = getSession();
+  const { parts } = parseRoute();
+  const route = parts[0] || 'login';
+
+  if (!session && route !== 'login') {
+    renderLogin(root);
+    return;
+  }
+
+  if (session && route === 'login') {
+    location.hash = homeRouteForRole(session.role);
+    return;
+  }
+
+  if (route === 'login') {
+    destroyChart();
+    renderLogin(root);
+    return;
+  }
+
+  const claims = getClaims();
+
+  if (route === 'queue') {
+    destroyChart();
+    renderQueue(root, session, claims, queueState, (next) => {
+      queueState = next;
+      render();
+    });
+  } else if (route === 'claim') {
+    destroyChart();
+    const id = parts.slice(1).join('/');
+    const claim = claims.find((c) => c.id === id);
+    renderClaimDetail(root, session, claim, claimFilter, (f) => {
+      claimFilter = f;
+      render();
+    });
+  } else if (route === 'dashboard') {
+    if (!canAccess(session.role, 'dashboard')) {
+      location.hash = '#/queue';
+      return;
+    }
+    renderDashboard(root, session, claims, dashState, (next) => {
+      dashState = next;
+      render();
+    });
+  } else if (route === 'report') {
+    destroyChart();
+    if (!canAccess(session.role, 'report')) {
+      location.hash = '#/queue';
+      return;
+    }
+    renderReport(root, session, claims);
+  } else if (route === 'config') {
+    destroyChart();
+    if (!canAccess(session.role, 'config')) {
+      location.hash = '#/queue';
+      return;
+    }
+    renderConfig(
+      root,
+      session,
+      weights,
+      weightDraft,
+      configFeedback,
+      (draft, feedback, opts = {}) => {
+        weightDraft = { ...draft };
+        configFeedback = feedback;
+        if (!opts.silent) render();
+      },
+      (saved, feedback) => {
+        weights = saved;
+        weightDraft = { ...saved };
+        configFeedback = feedback;
+        render();
+      }
+    );
+  } else {
+    location.hash = session ? homeRouteForRole(session.role) : '#/login';
+    return;
+  }
+
+  bindGlobalActions();
+}
+
+window.addEventListener('hashchange', () => {
+  const { parts } = parseRoute();
+  if (parts[0] !== 'claim') claimFilter = 'all';
+  render();
+});
+
+if (!location.hash) {
+  const session = getSession();
+  location.hash = session ? homeRouteForRole(session.role) : '#/login';
+} else {
+  render();
+}
+
+window.addEventListener('load', render);
+
+
+})();
+
+  </script>
 </body>
 </html>

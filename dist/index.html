@@ -2396,7 +2396,7 @@ function filterClaims(claims, period, branch) {
 
 function drawChart(canvas, mode) {
   destroyChart();
-  if (!window.Chart || !canvas) return;
+  if (typeof Chart === "undefined" || !canvas) return;
 
   if (!TREND_HISTORY.length) {
     return;
