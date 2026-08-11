@@ -29,7 +29,7 @@ export function renderReport(root, session, claims) {
 
     <div class="tier-strip">
       <div class="tier-stat"><span class="dot red"></span><strong>${byTier.red.length}</strong> High risk · ${formatAED(byTier.red.reduce((s, c) => s + c.amount, 0))}</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${byTier.yellow.length}</strong> Unverified · ${formatAED(byTier.yellow.reduce((s, c) => s + c.amount, 0))}</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${byTier.yellow.length}</strong> Medium risk · ${formatAED(byTier.yellow.reduce((s, c) => s + c.amount, 0))}</div>
       <div class="tier-stat"><span class="dot green"></span><strong>${byTier.green.length}</strong> Pass · ${formatAED(byTier.green.reduce((s, c) => s + c.amount, 0))}</div>
     </div>
 

@@ -1884,7 +1884,7 @@ function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
 
 function tierLabel(tier) {
   if (tier === 'red') return 'High risk';
-  if (tier === 'yellow') return 'Unverified';
+  if (tier === 'yellow') return 'Medium risk';
   return 'Pass';
 }
 
@@ -2140,7 +2140,7 @@ function renderQueue(root, session, claims, state, onChange) {
 
     <div class="tier-strip">
       <div class="tier-stat"><span class="dot red"></span><strong>${counts.red}</strong> High risk</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Unverified</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Medium risk</div>
       <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
     </div>
 
@@ -2396,7 +2396,7 @@ function filterClaims(claims, period, branch) {
 
 function drawChart(canvas, mode) {
   destroyChart();
-  if (typeof Chart === "undefined" || !canvas) return;
+  if (!window.Chart || !canvas) return;
 
   if (!TREND_HISTORY.length) {
     return;
@@ -2419,7 +2419,7 @@ function drawChart(canvas, mode) {
             pointRadius: 3,
           },
           {
-            label: 'Unverified %',
+            label: 'Medium risk %',
             data: TREND_HISTORY.map((p) => p.yellowPct),
             borderColor: '#d97706',
             backgroundColor: 'transparent',
@@ -2573,7 +2573,7 @@ function renderDashboard(root, session, claims, state, onChange) {
       <div class="risk-breakdown">
         ${[
           { key: 'red', label: 'High risk', count: red.length, value: redValue },
-          { key: 'yellow', label: 'Unverified', count: yellow.length, value: yellowValue },
+          { key: 'yellow', label: 'Medium risk', count: yellow.length, value: yellowValue },
           { key: 'green', label: 'Pass', count: green.length, value: greenValue },
         ]
           .map(
@@ -2848,7 +2848,7 @@ function renderReport(root, session, claims) {
 
     <div class="tier-strip">
       <div class="tier-stat"><span class="dot red"></span><strong>${byTier.red.length}</strong> High risk · ${formatAED(byTier.red.reduce((s, c) => s + c.amount, 0))}</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${byTier.yellow.length}</strong> Unverified · ${formatAED(byTier.yellow.reduce((s, c) => s + c.amount, 0))}</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${byTier.yellow.length}</strong> Medium risk · ${formatAED(byTier.yellow.reduce((s, c) => s + c.amount, 0))}</div>
       <div class="tier-stat"><span class="dot green"></span><strong>${byTier.green.length}</strong> Pass · ${formatAED(byTier.green.reduce((s, c) => s + c.amount, 0))}</div>
     </div>
 

@@ -52,7 +52,7 @@ function drawChart(canvas, mode) {
             pointRadius: 3,
           },
           {
-            label: 'Unverified %',
+            label: 'Medium risk %',
             data: TREND_HISTORY.map((p) => p.yellowPct),
             borderColor: '#d97706',
             backgroundColor: 'transparent',
@@ -206,7 +206,7 @@ export function renderDashboard(root, session, claims, state, onChange) {
       <div class="risk-breakdown">
         ${[
           { key: 'red', label: 'High risk', count: red.length, value: redValue },
-          { key: 'yellow', label: 'Unverified', count: yellow.length, value: yellowValue },
+          { key: 'yellow', label: 'Medium risk', count: yellow.length, value: yellowValue },
           { key: 'green', label: 'Pass', count: green.length, value: greenValue },
         ]
           .map(

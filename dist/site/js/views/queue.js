@@ -45,7 +45,7 @@ export function renderQueue(root, session, claims, state, onChange) {
 
     <div class="tier-strip">
       <div class="tier-stat"><span class="dot red"></span><strong>${counts.red}</strong> High risk</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Unverified</div>
+      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Medium risk</div>
       <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
     </div>
 

@@ -78,7 +78,7 @@ export function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
 
 export function tierLabel(tier) {
   if (tier === 'red') return 'High risk';
-  if (tier === 'yellow') return 'Unverified';
+  if (tier === 'yellow') return 'Medium risk';
   return 'Pass';
 }
 
