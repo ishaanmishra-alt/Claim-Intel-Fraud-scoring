@@ -3,25 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claim Intel</title>
+  <title>Claim Intel · Azentio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
 :root {
-  --bg: #f3f5f8;
+  --bg: #f0f4f6;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --navy: #0b3a5b;
-  --navy-deep: #072a42;
-  --navy-soft: #e8f1f7;
-  --accent: #0d6e8a;
+  --surface-muted: #f5f8fa;
+  --border: #d9e2e8;
+  --border-strong: #c2ced6;
+  --text: #16303d;
+  --text-secondary: #3d5563;
+  --text-muted: #6b7f8a;
+  --navy: #16303d;
+  --navy-deep: #0f222b;
+  --navy-soft: #e7eef2;
+  --accent: #1a6b7a;
+  --accent-hover: #155965;
   --green: #15803d;
   --green-bg: #ecfdf3;
   --green-border: #bbf7d0;
@@ -32,7 +33,7 @@
   --red-bg: #fef2f2;
   --red-border: #fecaca;
   --urgent: #dc2626;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 2px rgba(22, 48, 61, 0.05), 0 8px 24px rgba(22, 48, 61, 0.06);
   --radius: 10px;
   --radius-sm: 6px;
   --font: "IBM Plex Sans", system-ui, sans-serif;
@@ -77,9 +78,9 @@ a {
   place-items: center;
   padding: 32px 20px;
   background:
-    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(13, 110, 138, 0.12), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(11, 58, 91, 0.1), transparent 50%),
-    linear-gradient(160deg, #edf2f6 0%, #f7f9fb 45%, #eef3f7 100%);
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(26, 107, 122, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(22, 48, 61, 0.1), transparent 50%),
+    linear-gradient(160deg, #e8eef2 0%, #f4f7f9 45%, #eef3f6 100%);
 }
 
 .login-card {
@@ -94,8 +95,21 @@ a {
 .brand-mark {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 8px;
+}
+
+.azentio-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-strong);
+  flex-shrink: 0;
 }
 
 .brand-icon {
@@ -319,10 +333,14 @@ a {
   margin: 0;
 }
 
+.topbar .azentio-logo {
+  height: 24px;
+}
+
 .topbar .brand-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 
 .topbar .brand-icon svg {
@@ -1273,6 +1291,359 @@ a {
   }
 }
 
+/* ---------- Azentio extras ---------- */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.btn-sso {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.btn-sso:hover:not(:disabled) {
+  background: var(--navy-soft);
+  border-color: var(--navy);
+}
+
+.modal-backdrop,
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 34, 43, 0.45);
+  z-index: 80;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-backdrop {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.modal-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--navy-deep);
+}
+
+.modal-copy {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sso-persona-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sso-persona {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+
+.sso-persona:hover {
+  border-color: var(--accent);
+  background: var(--navy-soft);
+}
+
+.sso-persona strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.sso-persona small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.claim-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.claim-link:hover {
+  color: var(--accent-hover);
+}
+
+.claim-drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(22, 48, 61, 0.12);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(24px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.drawer-sub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-family: var(--mono);
+}
+
+.drawer-body {
+  padding: 18px 20px 28px;
+  overflow: auto;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.drawer-section-title {
+  margin: 22px 0 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stage-score-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+.icon-btn {
+  padding: 6px;
+}
+
+.check-code {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--navy-soft);
+  border: 1px solid #c5d6de;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 6px;
+}
+
+.score-circle.xs {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+  border-width: 2px;
+}
+
+.stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stage-block {
+  margin-bottom: 18px;
+}
+
+.stage-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.stage-block-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--navy-deep);
+}
+
+.stage-block-header p {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.config-subhead {
+  margin: 16px 0 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stage-config .running-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.stage-fail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stage-fail-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.stage-fail-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.stage-fail-top span {
+  color: var(--text-muted);
+}
+
+.stage-fail-top-uc {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.usecase-fail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usecase-fail-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.usecase-fail-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.usecase-fail-meta strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.usecase-fail-meta small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.usecase-fail-bar-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  .stage-fail-grid,
+  .usecase-fail-row,
+  .drawer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
   </style>
 </head>
 <body>
@@ -1285,6 +1656,14 @@ a {
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+/** @typedef {'fnol'|'registration'|'assessment'|'settlement'} ClaimStage */
+
+const CLAIM_STAGES = [
+  { id: 'fnol', name: 'FNOL', description: 'First notice of loss & intake' },
+  { id: 'registration', name: 'Registration', description: 'Claim registration & cover checks' },
+  { id: 'assessment', name: 'Assessment', description: 'Repair, garage & damage assessment' },
+  { id: 'settlement', name: 'Settlement', description: 'Financial & settlement signals' },
+];
 
 const CHECK_CATEGORIES = {
   identity: 'Identity & policy integrity',
@@ -1295,35 +1674,46 @@ const CHECK_CATEGORIES = {
 };
 
 /**
- * 20 use-cases. Hard fails have weight null.
- * Soft signal default weights sum to 100.
+ * 20 use-cases grouped by claim stage.
+ * Soft weights sum to 100% within each stage (hard fails have no weight).
  */
 const CHECK_DEFINITIONS = [
-  { id: 1, name: 'Plate number: policy vs claim', category: 'identity', hardFail: true, weight: null },
-  { id: 2, name: 'VIN / chassis number: policy vs claim', category: 'identity', hardFail: true, weight: null },
-  { id: 3, name: 'Policy active on date of loss', category: 'identity', hardFail: true, weight: null },
-  { id: 4, name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', hardFail: true, weight: null },
-  { id: 5, name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', hardFail: false, weight: 6 },
-  { id: 6, name: 'Loss occurred after a minimum cover period', category: 'timing', hardFail: false, weight: 7 },
-  { id: 7, name: 'Loss not immediately before policy expiry', category: 'timing', hardFail: false, weight: 6 },
-  { id: 8, name: 'Delay between date of loss and reporting is normal', category: 'timing', hardFail: false, weight: 8 },
-  { id: 9, name: 'Loss date is not on a recently-added endorsement', category: 'timing', hardFail: false, weight: 7 },
-  { id: 10, name: 'Garage is network / auto-assigned', category: 'garage', hardFail: false, weight: 8 },
-  { id: 11, name: 'Garage not on an internal watchlist', category: 'garage', hardFail: false, weight: 9 },
-  { id: 12, name: 'Repair estimate within normal range for damage type', category: 'garage', hardFail: false, weight: 8 },
-  { id: 13, name: 'Parts claimed consistent with reported damage', category: 'garage', hardFail: false, weight: 7 },
-  { id: 14, name: 'Claim amount within sum-insured / IDV limit', category: 'financial', hardFail: true, weight: null },
-  { id: 15, name: 'Claim amount vs claimant\'s historical average', category: 'financial', hardFail: false, weight: 8 },
-  { id: 16, name: 'No duplicate claim for the same incident/date', category: 'financial', hardFail: true, weight: null },
-  { id: 17, name: 'Salvage / total-loss value consistent with claim', category: 'financial', hardFail: false, weight: 6 },
-  { id: 18, name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', hardFail: false, weight: 8 },
-  { id: 19, name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', hardFail: false, weight: 7 },
-  { id: 20, name: 'Location of loss consistent with registered/usual area', category: 'behavioural', hardFail: false, weight: 5 },
+  // FNOL — soft: 55 + 45 = 100
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 3, code: '03', name: 'Policy active on date of loss', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', category: 'timing', stage: 'fnol', hardFail: false, weight: 55 },
+  { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', category: 'behavioural', stage: 'fnol', hardFail: false, weight: 45 },
+
+  // Registration — soft: 25+30+20+25 = 100
+  { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', stage: 'registration', hardFail: false, weight: 25 },
+  { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', category: 'timing', stage: 'registration', hardFail: false, weight: 30 },
+  { id: 7, code: '07', name: 'Loss not immediately before policy expiry', category: 'timing', stage: 'registration', hardFail: false, weight: 20 },
+  { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', category: 'timing', stage: 'registration', hardFail: false, weight: 25 },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', category: 'financial', stage: 'registration', hardFail: true, weight: null },
+
+  // Assessment — soft: 25+30+25+20 = 100
+  { id: 10, code: '10', name: 'Garage is network / auto-assigned', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
+  { id: 11, code: '11', name: 'Garage not on an internal watchlist', category: 'garage', stage: 'assessment', hardFail: false, weight: 30 },
+  { id: 12, code: '12', name: 'Repair estimate within normal range for damage type', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
+  { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', category: 'garage', stage: 'assessment', hardFail: false, weight: 20 },
+
+  // Settlement — soft: 30+20+25+25 = 100
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', category: 'financial', stage: 'settlement', hardFail: true, weight: null },
+  { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', category: 'financial', stage: 'settlement', hardFail: false, weight: 30 },
+  { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', category: 'financial', stage: 'settlement', hardFail: false, weight: 20 },
+  { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
+  { id: 19, code: '19', name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
 ];
 
 const DEFAULT_WEIGHTS = Object.fromEntries(
   CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => [c.id, c.weight])
 );
+
+function checkCode(id) {
+  return `#${String(id).padStart(2, '0')}`;
+}
 
 const USERS = [
   {
@@ -1360,10 +1750,6 @@ const ROLE_LABELS = {
 
 const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
-/**
- * Helper to build a full check result map from overrides.
- * Unspecified checks default to pass with generic evidence.
- */
 function buildChecks(overrides = {}) {
   return CHECK_DEFINITIONS.map((def) => {
     const o = overrides[def.id] || {};
@@ -1379,12 +1765,24 @@ function buildChecks(overrides = {}) {
   });
 }
 
+function shiftDate(iso, days) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const BRANCH_PREFIX = {
+  Dubai: 'DXB',
+  'Abu Dhabi': 'AUH',
+  Sharjah: 'SHJ',
+  Riyadh: 'RUH',
+  Jeddah: 'JED',
+};
+
 /**
  * Sample claims — Middle East motor insurance.
- * dueInDays: days until settlement deadline (negative = overdue).
- * filedAt relative to "today" (2026-08-11).
  */
-const RAW_CLAIMS = [
+const RAW_CLAIMS_BASE = [
   {
     id: 'CLM-2026-08412',
     claimant: 'Omar Al-Rashid',
@@ -1419,10 +1817,7 @@ const RAW_CLAIMS = [
     plate: 'AD 12-88421',
     vehicle: 'BMW X5 2023 · Black',
     checks: buildChecks({
-      1: {
-        state: 'fail',
-        evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421',
-      },
+      1: { state: 'fail', evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421' },
       5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
       11: { state: 'fail', evidence: 'Gulf Star Motors appears on internal watchlist (Q2 2025)' },
     }),
@@ -1458,10 +1853,7 @@ const RAW_CLAIMS = [
     checks: buildChecks({
       8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
       10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
-      13: {
-        state: 'cant_evaluate',
-        evidence: 'Parts schedule missing from claim record — cannot verify consistency',
-      },
+      13: { state: 'cant_evaluate', evidence: 'Parts schedule missing from claim record — cannot verify consistency' },
       15: { state: 'fail', evidence: '2.2× the claimant\'s historical average' },
       20: { state: 'fail', evidence: 'Loss in Al Ain; registered/usual area is Sharjah Industrial' },
     }),
@@ -1479,10 +1871,7 @@ const RAW_CLAIMS = [
     plate: 'AD 1-55210',
     vehicle: 'Mercedes GLE 2024 · White',
     checks: buildChecks({
-      14: {
-        state: 'fail',
-        evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500',
-      },
+      14: { state: 'fail', evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500' },
       6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
       18: { state: 'fail', evidence: '4 claims in last 12 months (peer median: 1.2)' },
     }),
@@ -1519,10 +1908,7 @@ const RAW_CLAIMS = [
     plate: 'RYD 4831 أب',
     vehicle: 'Toyota Camry 2023 · White',
     checks: buildChecks({
-      16: {
-        state: 'fail',
-        evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)',
-      },
+      16: { state: 'fail', evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)' },
       11: { state: 'fail', evidence: 'Najd Auto Repair flagged on regional watchlist' },
       19: { state: 'fail', evidence: 'Prior flagged claim CLM-2025-06118 on same VIN' },
     }),
@@ -1554,14 +1940,8 @@ const RAW_CLAIMS = [
     plate: 'JED 2290 س ر',
     vehicle: 'Range Rover Sport 2022 · Black',
     checks: buildChecks({
-      2: {
-        state: 'fail',
-        evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012',
-      },
-      4: {
-        state: 'fail',
-        evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver',
-      },
+      2: { state: 'fail', evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012' },
+      4: { state: 'fail', evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver' },
       17: { state: 'fail', evidence: 'Salvage quote AED 18k inconsistent with total-loss claim of AED 112k' },
     }),
   },
@@ -1578,10 +1958,7 @@ const RAW_CLAIMS = [
     plate: 'D 77123',
     vehicle: 'Hyundai Tucson 2020 · Red',
     checks: buildChecks({
-      12: {
-        state: 'cant_evaluate',
-        evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked',
-      },
+      12: { state: 'cant_evaluate', evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked' },
     }),
   },
   {
@@ -1632,14 +2009,8 @@ const RAW_CLAIMS = [
     plate: 'AD 9-44102',
     vehicle: 'Audi Q7 2021 · Black',
     checks: buildChecks({
-      3: {
-        state: 'fail',
-        evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active',
-      },
-      20: {
-        state: 'cant_evaluate',
-        evidence: 'GPS / location of loss not captured in claim intake',
-      },
+      3: { state: 'fail', evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active' },
+      20: { state: 'cant_evaluate', evidence: 'GPS / location of loss not captured in claim intake' },
     }),
   },
   {
@@ -1722,15 +2093,20 @@ const RAW_CLAIMS = [
     plate: 'SHJ 4-77821',
     vehicle: 'Toyota Yaris 2020 · White',
     checks: buildChecks({
-      10: {
-        state: 'cant_evaluate',
-        evidence: 'Garage assignment channel blank — network vs self-select unknown',
-      },
+      10: { state: 'cant_evaluate', evidence: 'Garage assignment channel blank — network vs self-select unknown' },
     }),
   },
 ];
 
-/** Weekly trend points for dashboard (share % and volume). Dates as Date objects. */
+const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => ({
+  ...c,
+  policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
+  lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
+  sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+  garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
+  lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
+}));
+
 const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
   { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },
@@ -1746,7 +2122,7 @@ const TREND_HISTORY = [
 
 
 const SESSION_KEY = 'claim-intel-session';
-const WEIGHTS_KEY = 'claim-intel-weights';
+const WEIGHTS_KEY = 'claim-intel-weights-v2';
 
 function getSession() {
   try {
@@ -1806,9 +2182,35 @@ function resetWeights() {
 
 /* ===== js/scoring.js ===== */
 
+function scoreBand(score) {
+  if (score >= 8) return 'green';
+  if (score >= 5) return 'yellow';
+  return 'red';
+}
+
+function scoreSoftGroup(softResults) {
+  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate');
+  const passed = evaluable.filter((r) => r.state === 'pass');
+  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const earnedWeight = passed.reduce((sum, r) => sum + (r.weight || 0), 0);
+
+  if (activeWeight === 0) {
+    return { score: 6, tier: 'yellow', activeWeight: 0, earnedWeight: 0, evaluable: 0 };
+  }
+  const score = Math.round((earnedWeight / activeWeight) * 10);
+  return {
+    score: Math.min(10, Math.max(0, score)),
+    tier: scoreBand(score),
+    activeWeight,
+    earnedWeight,
+    evaluable: evaluable.length,
+  };
+}
+
 /**
- * Score a claim given current soft-signal weights.
- * Hard fails force tier red but context score is still computed.
+ * Stage-based scoring: each stage's soft weights sum to 100%.
+ * Overall context score = average of evaluable stage scores.
+ * Any hard-fail fail forces Red.
  */
 function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
   const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
@@ -1817,7 +2219,9 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
     return {
       ...c,
       name: def.name,
+      code: def.code || checkCode(def.id),
       category: def.category,
+      stage: def.stage,
       hardFail: def.hardFail,
       weight: def.hardFail ? null : weights[c.checkId] ?? def.weight,
     };
@@ -1825,35 +2229,37 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
   const soft = results.filter((r) => !r.hardFail);
-  const evaluable = soft.filter((r) => r.state !== 'cant_evaluate');
-  const passedSoft = evaluable.filter((r) => r.state === 'pass');
-  const failedSoft = evaluable.filter((r) => r.state === 'fail');
+  const failedSoft = soft.filter((r) => r.state === 'fail');
+  const passedSoft = soft.filter((r) => r.state === 'pass');
   const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
 
-  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
-  const earnedWeight = passedSoft.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const stageScores = CLAIM_STAGES.map((stage) => {
+    const stageResults = results.filter((r) => r.stage === stage.id);
+    const stageSoft = stageResults.filter((r) => !r.hardFail);
+    const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
+    const scored = scoreSoftGroup(stageSoft);
+    return {
+      stageId: stage.id,
+      stageName: stage.name,
+      ...scored,
+      hardFailCount: stageHardFails.length,
+      softFailCount: stageSoft.filter((r) => r.state === 'fail').length,
+      cantEvaluateCount: stageSoft.filter((r) => r.state === 'cant_evaluate').length,
+      checkCount: stageResults.length,
+    };
+  });
 
-  // Map weighted pass ratio to 0–10. If nothing evaluable → mid unverified band.
+  const evaluableStages = stageScores.filter((s) => s.activeWeight > 0);
   let contextScore;
-  if (activeWeight === 0) {
+  if (evaluableStages.length === 0) {
     contextScore = 6;
   } else {
-    contextScore = Math.round(((earnedWeight / activeWeight) * 10) * 10) / 10;
-    // Keep one decimal max but display as number; snap to sensible range
-    contextScore = Math.min(10, Math.max(0, Math.round(contextScore * 10) / 10));
-    // Prefer whole/half for UI clarity
-    contextScore = Math.round(contextScore);
+    contextScore = Math.round(
+      evaluableStages.reduce((sum, s) => sum + s.score, 0) / evaluableStages.length
+    );
   }
 
-  let softTier;
-  if (activeWeight === 0 || cantEval.length > 0 && failedSoft.length === 0 && passedSoft.length < soft.length * 0.5) {
-    // Heavy can't-evaluate without fails → unverified leaning
-    softTier = contextScore >= 8 ? 'green' : contextScore >= 5 ? 'yellow' : 'red';
-    if (activeWeight === 0) softTier = 'yellow';
-  } else if (contextScore >= 8) softTier = 'green';
-  else if (contextScore >= 5) softTier = 'yellow';
-  else softTier = 'red';
-
+  const softTier = scoreBand(contextScore);
   const forcedRed = hardFails.length > 0;
   const tier = forcedRed ? 'red' : softTier;
 
@@ -1863,14 +2269,13 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
     forcedRed,
     hardFails,
     results,
+    stageScores,
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failedSoft.length,
       softPassCount: passedSoft.length,
       softTotal: soft.length,
       cantEvaluateCount: cantEval.length,
-      earnedWeight,
-      activeWeight,
     },
   };
 }
@@ -1880,6 +2285,41 @@ function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
     const scored = scoreClaim(claim, weights);
     return { ...claim, ...scored };
   });
+}
+
+/** Aggregate fail counts per use-case across a claim set */
+function useCaseFailStats(claims) {
+  const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
+  const stats = CHECK_DEFINITIONS.map((def) => ({
+    checkId: def.id,
+    code: checkCode(def.id),
+    name: def.name,
+    stage: def.stage,
+    hardFail: def.hardFail,
+    fail: 0,
+    pass: 0,
+    cant_evaluate: 0,
+    total: 0,
+  }));
+  const byId = Object.fromEntries(stats.map((s) => [s.checkId, s]));
+
+  claims.forEach((claim) => {
+    claim.results.forEach((r) => {
+      const row = byId[r.checkId];
+      if (!row) return;
+      row.total += 1;
+      row[r.state] += 1;
+    });
+  });
+
+  return stats
+    .map((s) => ({
+      ...s,
+      stageName: CLAIM_STAGES.find((st) => st.id === s.stage)?.name || s.stage,
+      failRate: s.total ? Math.round((s.fail / s.total) * 100) : 0,
+      category: defById[s.checkId]?.category,
+    }))
+    .sort((a, b) => b.fail - a.fail || b.failRate - a.failRate);
 }
 
 function tierLabel(tier) {
@@ -1905,8 +2345,8 @@ function formatDate(iso) {
   return `${dd}-${mon}-${yy}`;
 }
 
-/** Sort checks: hard fails first, then soft fails by weight desc, then cant_eval, then pass */
 function sortChecksForDisplay(results) {
+  const stageOrder = Object.fromEntries(CLAIM_STAGES.map((s, i) => [s.id, i]));
   const rank = (r) => {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail') return 1;
@@ -1914,6 +2354,9 @@ function sortChecksForDisplay(results) {
     return 3;
   };
   return [...results].sort((a, b) => {
+    const sa = stageOrder[a.stage] ?? 99;
+    const sb = stageOrder[b.stage] ?? 99;
+    if (sa !== sb) return sa - sb;
     const ra = rank(a);
     const rb = rank(b);
     if (ra !== rb) return ra - rb;
@@ -1940,6 +2383,7 @@ function homeRouteForRole(role) {
 
 
 
+
 /* ===== js/components.js ===== */
 function brandIcon(size = 22) {
   return `
@@ -1948,6 +2392,34 @@ function brandIcon(size = 22) {
       <circle cx="12" cy="11" r="3.2" stroke="currentColor" stroke-width="1.6"/>
       <path d="M14.3 13.3L16.5 15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
     </svg>
+  `;
+}
+
+/** Azentio wordmark — local asset with CDN fallback */
+
+function azentioLogo(height = 28) {
+  return `<span class="azentio-logo" style="display:inline-flex;height:${height}px;width:auto" aria-label="Azentio"><svg height="${height}" style="height:${height}px;width:auto" width="164" height="45" viewBox="0 0 164 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.353773 32.8306C0.353773 26.3747 4.3908 21.7766 10.3673 21.7766C14.728 21.7766 16.9083 24.6022 17.513 25.6902H17.7564V22.3006H20.9855V39.4895C20.9855 40.1363 21.3894 40.4573 22.0343 40.4573H23.0028V43.2803H20.9428C19.2066 43.2803 17.9144 41.9891 17.8743 40.174V39.9734H17.6309C17.1065 40.8208 15.1671 43.8068 10.6057 43.8068C4.58901 43.8068 0.348755 39.2463 0.348755 32.8331L0.353773 32.8306ZM17.8768 32.8732C17.8768 27.6684 14.6477 24.6824 10.7311 24.6824C6.61379 24.6824 3.62554 28.072 3.62554 32.8732C3.62554 37.6743 6.73423 40.9436 10.7712 40.9436C15.1721 40.9436 17.8768 37.2732 17.8768 32.8732Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M25.8304 39.3691L38.629 25.2464V25.0032H26.1917V22.3005H41.6147V26.2142L28.8162 40.3368V40.58H41.818V43.2827H25.8279V39.3691H25.8304Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M44.2416 32.8732C44.2416 26.1766 48.8457 21.7766 54.4157 21.7766C60.7561 21.7766 64.3891 26.2142 64.3891 32.5096V33.6805H47.5109C47.551 38.3613 50.2959 40.9838 54.6566 40.9838C57.6047 40.9838 60.3094 39.2889 60.9969 36.3832L64.1056 37.1102C62.9339 41.0239 59.4614 43.8068 54.6165 43.8068C48.236 43.8068 44.2391 39.329 44.2391 32.8732H44.2416ZM61.1199 31.0981C60.9191 26.7407 57.8907 24.6423 54.4183 24.6423C50.9458 24.6423 47.8371 27.1444 47.5937 31.0981H61.1199Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M68.0247 22.3006H71.2137V25.3668H71.4571C72.3453 23.4714 74.6059 21.7766 77.8777 21.7766C82.7627 21.7766 85.7108 25.4471 85.7108 30.0878V43.2803H82.5219V30.2883C82.5219 26.9388 80.058 24.7601 77.1124 24.7601C73.8005 24.7601 71.2162 27.3023 71.2162 30.7722V43.2803H68.0272V22.3006H68.0247Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M92.4902 37.3107V25.0057H88.5335V22.303H92.6934V16.2107H95.6817V22.303H102.142V25.0057H95.6817V37.2706C95.6817 39.5295 96.61 40.4973 98.8305 40.4973H101.859V43.2802H98.8707C95.0344 43.2802 92.4902 41.5453 92.4902 37.3082V37.3107Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M108.721 25.0058H104.764V22.3031H111.91V43.2828H108.721V25.0058ZM107.996 16.1682C107.996 14.877 108.964 13.8691 110.297 13.8691C111.629 13.8691 112.638 14.877 112.638 16.1682C112.638 17.4594 111.669 18.5073 110.297 18.5073C108.924 18.5073 107.996 17.4995 107.996 16.1682Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M116.271 32.7904C116.271 26.4549 120.995 21.7766 127.253 21.7766C133.51 21.7766 138.195 26.4975 138.195 32.7904C138.195 39.0833 133.51 43.8043 127.213 43.8043C120.915 43.8043 116.271 39.1636 116.271 32.7904ZM134.925 32.7904C134.925 28.1497 131.736 24.6799 127.213 24.6799C122.689 24.6799 119.54 28.1899 119.54 32.7904C119.54 37.391 122.729 40.901 127.213 40.901C131.696 40.901 134.925 37.4713 134.925 32.7904Z" fill="#16303D" stroke="#16303D" stroke-width="1.24658" stroke-miterlimit="10"/>
+<path d="M142.299 28.6035V11.0837C142.299 5.43009 146.893 0.842037 152.549 0.842037V18.3619C152.549 24.0155 147.955 28.6035 142.299 28.6035Z" fill="#2ED88E"/>
+<path d="M153.748 18.3594V0.839581C159.406 0.839581 163.997 5.43015 163.997 11.0812V28.6011C158.34 28.6011 153.748 24.0105 153.748 18.3594Z" fill="#2ED88E"/>
+</svg></span>`;
+}
+
+
+function brandMark({ iconSize = 18, logoHeight = 26, showProduct = true } = {}) {
+  return `
+    <div class="brand-mark">
+      ${azentioLogo(logoHeight)}
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div class="brand-icon">${brandIcon(iconSize)}</div>
+      ${showProduct ? `<div class="brand-name">Claim Intel</div>` : ''}
+    </div>
   `;
 }
 
@@ -1969,6 +2441,10 @@ function iconLock() {
 
 function iconBack() {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function iconClose() {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
 function renderShell(session, active, content, { showMobileNav = true } = {}) {
@@ -1997,10 +2473,7 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-left">
-          <div class="brand-mark">
-            <div class="brand-icon">${brandIcon(18)}</div>
-            <div class="brand-name">Claim Intel</div>
-          </div>
+          ${brandMark({ iconSize: 16, logoHeight: 24 })}
           <nav class="nav-links">${nav}</nav>
         </div>
         <div class="topbar-right">
@@ -2027,15 +2500,11 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
 
 
 
-function renderLogin(root, { error = '' } = {}) {
+function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
     <div class="login-page">
       <div class="login-card">
-        <div class="brand-mark">
-          <div class="brand-icon">${brandIcon(22)}</div>
-          <div class="brand-name">Claim Intel</div>
-        </div>
-        <p class="login-helper">Sign in to view fraud risk scoring. Your access is set by your licence.</p>
+        ${brandMark({ iconSize: 20, logoHeight: 30 })}
         ${error ? `<div class="login-error">${error}</div>` : ''}
         <form id="login-form" autocomplete="on">
           <div class="field">
@@ -2052,6 +2521,17 @@ function renderLogin(root, { error = '' } = {}) {
           </label>
           <button class="btn btn-primary btn-block" type="submit">Sign in</button>
         </form>
+
+        <div class="login-divider"><span>or</span></div>
+
+        <button class="btn btn-sso btn-block" type="button" data-action="sso">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3l8 4v5c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M9.5 12l1.8 1.8L15 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Continue with SSO
+        </button>
+
         <div class="demo-accounts">
           <h3>Demo accounts</h3>
           <div class="demo-list">
@@ -2066,6 +2546,33 @@ function renderLogin(root, { error = '' } = {}) {
           </div>
         </div>
       </div>
+
+      ${
+        ssoOpen
+          ? `
+        <div class="modal-backdrop" data-action="close-sso">
+          <div class="modal-card" role="dialog" aria-labelledby="sso-title" onclick="event.stopPropagation()">
+            <h2 id="sso-title">Sign in with SSO</h2>
+            <p class="modal-copy">Select your organisation identity to continue. Demo mode maps each persona to an SSO profile.</p>
+            <div class="sso-persona-list">
+              ${USERS.map(
+                (u) => `
+                <button type="button" class="sso-persona" data-sso-user="${u.username}">
+                  <span class="persona-avatar">${u.initials}</span>
+                  <span>
+                    <strong>${u.name}</strong>
+                    <small>${ROLE_LABELS[u.role]} · ${u.username}@azentio.demo</small>
+                  </span>
+                </button>
+              `
+              ).join('')}
+            </div>
+            <button type="button" class="btn btn-secondary btn-block" data-action="close-sso">Cancel</button>
+          </div>
+        </div>
+      `
+          : ''
+      }
     </div>
   `;
 
@@ -2088,6 +2595,21 @@ function renderLogin(root, { error = '' } = {}) {
     }
     setSession(user, keep);
     location.hash = homeRouteForRole(user.role);
+  });
+
+  root.querySelectorAll('[data-action="sso"]').forEach((btn) => {
+    btn.addEventListener('click', () => renderLogin(root, { ssoOpen: true }));
+  });
+  root.querySelectorAll('[data-action="close-sso"]').forEach((btn) => {
+    btn.addEventListener('click', () => renderLogin(root));
+  });
+  root.querySelectorAll('[data-sso-user]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const user = USERS.find((u) => u.username === btn.dataset.ssoUser);
+      if (!user) return;
+      setSession(user, true);
+      location.hash = homeRouteForRole(user.role);
+    });
   });
 }
 
@@ -2216,7 +2738,55 @@ function stateIcon(state) {
   return iconAlert();
 }
 
-function renderClaimDetail(root, session, claim, filter, onFilter) {
+function claimInfoDrawer(claim) {
+  return `
+    <div class="drawer-backdrop" data-action="close-drawer">
+      <aside class="claim-drawer" role="dialog" aria-label="Claim details" onclick="event.stopPropagation()">
+        <div class="drawer-header">
+          <div>
+            <h2>Claim details</h2>
+            <p class="drawer-sub">${claim.id}</p>
+          </div>
+          <button type="button" class="btn btn-ghost icon-btn" data-action="close-drawer" aria-label="Close">${iconClose()}</button>
+        </div>
+        <div class="drawer-body">
+          <div class="drawer-grid">
+            <div class="meta-item"><label>Claim number</label><div class="value">${claim.id}</div></div>
+            <div class="meta-item"><label>Policy number</label><div class="value">${claim.policyNumber}</div></div>
+            <div class="meta-item"><label>Claimant</label><div class="value">${claim.claimant}</div></div>
+            <div class="meta-item"><label>Claim amount</label><div class="value">${formatAED(claim.amount)}</div></div>
+            <div class="meta-item"><label>Sum insured / IDV</label><div class="value">${formatAED(claim.sumInsured)}</div></div>
+            <div class="meta-item"><label>Loss date</label><div class="value">${formatDate(claim.lossDate)}</div></div>
+            <div class="meta-item"><label>Reported</label><div class="value">${formatDate(claim.filedAt)}</div></div>
+            <div class="meta-item"><label>Branch</label><div class="value">${claim.branch}</div></div>
+            <div class="meta-item"><label>Plate</label><div class="value">${claim.plate}</div></div>
+            <div class="meta-item"><label>Vehicle</label><div class="value">${claim.vehicle}</div></div>
+            <div class="meta-item"><label>Loss location</label><div class="value">${claim.lossLocation}</div></div>
+            <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
+            <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
+            <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
+            <div class="meta-item"><label>Risk score</label><div class="value">${claim.score} / 10 · ${tierLabel(claim.tier)}</div></div>
+          </div>
+          <h3 class="drawer-section-title">Stage scores</h3>
+          <div class="stage-score-list">
+            ${(claim.stageScores || [])
+              .map(
+                (s) => `
+              <div class="stage-score-row">
+                <span>${s.stageName}</span>
+                <strong class="claim-tier ${s.tier}">${s.score}/10</strong>
+              </div>
+            `
+              )
+              .join('')}
+          </div>
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
+function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen = false } = {}) {
   if (!claim) {
     root.innerHTML = renderShell(
       session,
@@ -2227,6 +2797,7 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
     return;
   }
 
+  const isClaimUser = session.role === 'claim_user';
   const sorted = sortChecksForDisplay(claim.results);
   const counts = {
     all: claim.results.length,
@@ -2244,14 +2815,17 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
       ? `${s.hardFailCount} critical fail${s.hardFailCount > 1 ? 's' : ''}`
       : null,
     `${s.softFailCount} of ${s.softTotal} soft checks failed`,
-    s.cantEvaluateCount
-      ? `${s.cantEvaluateCount} could not be evaluated`
-      : null,
+    s.cantEvaluateCount ? `${s.cantEvaluateCount} could not be evaluated` : null,
   ]
     .filter(Boolean)
     .join(' · ');
 
-  const hardFailNames = claim.hardFails.map((h) => h.name).join('; ');
+  const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
+
+  const checksByStage = CLAIM_STAGES.map((stage) => {
+    const items = filtered.filter((r) => r.stage === stage.id);
+    return { stage, items };
+  }).filter((g) => g.items.length > 0);
 
   const content = `
     <button type="button" class="back-link" data-action="back">${iconBack()} Back to claims</button>
@@ -2259,8 +2833,14 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
     <div class="claim-detail-header">
       <div class="claim-detail-grid">
         <div class="meta-item">
-          <label>Claim ID</label>
-          <div class="value">${claim.id}</div>
+          <label>Claim number</label>
+          <div class="value">
+            <button type="button" class="claim-link" data-action="open-drawer">${claim.id}</button>
+          </div>
+        </div>
+        <div class="meta-item">
+          <label>Policy number</label>
+          <div class="value">${claim.policyNumber}</div>
         </div>
         <div class="meta-item">
           <label>Claimant</label>
@@ -2270,13 +2850,17 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
           <label>Claim amount</label>
           <div class="value">${formatAED(claim.amount)}</div>
         </div>
-        <div class="meta-item">
+        ${
+          isClaimUser
+            ? ''
+            : `<div class="meta-item">
           <label>Assigned to</label>
           <div class="value">${claim.assignedName}</div>
-        </div>
+        </div>`
+        }
         <div class="meta-item">
-          <label>Filed</label>
-          <div class="value">${formatDate(claim.filedAt)}</div>
+          <label>Loss date</label>
+          <div class="value">${formatDate(claim.lossDate)}</div>
         </div>
         <div class="meta-item">
           <label>Vehicle</label>
@@ -2308,6 +2892,19 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
       </div>
     </div>
 
+    <div class="stage-chips">
+      ${(claim.stageScores || [])
+        .map(
+          (st) => `
+        <div class="stage-chip">
+          <span class="stage-chip-name">${st.stageName}</span>
+          <span class="score-circle xs ${st.tier}">${st.score}</span>
+        </div>
+      `
+        )
+        .join('')}
+    </div>
+
     <div class="result-filters">
       <button type="button" class="result-filter ${filter === 'all' ? 'active' : ''}" data-filter="all">
         All <span class="count">${counts.all}</span>
@@ -2323,33 +2920,56 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
       </button>
     </div>
 
-    <div class="checks-list">
+    <div class="checks-by-stage">
       ${
-        filtered.length === 0
+        checksByStage.length === 0
           ? `<div class="empty-state">No checks in this result state.</div>`
-          : filtered
-              .map((r) => {
-                // Weights live on Config (Admin only) — never on the claim breakdown
-                const metaLabel = r.hardFail ? 'Hard-fail' : '';
+          : checksByStage
+              .map(({ stage, items }) => {
+                const stageScore = (claim.stageScores || []).find((x) => x.stageId === stage.id);
                 return `
-            <div class="check-row ${r.state}">
-              <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
-              <div class="check-body">
-                <div class="check-name">
-                  ${r.name}
-                  ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                  ${r.hardFail && r.state !== 'fail' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+            <section class="stage-block">
+              <div class="stage-block-header">
+                <div>
+                  <h3>${stage.name}</h3>
+                  <p>${stage.description}</p>
                 </div>
-                <p class="evidence">${r.evidence}</p>
-                <p class="evidence" style="margin-top:2px;font-size:0.75rem;color:var(--text-muted)">${CHECK_CATEGORIES[r.category]}</p>
+                ${
+                  stageScore
+                    ? `<div class="stage-block-score"><span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span></div>`
+                    : ''
+                }
               </div>
-              <div class="check-weight">${metaLabel}</div>
-            </div>
+              <div class="checks-list">
+                ${items
+                  .map((r) => {
+                    const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                    return `
+                  <div class="check-row ${r.state}">
+                    <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
+                    <div class="check-body">
+                      <div class="check-name">
+                        <span class="check-code">${checkCode(r.checkId)}</span>
+                        ${r.name}
+                        ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
+                        ${r.hardFail && r.state !== 'fail' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                      </div>
+                      <p class="evidence">${r.evidence}</p>
+                    </div>
+                    <div class="check-weight">${metaLabel}</div>
+                  </div>
+                `;
+                  })
+                  .join('')}
+              </div>
+            </section>
           `;
               })
               .join('')
       }
     </div>
+
+    ${drawerOpen ? claimInfoDrawer(claim) : ''}
   `;
 
   root.innerHTML = renderShell(session, '#/queue', content);
@@ -2359,7 +2979,13 @@ function renderClaimDetail(root, session, claim, filter, onFilter) {
     location.hash = '#/queue';
   });
   root.querySelectorAll('[data-filter]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(btn.dataset.filter));
+    btn.addEventListener('click', () => onFilter(btn.dataset.filter, { drawerOpen: false }));
+  });
+  root.querySelectorAll('[data-action="open-drawer"]').forEach((btn) => {
+    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: true }));
+  });
+  root.querySelectorAll('[data-action="close-drawer"]').forEach((btn) => {
+    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: false }));
   });
 }
 
@@ -2463,8 +3089,8 @@ function drawChart(canvas, mode) {
           {
             label: 'Claims scored',
             data: TREND_HISTORY.map((p) => p.volume),
-            borderColor: '#0b3a5b',
-            backgroundColor: 'rgba(11, 58, 91, 0.08)',
+            borderColor: '#16303D',
+            backgroundColor: 'rgba(22, 48, 61, 0.08)',
             fill: true,
             tension: 0.25,
             pointRadius: 3,
@@ -2517,12 +3143,28 @@ function renderDashboard(root, session, claims, state, onChange) {
   const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
 
   const hasTrend = TREND_HISTORY.length >= 2;
+  const failStats = useCaseFailStats(filtered);
+  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 8);
+  const maxFails = Math.max(...topFails.map((s) => s.fail), 1);
+
+  const stageFailSummary = CLAIM_STAGES.map((stage) => {
+    const rows = failStats.filter((s) => s.stage === stage.id);
+    const fails = rows.reduce((n, r) => n + r.fail, 0);
+    const total = rows.reduce((n, r) => n + r.total, 0);
+    return {
+      ...stage,
+      fails,
+      total,
+      rate: total ? Math.round((fails / total) * 100) : 0,
+      top: rows.slice().sort((a, b) => b.fail - a.fail)[0],
+    };
+  });
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Dashboard</h1>
-        <p class="page-subtitle">Portfolio risk overview · high-level only</p>
+        <p class="page-subtitle">Portfolio risk overview · use-case fail insight</p>
       </div>
     </div>
 
@@ -2598,6 +3240,63 @@ function renderDashboard(root, session, claims, state, onChange) {
 
     <div class="panel">
       <div class="panel-header">
+        <h2>Use-case fails by stage</h2>
+      </div>
+      <div class="stage-fail-grid">
+        ${stageFailSummary
+          .map(
+            (st) => `
+          <div class="stage-fail-card">
+            <div class="stage-fail-top">
+              <strong>${st.name}</strong>
+              <span>${st.fails} fails · ${st.rate}%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill red" style="width:${st.rate}%"></div></div>
+            <p class="stage-fail-top-uc">${
+              st.top && st.top.fail
+                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail})`
+                : 'No fails in period'
+            }</p>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Top failing use-cases</h2>
+      </div>
+      ${
+        topFails.length === 0
+          ? `<div class="chart-empty">No failed use-cases in this filter.</div>`
+          : `<div class="usecase-fail-list">
+        ${topFails
+          .map(
+            (row) => `
+          <div class="usecase-fail-row">
+            <div class="usecase-fail-meta">
+              <span class="check-code">${row.code}</span>
+              <div>
+                <strong>${row.name}</strong>
+                <small>${row.stageName} · ${row.failRate}% fail rate</small>
+              </div>
+            </div>
+            <div class="usecase-fail-bar-wrap">
+              <div class="bar-track"><div class="bar-fill red" style="width:${Math.round((row.fail / maxFails) * 100)}%"></div></div>
+              <strong>${row.fail}</strong>
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>`
+      }
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
         <h2>Risk trend</h2>
         <div class="segmented" role="group" aria-label="Chart mode">
           <button type="button" data-chart="share" class="${chartMode === 'share' ? 'active' : ''}">Risk share %</button>
@@ -2643,32 +3342,36 @@ function renderDashboard(root, session, claims, state, onChange) {
 
 
 
-function computeTotal(draft, soft) {
-  return soft.reduce((sum, c) => sum + (Number(draft[c.id]) || 0), 0);
+function softForStage(stageId) {
+  return CHECK_DEFINITIONS.filter((c) => c.stage === stageId && !c.hardFail);
 }
 
-function updateFooter(root, draft, soft, feedback) {
-  const total = computeTotal(draft, soft);
-  const at100 = total === 100;
-  const totalEl = root.querySelector('.running-total');
-  if (totalEl) {
-    totalEl.className = `running-total ${at100 ? 'at-100' : 'not-100'}`;
-    totalEl.innerHTML = `Running total <span class="total-value">${total}%</span>${at100 ? ' · ready to save' : ''}`;
-  }
-  const actions = root.querySelector('.footer-actions');
-  if (!actions) return;
-  let fb = actions.querySelector('.save-feedback');
-  if (!feedback) {
-    if (fb) fb.remove();
-    return;
-  }
-  if (!fb) {
-    fb = document.createElement('span');
-    fb.className = 'save-feedback';
-    actions.insertBefore(fb, actions.querySelector('[data-action="reset"]'));
-  }
-  fb.className = `save-feedback ${feedback.type === 'success' ? 'success' : 'error'}`;
-  fb.textContent = feedback.message;
+function hardForStage(stageId) {
+  return CHECK_DEFINITIONS.filter((c) => c.stage === stageId && c.hardFail);
+}
+
+function stageTotal(draft, stageId) {
+  return softForStage(stageId).reduce((sum, c) => sum + (Number(draft[c.id]) || 0), 0);
+}
+
+function allStagesValid(draft) {
+  return CLAIM_STAGES.every((s) => {
+    const soft = softForStage(s.id);
+    if (!soft.length) return true;
+    return stageTotal(draft, s.id) === 100;
+  });
+}
+
+function updateStageTotals(root, draft) {
+  CLAIM_STAGES.forEach((stage) => {
+    const soft = softForStage(stage.id);
+    if (!soft.length) return;
+    const total = stageTotal(draft, stage.id);
+    const el = root.querySelector(`[data-stage-total="${stage.id}"]`);
+    if (!el) return;
+    el.className = `running-total ${total === 100 ? 'at-100' : 'not-100'}`;
+    el.innerHTML = `${stage.name} total <span class="total-value">${total}%</span>${total === 100 ? ' · ready' : ''}`;
+  });
 }
 
 function renderConfig(root, session, weights, draft, feedback, onDraftChange, onSaved) {
@@ -2677,10 +3380,8 @@ function renderConfig(root, session, weights, draft, feedback, onDraftChange, on
     return;
   }
 
-  const knockouts = CHECK_DEFINITIONS.filter((c) => c.hardFail);
-  const soft = CHECK_DEFINITIONS.filter((c) => !c.hardFail);
-  const total = computeTotal(draft, soft);
-  const at100 = total === 100;
+  const localDraft = { ...draft };
+  const valid = allStagesValid(localDraft);
 
   let feedbackHtml = '';
   if (feedback?.type === 'error') {
@@ -2689,11 +3390,70 @@ function renderConfig(root, session, weights, draft, feedback, onDraftChange, on
     feedbackHtml = `<span class="save-feedback success">${feedback.message}</span>`;
   }
 
+  const stageSections = CLAIM_STAGES.map((stage) => {
+    const knockouts = hardForStage(stage.id);
+    const soft = softForStage(stage.id);
+    const total = stageTotal(localDraft, stage.id);
+    return `
+      <div class="config-section stage-config">
+        <h2>${stage.name}</h2>
+        <p class="section-desc">${stage.description}. Soft-signal weights in this stage must total exactly 100%.</p>
+
+        ${
+          knockouts.length
+            ? `
+          <h3 class="config-subhead">Hard-fail checks</h3>
+          ${knockouts
+            .map(
+              (c) => `
+            <div class="config-check">
+              <div>
+                <div class="name"><span class="check-code">${checkCode(c.id)}</span> ${c.name}</div>
+              </div>
+              <span class="tag override">Override</span>
+            </div>
+          `
+            )
+            .join('')}
+        `
+            : ''
+        }
+
+        ${
+          soft.length
+            ? `
+          <h3 class="config-subhead">Weighted soft signals</h3>
+          ${soft
+            .map(
+              (c) => `
+            <div class="config-check">
+              <div>
+                <div class="name"><span class="check-code">${checkCode(c.id)}</span> ${c.name}</div>
+              </div>
+              <div class="weight-input-wrap">
+                <input type="number" min="0" max="100" step="1" inputmode="numeric"
+                  data-weight-id="${c.id}" data-stage="${stage.id}" value="${localDraft[c.id] ?? 0}" />
+                <span class="pct">%</span>
+              </div>
+            </div>
+          `
+            )
+            .join('')}
+          <div class="running-total ${total === 100 ? 'at-100' : 'not-100'}" data-stage-total="${stage.id}">
+            ${stage.name} total <span class="total-value">${total}%</span>${total === 100 ? ' · ready' : ''}
+          </div>
+        `
+            : ''
+        }
+      </div>
+    `;
+  }).join('');
+
   const content = `
     <div class="page-header">
       <div>
         <h1>Configuration</h1>
-        <p class="page-subtitle">Weightage for soft-signal checks · knockouts override the score</p>
+        <p class="page-subtitle">Stage-based weightage · each claim stage totals 100%</p>
       </div>
     </div>
 
@@ -2701,54 +3461,15 @@ function renderConfig(root, session, weights, draft, feedback, onDraftChange, on
       <div class="lock-icon">${iconLock()}</div>
       <div>
         <strong>Vendor-controlled use-cases</strong>
-        <p>Which checks are switched on is set by Claim Intel, not the customer. Active use-cases below are read-only for enablement — only weightage is editable.</p>
+        <p>Which checks are switched on is set by Claim Intel. Soft weights are editable per stage (FNOL, Registration, Assessment, Settlement) — each stage must total 100%.</p>
       </div>
     </div>
 
-    <div class="config-section">
-      <h2>Hard-fail knockouts</h2>
-      <p class="section-desc">These checks carry no weight. If any one fails, the claim is forced to Red regardless of the weighted score.</p>
-      ${knockouts
-        .map(
-          (c) => `
-        <div class="config-check">
-          <div>
-            <div class="name">${c.name}</div>
-            <div class="category">${CHECK_CATEGORIES[c.category]}</div>
-          </div>
-          <span class="tag override">Override</span>
-        </div>
-      `
-        )
-        .join('')}
-    </div>
-
-    <div class="config-section">
-      <h2>Weighted soft signals</h2>
-      <p class="section-desc">Whole-number percentages only. Active weights must total exactly 100%.</p>
-      ${soft
-        .map(
-          (c) => `
-        <div class="config-check">
-          <div>
-            <div class="name">${c.name}</div>
-            <div class="category">${CHECK_CATEGORIES[c.category]}</div>
-          </div>
-          <div class="weight-input-wrap">
-            <input type="number" min="0" max="100" step="1" inputmode="numeric"
-              data-weight-id="${c.id}" value="${draft[c.id] ?? 0}" />
-            <span class="pct">%</span>
-          </div>
-        </div>
-      `
-        )
-        .join('')}
-    </div>
+    ${stageSections}
 
     <div class="config-footer">
-      <div class="running-total ${at100 ? 'at-100' : 'not-100'}">
-        Running total <span class="total-value">${total}%</span>
-        ${at100 ? ' · ready to save' : ''}
+      <div class="running-total ${valid ? 'at-100' : 'not-100'}">
+        All stages ${valid ? 'at 100%' : 'must total 100%'}
       </div>
       <div class="footer-actions">
         ${feedbackHtml}
@@ -2761,9 +3482,6 @@ function renderConfig(root, session, weights, draft, feedback, onDraftChange, on
   root.innerHTML = renderShell(session, '#/config', content);
   root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
 
-  // Local mutable draft so typing does not remount inputs
-  const localDraft = { ...draft };
-
   root.querySelectorAll('[data-weight-id]').forEach((input) => {
     input.addEventListener('input', () => {
       let val = input.value;
@@ -2775,36 +3493,41 @@ function renderConfig(root, session, weights, draft, feedback, onDraftChange, on
       const num = val === '' ? 0 : parseInt(val, 10);
       localDraft[id] = Number.isFinite(num) ? Math.max(0, num) : 0;
       onDraftChange(localDraft, null, { silent: true });
-      updateFooter(root, localDraft, soft, null);
-    });
-
-    input.addEventListener('blur', () => {
-      const id = Number(input.dataset.weightId);
-      const num = parseInt(input.value, 10);
-      if (!Number.isFinite(num)) {
-        input.value = '0';
-        localDraft[id] = 0;
-        onDraftChange(localDraft, null, { silent: true });
-        updateFooter(root, localDraft, soft, null);
+      updateStageTotals(root, localDraft);
+      const footer = root.querySelector('.config-footer .running-total');
+      if (footer) {
+        const ok = allStagesValid(localDraft);
+        footer.className = `running-total ${ok ? 'at-100' : 'not-100'}`;
+        footer.textContent = `All stages ${ok ? 'at 100%' : 'must total 100%'}`;
       }
     });
   });
 
   root.querySelector('[data-action="save"]').addEventListener('click', () => {
-    const t = computeTotal(localDraft, soft);
-    if (t !== 100) {
+    const bad = CLAIM_STAGES.find((stage) => {
+      const soft = softForStage(stage.id);
+      return soft.length && stageTotal(localDraft, stage.id) !== 100;
+    });
+    if (bad) {
+      const t = stageTotal(localDraft, bad.id);
       const g = 100 - t;
       const message =
         g > 0
-          ? `Total is ${t}% — add ${g}% to save`
-          : `Total is ${t}% — remove ${Math.abs(g)}% to save`;
-      updateFooter(root, localDraft, soft, { type: 'error', message });
+          ? `${bad.name} is ${t}% — add ${g}% to save`
+          : `${bad.name} is ${t}% — remove ${Math.abs(g)}% to save`;
       onDraftChange(localDraft, { type: 'error', message }, { silent: true });
+      const actions = root.querySelector('.footer-actions');
+      let fb = actions.querySelector('.save-feedback');
+      if (!fb) {
+        fb = document.createElement('span');
+        actions.insertBefore(fb, actions.querySelector('[data-action="reset"]'));
+      }
+      fb.className = 'save-feedback error';
+      fb.textContent = message;
       return;
     }
-    const cleaned = Object.fromEntries(
-      soft.map((c) => [c.id, Number(localDraft[c.id]) || 0])
-    );
+    const softIds = CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => c.id);
+    const cleaned = Object.fromEntries(softIds.map((id) => [id, Number(localDraft[id]) || 0]));
     saveWeights(cleaned);
     onSaved(cleaned, { type: 'success', message: 'Weightage saved.' });
   });
@@ -2838,6 +3561,9 @@ function renderReport(root, session, claims) {
     return rank[a.tier] - rank[b.tier] || a.score - b.score;
   });
 
+  const failStats = useCaseFailStats(claims);
+  const topFails = failStats.filter((s) => s.fail > 0);
+
   const content = `
     <div class="page-header">
       <div>
@@ -2852,11 +3578,46 @@ function renderReport(root, session, claims) {
       <div class="tier-stat"><span class="dot green"></span><strong>${byTier.green.length}</strong> Pass · ${formatAED(byTier.green.reduce((s, c) => s + c.amount, 0))}</div>
     </div>
 
+    <div class="panel">
+      <div class="panel-header"><h2>Use-case fail ranking</h2></div>
+      <div class="panel" style="padding:0;overflow:auto;border:none;margin:0">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
+          <thead>
+            <tr style="background:var(--surface-muted);text-align:left">
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">#</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Use-case</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Stage</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Fails</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Can't eval</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Fail rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topFails
+              .map(
+                (r) => `
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)"><span class="check-code">${r.code}</span></td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.name}${r.hardFail ? ' <span class="tag critical">Hard-fail</span>' : ''}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.stageName}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--red)">${r.fail}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.cant_evaluate}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.failRate}%</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="panel" style="padding:0;overflow:auto">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
         <thead>
           <tr style="background:var(--surface-muted);text-align:left">
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claim</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Policy</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claimant</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Branch</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Amount</th>
@@ -2871,6 +3632,7 @@ function renderReport(root, session, claims) {
               (c) => `
             <tr>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)"><a href="#/claim/${c.id}" style="color:var(--accent);font-weight:600">${c.id}</a></td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.policyNumber}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.claimant}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.branch}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${formatAED(c.amount)}</td>
@@ -2912,6 +3674,7 @@ let queueState = { scope: 'mine', sort: 'risk' };
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 
 let claimFilter = 'all';
+let claimDrawerOpen = false;
 let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
@@ -2971,10 +3734,11 @@ function render() {
     destroyChart();
     const id = parts.slice(1).join('/');
     const claim = claims.find((c) => c.id === id);
-    renderClaimDetail(root, session, claim, claimFilter, (f) => {
+    renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
       claimFilter = f;
+      claimDrawerOpen = !!opts.drawerOpen;
       render();
-    });
+    }, { drawerOpen: claimDrawerOpen });
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
       location.hash = '#/queue';
@@ -3025,7 +3789,10 @@ function render() {
 
 window.addEventListener('hashchange', () => {
   const { parts } = parseRoute();
-  if (parts[0] !== 'claim') claimFilter = 'all';
+  if (parts[0] !== 'claim') {
+    claimFilter = 'all';
+    claimDrawerOpen = false;
+  }
   render();
 });
 

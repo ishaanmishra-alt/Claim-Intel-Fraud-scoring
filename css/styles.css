@@ -1,16 +1,17 @@
 :root {
-  --bg: #f3f5f8;
+  --bg: #f0f4f6;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --navy: #0b3a5b;
-  --navy-deep: #072a42;
-  --navy-soft: #e8f1f7;
-  --accent: #0d6e8a;
+  --surface-muted: #f5f8fa;
+  --border: #d9e2e8;
+  --border-strong: #c2ced6;
+  --text: #16303d;
+  --text-secondary: #3d5563;
+  --text-muted: #6b7f8a;
+  --navy: #16303d;
+  --navy-deep: #0f222b;
+  --navy-soft: #e7eef2;
+  --accent: #1a6b7a;
+  --accent-hover: #155965;
   --green: #15803d;
   --green-bg: #ecfdf3;
   --green-border: #bbf7d0;
@@ -21,7 +22,7 @@
   --red-bg: #fef2f2;
   --red-border: #fecaca;
   --urgent: #dc2626;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 2px rgba(22, 48, 61, 0.05), 0 8px 24px rgba(22, 48, 61, 0.06);
   --radius: 10px;
   --radius-sm: 6px;
   --font: "IBM Plex Sans", system-ui, sans-serif;
@@ -66,9 +67,9 @@ a {
   place-items: center;
   padding: 32px 20px;
   background:
-    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(13, 110, 138, 0.12), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(11, 58, 91, 0.1), transparent 50%),
-    linear-gradient(160deg, #edf2f6 0%, #f7f9fb 45%, #eef3f7 100%);
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(26, 107, 122, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(22, 48, 61, 0.1), transparent 50%),
+    linear-gradient(160deg, #e8eef2 0%, #f4f7f9 45%, #eef3f6 100%);
 }
 
 .login-card {
@@ -83,8 +84,21 @@ a {
 .brand-mark {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 8px;
+}
+
+.azentio-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-strong);
+  flex-shrink: 0;
 }
 
 .brand-icon {
@@ -308,10 +322,14 @@ a {
   margin: 0;
 }
 
+.topbar .azentio-logo {
+  height: 24px;
+}
+
 .topbar .brand-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 
 .topbar .brand-icon svg {
@@ -1261,3 +1279,356 @@ a {
     white-space: nowrap;
   }
 }
+
+/* ---------- Azentio extras ---------- */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.btn-sso {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.btn-sso:hover:not(:disabled) {
+  background: var(--navy-soft);
+  border-color: var(--navy);
+}
+
+.modal-backdrop,
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 34, 43, 0.45);
+  z-index: 80;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-backdrop {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.modal-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--navy-deep);
+}
+
+.modal-copy {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sso-persona-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sso-persona {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+
+.sso-persona:hover {
+  border-color: var(--accent);
+  background: var(--navy-soft);
+}
+
+.sso-persona strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.sso-persona small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.claim-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.claim-link:hover {
+  color: var(--accent-hover);
+}
+
+.claim-drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(22, 48, 61, 0.12);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(24px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.drawer-sub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-family: var(--mono);
+}
+
+.drawer-body {
+  padding: 18px 20px 28px;
+  overflow: auto;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.drawer-section-title {
+  margin: 22px 0 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stage-score-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+.icon-btn {
+  padding: 6px;
+}
+
+.check-code {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--navy-soft);
+  border: 1px solid #c5d6de;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 6px;
+}
+
+.score-circle.xs {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+  border-width: 2px;
+}
+
+.stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stage-block {
+  margin-bottom: 18px;
+}
+
+.stage-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.stage-block-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--navy-deep);
+}
+
+.stage-block-header p {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.config-subhead {
+  margin: 16px 0 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stage-config .running-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.stage-fail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stage-fail-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.stage-fail-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.stage-fail-top span {
+  color: var(--text-muted);
+}
+
+.stage-fail-top-uc {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.usecase-fail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usecase-fail-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.usecase-fail-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.usecase-fail-meta strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.usecase-fail-meta small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.usecase-fail-bar-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  .stage-fail-grid,
+  .usecase-fail-row,
+  .drawer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

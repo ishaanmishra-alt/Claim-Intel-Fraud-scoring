@@ -1,6 +1,6 @@
 import { renderShell } from '../components.js';
 import { ROLE_LABELS } from '../data.js';
-import { formatAED, formatDate, tierLabel, canAccess } from '../scoring.js';
+import { formatAED, formatDate, tierLabel, canAccess, useCaseFailStats } from '../scoring.js';
 
 export function renderReport(root, session, claims) {
   if (!canAccess(session.role, 'report')) {
@@ -19,6 +19,9 @@ export function renderReport(root, session, claims) {
     return rank[a.tier] - rank[b.tier] || a.score - b.score;
   });
 
+  const failStats = useCaseFailStats(claims);
+  const topFails = failStats.filter((s) => s.fail > 0);
+
   const content = `
     <div class="page-header">
       <div>
@@ -33,11 +36,46 @@ export function renderReport(root, session, claims) {
       <div class="tier-stat"><span class="dot green"></span><strong>${byTier.green.length}</strong> Pass · ${formatAED(byTier.green.reduce((s, c) => s + c.amount, 0))}</div>
     </div>
 
+    <div class="panel">
+      <div class="panel-header"><h2>Use-case fail ranking</h2></div>
+      <div class="panel" style="padding:0;overflow:auto;border:none;margin:0">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
+          <thead>
+            <tr style="background:var(--surface-muted);text-align:left">
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">#</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Use-case</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Stage</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Fails</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Can't eval</th>
+              <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Fail rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topFails
+              .map(
+                (r) => `
+              <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)"><span class="check-code">${r.code}</span></td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.name}${r.hardFail ? ' <span class="tag critical">Hard-fail</span>' : ''}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.stageName}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--red)">${r.fail}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.cant_evaluate}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${r.failRate}%</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="panel" style="padding:0;overflow:auto">
       <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
         <thead>
           <tr style="background:var(--surface-muted);text-align:left">
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claim</th>
+            <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Policy</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Claimant</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Branch</th>
             <th style="padding:12px 16px;border-bottom:1px solid var(--border)">Amount</th>
@@ -52,6 +90,7 @@ export function renderReport(root, session, claims) {
               (c) => `
             <tr>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)"><a href="#/claim/${c.id}" style="color:var(--accent);font-weight:600">${c.id}</a></td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.policyNumber}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.claimant}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${c.branch}</td>
               <td style="padding:10px 16px;border-bottom:1px solid var(--border)">${formatAED(c.amount)}</td>

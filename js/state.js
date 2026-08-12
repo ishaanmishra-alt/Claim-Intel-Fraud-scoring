@@ -2,7 +2,7 @@ import { USERS } from './data.js';
 import { DEFAULT_WEIGHTS } from './data.js';
 
 const SESSION_KEY = 'claim-intel-session';
-const WEIGHTS_KEY = 'claim-intel-weights';
+const WEIGHTS_KEY = 'claim-intel-weights-v2';
 
 export function getSession() {
   try {

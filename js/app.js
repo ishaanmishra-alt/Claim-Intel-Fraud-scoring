@@ -16,6 +16,7 @@ let queueState = { scope: 'mine', sort: 'risk' };
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 
 let claimFilter = 'all';
+let claimDrawerOpen = false;
 let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
@@ -75,10 +76,11 @@ function render() {
     destroyChart();
     const id = parts.slice(1).join('/');
     const claim = claims.find((c) => c.id === id);
-    renderClaimDetail(root, session, claim, claimFilter, (f) => {
+    renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
       claimFilter = f;
+      claimDrawerOpen = !!opts.drawerOpen;
       render();
-    });
+    }, { drawerOpen: claimDrawerOpen });
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
       location.hash = '#/queue';
@@ -129,7 +131,10 @@ function render() {
 
 window.addEventListener('hashchange', () => {
   const { parts } = parseRoute();
-  if (parts[0] !== 'claim') claimFilter = 'all';
+  if (parts[0] !== 'claim') {
+    claimFilter = 'all';
+    claimDrawerOpen = false;
+  }
   render();
 });
 

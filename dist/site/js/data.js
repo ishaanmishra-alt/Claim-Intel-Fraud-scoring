@@ -1,6 +1,14 @@
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+/** @typedef {'fnol'|'registration'|'assessment'|'settlement'} ClaimStage */
+
+export const CLAIM_STAGES = [
+  { id: 'fnol', name: 'FNOL', description: 'First notice of loss & intake' },
+  { id: 'registration', name: 'Registration', description: 'Claim registration & cover checks' },
+  { id: 'assessment', name: 'Assessment', description: 'Repair, garage & damage assessment' },
+  { id: 'settlement', name: 'Settlement', description: 'Financial & settlement signals' },
+];
 
 export const CHECK_CATEGORIES = {
   identity: 'Identity & policy integrity',
@@ -11,35 +19,46 @@ export const CHECK_CATEGORIES = {
 };
 
 /**
- * 20 use-cases. Hard fails have weight null.
- * Soft signal default weights sum to 100.
+ * 20 use-cases grouped by claim stage.
+ * Soft weights sum to 100% within each stage (hard fails have no weight).
  */
 export const CHECK_DEFINITIONS = [
-  { id: 1, name: 'Plate number: policy vs claim', category: 'identity', hardFail: true, weight: null },
-  { id: 2, name: 'VIN / chassis number: policy vs claim', category: 'identity', hardFail: true, weight: null },
-  { id: 3, name: 'Policy active on date of loss', category: 'identity', hardFail: true, weight: null },
-  { id: 4, name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', hardFail: true, weight: null },
-  { id: 5, name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', hardFail: false, weight: 6 },
-  { id: 6, name: 'Loss occurred after a minimum cover period', category: 'timing', hardFail: false, weight: 7 },
-  { id: 7, name: 'Loss not immediately before policy expiry', category: 'timing', hardFail: false, weight: 6 },
-  { id: 8, name: 'Delay between date of loss and reporting is normal', category: 'timing', hardFail: false, weight: 8 },
-  { id: 9, name: 'Loss date is not on a recently-added endorsement', category: 'timing', hardFail: false, weight: 7 },
-  { id: 10, name: 'Garage is network / auto-assigned', category: 'garage', hardFail: false, weight: 8 },
-  { id: 11, name: 'Garage not on an internal watchlist', category: 'garage', hardFail: false, weight: 9 },
-  { id: 12, name: 'Repair estimate within normal range for damage type', category: 'garage', hardFail: false, weight: 8 },
-  { id: 13, name: 'Parts claimed consistent with reported damage', category: 'garage', hardFail: false, weight: 7 },
-  { id: 14, name: 'Claim amount within sum-insured / IDV limit', category: 'financial', hardFail: true, weight: null },
-  { id: 15, name: 'Claim amount vs claimant\'s historical average', category: 'financial', hardFail: false, weight: 8 },
-  { id: 16, name: 'No duplicate claim for the same incident/date', category: 'financial', hardFail: true, weight: null },
-  { id: 17, name: 'Salvage / total-loss value consistent with claim', category: 'financial', hardFail: false, weight: 6 },
-  { id: 18, name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', hardFail: false, weight: 8 },
-  { id: 19, name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', hardFail: false, weight: 7 },
-  { id: 20, name: 'Location of loss consistent with registered/usual area', category: 'behavioural', hardFail: false, weight: 5 },
+  // FNOL — soft: 55 + 45 = 100
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 3, code: '03', name: 'Policy active on date of loss', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', category: 'timing', stage: 'fnol', hardFail: false, weight: 55 },
+  { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', category: 'behavioural', stage: 'fnol', hardFail: false, weight: 45 },
+
+  // Registration — soft: 25+30+20+25 = 100
+  { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', stage: 'registration', hardFail: false, weight: 25 },
+  { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', category: 'timing', stage: 'registration', hardFail: false, weight: 30 },
+  { id: 7, code: '07', name: 'Loss not immediately before policy expiry', category: 'timing', stage: 'registration', hardFail: false, weight: 20 },
+  { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', category: 'timing', stage: 'registration', hardFail: false, weight: 25 },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', category: 'financial', stage: 'registration', hardFail: true, weight: null },
+
+  // Assessment — soft: 25+30+25+20 = 100
+  { id: 10, code: '10', name: 'Garage is network / auto-assigned', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
+  { id: 11, code: '11', name: 'Garage not on an internal watchlist', category: 'garage', stage: 'assessment', hardFail: false, weight: 30 },
+  { id: 12, code: '12', name: 'Repair estimate within normal range for damage type', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
+  { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', category: 'garage', stage: 'assessment', hardFail: false, weight: 20 },
+
+  // Settlement — soft: 30+20+25+25 = 100
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', category: 'financial', stage: 'settlement', hardFail: true, weight: null },
+  { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', category: 'financial', stage: 'settlement', hardFail: false, weight: 30 },
+  { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', category: 'financial', stage: 'settlement', hardFail: false, weight: 20 },
+  { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
+  { id: 19, code: '19', name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
 ];
 
 export const DEFAULT_WEIGHTS = Object.fromEntries(
   CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => [c.id, c.weight])
 );
+
+export function checkCode(id) {
+  return `#${String(id).padStart(2, '0')}`;
+}
 
 export const USERS = [
   {
@@ -76,10 +95,6 @@ export const ROLE_LABELS = {
 
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
-/**
- * Helper to build a full check result map from overrides.
- * Unspecified checks default to pass with generic evidence.
- */
 function buildChecks(overrides = {}) {
   return CHECK_DEFINITIONS.map((def) => {
     const o = overrides[def.id] || {};
@@ -95,12 +110,24 @@ function buildChecks(overrides = {}) {
   });
 }
 
+function shiftDate(iso, days) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const BRANCH_PREFIX = {
+  Dubai: 'DXB',
+  'Abu Dhabi': 'AUH',
+  Sharjah: 'SHJ',
+  Riyadh: 'RUH',
+  Jeddah: 'JED',
+};
+
 /**
  * Sample claims — Middle East motor insurance.
- * dueInDays: days until settlement deadline (negative = overdue).
- * filedAt relative to "today" (2026-08-11).
  */
-export const RAW_CLAIMS = [
+const RAW_CLAIMS_BASE = [
   {
     id: 'CLM-2026-08412',
     claimant: 'Omar Al-Rashid',
@@ -135,10 +162,7 @@ export const RAW_CLAIMS = [
     plate: 'AD 12-88421',
     vehicle: 'BMW X5 2023 · Black',
     checks: buildChecks({
-      1: {
-        state: 'fail',
-        evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421',
-      },
+      1: { state: 'fail', evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421' },
       5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
       11: { state: 'fail', evidence: 'Gulf Star Motors appears on internal watchlist (Q2 2025)' },
     }),
@@ -174,10 +198,7 @@ export const RAW_CLAIMS = [
     checks: buildChecks({
       8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
       10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
-      13: {
-        state: 'cant_evaluate',
-        evidence: 'Parts schedule missing from claim record — cannot verify consistency',
-      },
+      13: { state: 'cant_evaluate', evidence: 'Parts schedule missing from claim record — cannot verify consistency' },
       15: { state: 'fail', evidence: '2.2× the claimant\'s historical average' },
       20: { state: 'fail', evidence: 'Loss in Al Ain; registered/usual area is Sharjah Industrial' },
     }),
@@ -195,10 +216,7 @@ export const RAW_CLAIMS = [
     plate: 'AD 1-55210',
     vehicle: 'Mercedes GLE 2024 · White',
     checks: buildChecks({
-      14: {
-        state: 'fail',
-        evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500',
-      },
+      14: { state: 'fail', evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500' },
       6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
       18: { state: 'fail', evidence: '4 claims in last 12 months (peer median: 1.2)' },
     }),
@@ -235,10 +253,7 @@ export const RAW_CLAIMS = [
     plate: 'RYD 4831 أب',
     vehicle: 'Toyota Camry 2023 · White',
     checks: buildChecks({
-      16: {
-        state: 'fail',
-        evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)',
-      },
+      16: { state: 'fail', evidence: 'Duplicate open claim CLM-2026-08102 for same loss date (12-Jul-26)' },
       11: { state: 'fail', evidence: 'Najd Auto Repair flagged on regional watchlist' },
       19: { state: 'fail', evidence: 'Prior flagged claim CLM-2025-06118 on same VIN' },
     }),
@@ -270,14 +285,8 @@ export const RAW_CLAIMS = [
     plate: 'JED 2290 س ر',
     vehicle: 'Range Rover Sport 2022 · Black',
     checks: buildChecks({
-      2: {
-        state: 'fail',
-        evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012',
-      },
-      4: {
-        state: 'fail',
-        evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver',
-      },
+      2: { state: 'fail', evidence: 'Policy VIN SALWA2FE6NA123456 vs claim chassis SALWA2FE6NA789012' },
+      4: { state: 'fail', evidence: 'Driver Mohammed Al-Hashimi not listed as policyholder or endorsed driver' },
       17: { state: 'fail', evidence: 'Salvage quote AED 18k inconsistent with total-loss claim of AED 112k' },
     }),
   },
@@ -294,10 +303,7 @@ export const RAW_CLAIMS = [
     plate: 'D 77123',
     vehicle: 'Hyundai Tucson 2020 · Red',
     checks: buildChecks({
-      12: {
-        state: 'cant_evaluate',
-        evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked',
-      },
+      12: { state: 'cant_evaluate', evidence: 'Damage type field blank in FNOL — estimate cannot be benchmarked' },
     }),
   },
   {
@@ -348,14 +354,8 @@ export const RAW_CLAIMS = [
     plate: 'AD 9-44102',
     vehicle: 'Audi Q7 2021 · Black',
     checks: buildChecks({
-      3: {
-        state: 'fail',
-        evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active',
-      },
-      20: {
-        state: 'cant_evaluate',
-        evidence: 'GPS / location of loss not captured in claim intake',
-      },
+      3: { state: 'fail', evidence: 'Policy cancelled 11-Jun-26; loss date 18-Jul-26 — cover not active' },
+      20: { state: 'cant_evaluate', evidence: 'GPS / location of loss not captured in claim intake' },
     }),
   },
   {
@@ -438,15 +438,20 @@ export const RAW_CLAIMS = [
     plate: 'SHJ 4-77821',
     vehicle: 'Toyota Yaris 2020 · White',
     checks: buildChecks({
-      10: {
-        state: 'cant_evaluate',
-        evidence: 'Garage assignment channel blank — network vs self-select unknown',
-      },
+      10: { state: 'cant_evaluate', evidence: 'Garage assignment channel blank — network vs self-select unknown' },
     }),
   },
 ];
 
-/** Weekly trend points for dashboard (share % and volume). Dates as Date objects. */
+export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => ({
+  ...c,
+  policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
+  lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
+  sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+  garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
+  lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
+}));
+
 export const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
   { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },

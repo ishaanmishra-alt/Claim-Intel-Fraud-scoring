@@ -1,6 +1,6 @@
 import { renderShell } from '../components.js';
-import { ROLE_LABELS, BRANCHES, TREND_HISTORY } from '../data.js';
-import { formatAED, formatDate, canAccess } from '../scoring.js';
+import { ROLE_LABELS, BRANCHES, TREND_HISTORY, CLAIM_STAGES } from '../data.js';
+import { formatAED, formatDate, canAccess, useCaseFailStats } from '../scoring.js';
 
 let chartInstance = null;
 
@@ -96,8 +96,8 @@ function drawChart(canvas, mode) {
           {
             label: 'Claims scored',
             data: TREND_HISTORY.map((p) => p.volume),
-            borderColor: '#0b3a5b',
-            backgroundColor: 'rgba(11, 58, 91, 0.08)',
+            borderColor: '#16303D',
+            backgroundColor: 'rgba(22, 48, 61, 0.08)',
             fill: true,
             tension: 0.25,
             pointRadius: 3,
@@ -150,12 +150,28 @@ export function renderDashboard(root, session, claims, state, onChange) {
   const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
 
   const hasTrend = TREND_HISTORY.length >= 2;
+  const failStats = useCaseFailStats(filtered);
+  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 8);
+  const maxFails = Math.max(...topFails.map((s) => s.fail), 1);
+
+  const stageFailSummary = CLAIM_STAGES.map((stage) => {
+    const rows = failStats.filter((s) => s.stage === stage.id);
+    const fails = rows.reduce((n, r) => n + r.fail, 0);
+    const total = rows.reduce((n, r) => n + r.total, 0);
+    return {
+      ...stage,
+      fails,
+      total,
+      rate: total ? Math.round((fails / total) * 100) : 0,
+      top: rows.slice().sort((a, b) => b.fail - a.fail)[0],
+    };
+  });
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Dashboard</h1>
-        <p class="page-subtitle">Portfolio risk overview · high-level only</p>
+        <p class="page-subtitle">Portfolio risk overview · use-case fail insight</p>
       </div>
     </div>
 
@@ -227,6 +243,63 @@ export function renderDashboard(root, session, claims, state, onChange) {
           .join('')}
       </div>
       <p style="margin:12px 0 0;font-size:0.75rem;color:var(--text-muted)">Bars: claim value (primary) · count (secondary)</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Use-case fails by stage</h2>
+      </div>
+      <div class="stage-fail-grid">
+        ${stageFailSummary
+          .map(
+            (st) => `
+          <div class="stage-fail-card">
+            <div class="stage-fail-top">
+              <strong>${st.name}</strong>
+              <span>${st.fails} fails · ${st.rate}%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill red" style="width:${st.rate}%"></div></div>
+            <p class="stage-fail-top-uc">${
+              st.top && st.top.fail
+                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail})`
+                : 'No fails in period'
+            }</p>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Top failing use-cases</h2>
+      </div>
+      ${
+        topFails.length === 0
+          ? `<div class="chart-empty">No failed use-cases in this filter.</div>`
+          : `<div class="usecase-fail-list">
+        ${topFails
+          .map(
+            (row) => `
+          <div class="usecase-fail-row">
+            <div class="usecase-fail-meta">
+              <span class="check-code">${row.code}</span>
+              <div>
+                <strong>${row.name}</strong>
+                <small>${row.stageName} · ${row.failRate}% fail rate</small>
+              </div>
+            </div>
+            <div class="usecase-fail-bar-wrap">
+              <div class="bar-track"><div class="bar-fill red" style="width:${Math.round((row.fail / maxFails) * 100)}%"></div></div>
+              <strong>${row.fail}</strong>
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>`
+      }
     </div>
 
     <div class="panel">

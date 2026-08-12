@@ -1,8 +1,34 @@
-import { CHECK_DEFINITIONS, DEFAULT_WEIGHTS, RAW_CLAIMS } from './data.js';
+import { CHECK_DEFINITIONS, DEFAULT_WEIGHTS, RAW_CLAIMS, CLAIM_STAGES, checkCode } from './data.js';
+
+function scoreBand(score) {
+  if (score >= 8) return 'green';
+  if (score >= 5) return 'yellow';
+  return 'red';
+}
+
+function scoreSoftGroup(softResults) {
+  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate');
+  const passed = evaluable.filter((r) => r.state === 'pass');
+  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const earnedWeight = passed.reduce((sum, r) => sum + (r.weight || 0), 0);
+
+  if (activeWeight === 0) {
+    return { score: 6, tier: 'yellow', activeWeight: 0, earnedWeight: 0, evaluable: 0 };
+  }
+  const score = Math.round((earnedWeight / activeWeight) * 10);
+  return {
+    score: Math.min(10, Math.max(0, score)),
+    tier: scoreBand(score),
+    activeWeight,
+    earnedWeight,
+    evaluable: evaluable.length,
+  };
+}
 
 /**
- * Score a claim given current soft-signal weights.
- * Hard fails force tier red but context score is still computed.
+ * Stage-based scoring: each stage's soft weights sum to 100%.
+ * Overall context score = average of evaluable stage scores.
+ * Any hard-fail fail forces Red.
  */
 export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
   const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
@@ -11,7 +37,9 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
     return {
       ...c,
       name: def.name,
+      code: def.code || checkCode(def.id),
       category: def.category,
+      stage: def.stage,
       hardFail: def.hardFail,
       weight: def.hardFail ? null : weights[c.checkId] ?? def.weight,
     };
@@ -19,35 +47,37 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
   const soft = results.filter((r) => !r.hardFail);
-  const evaluable = soft.filter((r) => r.state !== 'cant_evaluate');
-  const passedSoft = evaluable.filter((r) => r.state === 'pass');
-  const failedSoft = evaluable.filter((r) => r.state === 'fail');
+  const failedSoft = soft.filter((r) => r.state === 'fail');
+  const passedSoft = soft.filter((r) => r.state === 'pass');
   const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
 
-  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
-  const earnedWeight = passedSoft.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const stageScores = CLAIM_STAGES.map((stage) => {
+    const stageResults = results.filter((r) => r.stage === stage.id);
+    const stageSoft = stageResults.filter((r) => !r.hardFail);
+    const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
+    const scored = scoreSoftGroup(stageSoft);
+    return {
+      stageId: stage.id,
+      stageName: stage.name,
+      ...scored,
+      hardFailCount: stageHardFails.length,
+      softFailCount: stageSoft.filter((r) => r.state === 'fail').length,
+      cantEvaluateCount: stageSoft.filter((r) => r.state === 'cant_evaluate').length,
+      checkCount: stageResults.length,
+    };
+  });
 
-  // Map weighted pass ratio to 0–10. If nothing evaluable → mid unverified band.
+  const evaluableStages = stageScores.filter((s) => s.activeWeight > 0);
   let contextScore;
-  if (activeWeight === 0) {
+  if (evaluableStages.length === 0) {
     contextScore = 6;
   } else {
-    contextScore = Math.round(((earnedWeight / activeWeight) * 10) * 10) / 10;
-    // Keep one decimal max but display as number; snap to sensible range
-    contextScore = Math.min(10, Math.max(0, Math.round(contextScore * 10) / 10));
-    // Prefer whole/half for UI clarity
-    contextScore = Math.round(contextScore);
+    contextScore = Math.round(
+      evaluableStages.reduce((sum, s) => sum + s.score, 0) / evaluableStages.length
+    );
   }
 
-  let softTier;
-  if (activeWeight === 0 || cantEval.length > 0 && failedSoft.length === 0 && passedSoft.length < soft.length * 0.5) {
-    // Heavy can't-evaluate without fails → unverified leaning
-    softTier = contextScore >= 8 ? 'green' : contextScore >= 5 ? 'yellow' : 'red';
-    if (activeWeight === 0) softTier = 'yellow';
-  } else if (contextScore >= 8) softTier = 'green';
-  else if (contextScore >= 5) softTier = 'yellow';
-  else softTier = 'red';
-
+  const softTier = scoreBand(contextScore);
   const forcedRed = hardFails.length > 0;
   const tier = forcedRed ? 'red' : softTier;
 
@@ -57,14 +87,13 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
     forcedRed,
     hardFails,
     results,
+    stageScores,
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failedSoft.length,
       softPassCount: passedSoft.length,
       softTotal: soft.length,
       cantEvaluateCount: cantEval.length,
-      earnedWeight,
-      activeWeight,
     },
   };
 }
@@ -74,6 +103,41 @@ export function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
     const scored = scoreClaim(claim, weights);
     return { ...claim, ...scored };
   });
+}
+
+/** Aggregate fail counts per use-case across a claim set */
+export function useCaseFailStats(claims) {
+  const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
+  const stats = CHECK_DEFINITIONS.map((def) => ({
+    checkId: def.id,
+    code: checkCode(def.id),
+    name: def.name,
+    stage: def.stage,
+    hardFail: def.hardFail,
+    fail: 0,
+    pass: 0,
+    cant_evaluate: 0,
+    total: 0,
+  }));
+  const byId = Object.fromEntries(stats.map((s) => [s.checkId, s]));
+
+  claims.forEach((claim) => {
+    claim.results.forEach((r) => {
+      const row = byId[r.checkId];
+      if (!row) return;
+      row.total += 1;
+      row[r.state] += 1;
+    });
+  });
+
+  return stats
+    .map((s) => ({
+      ...s,
+      stageName: CLAIM_STAGES.find((st) => st.id === s.stage)?.name || s.stage,
+      failRate: s.total ? Math.round((s.fail / s.total) * 100) : 0,
+      category: defById[s.checkId]?.category,
+    }))
+    .sort((a, b) => b.fail - a.fail || b.failRate - a.failRate);
 }
 
 export function tierLabel(tier) {
@@ -99,8 +163,8 @@ export function formatDate(iso) {
   return `${dd}-${mon}-${yy}`;
 }
 
-/** Sort checks: hard fails first, then soft fails by weight desc, then cant_eval, then pass */
 export function sortChecksForDisplay(results) {
+  const stageOrder = Object.fromEntries(CLAIM_STAGES.map((s, i) => [s.id, i]));
   const rank = (r) => {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail') return 1;
@@ -108,6 +172,9 @@ export function sortChecksForDisplay(results) {
     return 3;
   };
   return [...results].sort((a, b) => {
+    const sa = stageOrder[a.stage] ?? 99;
+    const sb = stageOrder[b.stage] ?? 99;
+    if (sa !== sb) return sa - sb;
     const ra = rank(a);
     const rb = rank(b);
     if (ra !== rb) return ra - rb;
@@ -131,3 +198,5 @@ export function homeRouteForRole(role) {
   if (role === 'admin') return '#/dashboard';
   return '#/queue';
 }
+
+export { checkCode };

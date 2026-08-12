@@ -1,17 +1,13 @@
-import { USERS, ROLE_LABELS } from './data.js';
-import { brandIcon } from './components.js';
-import { authenticate, setSession } from './state.js';
-import { homeRouteForRole } from './scoring.js';
+import { USERS, ROLE_LABELS } from '../data.js';
+import { brandMark } from '../components.js';
+import { authenticate, setSession } from '../state.js';
+import { homeRouteForRole } from '../scoring.js';
 
-export function renderLogin(root, { error = '' } = {}) {
+export function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
     <div class="login-page">
       <div class="login-card">
-        <div class="brand-mark">
-          <div class="brand-icon">${brandIcon(22)}</div>
-          <div class="brand-name">Claim Intel</div>
-        </div>
-        <p class="login-helper">Sign in to view fraud risk scoring. Your access is set by your licence.</p>
+        ${brandMark({ iconSize: 20, logoHeight: 30 })}
         ${error ? `<div class="login-error">${error}</div>` : ''}
         <form id="login-form" autocomplete="on">
           <div class="field">
@@ -28,6 +24,17 @@ export function renderLogin(root, { error = '' } = {}) {
           </label>
           <button class="btn btn-primary btn-block" type="submit">Sign in</button>
         </form>
+
+        <div class="login-divider"><span>or</span></div>
+
+        <button class="btn btn-sso btn-block" type="button" data-action="sso">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3l8 4v5c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M9.5 12l1.8 1.8L15 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Continue with SSO
+        </button>
+
         <div class="demo-accounts">
           <h3>Demo accounts</h3>
           <div class="demo-list">
@@ -42,6 +49,33 @@ export function renderLogin(root, { error = '' } = {}) {
           </div>
         </div>
       </div>
+
+      ${
+        ssoOpen
+          ? `
+        <div class="modal-backdrop" data-action="close-sso">
+          <div class="modal-card" role="dialog" aria-labelledby="sso-title" onclick="event.stopPropagation()">
+            <h2 id="sso-title">Sign in with SSO</h2>
+            <p class="modal-copy">Select your organisation identity to continue. Demo mode maps each persona to an SSO profile.</p>
+            <div class="sso-persona-list">
+              ${USERS.map(
+                (u) => `
+                <button type="button" class="sso-persona" data-sso-user="${u.username}">
+                  <span class="persona-avatar">${u.initials}</span>
+                  <span>
+                    <strong>${u.name}</strong>
+                    <small>${ROLE_LABELS[u.role]} · ${u.username}@azentio.demo</small>
+                  </span>
+                </button>
+              `
+              ).join('')}
+            </div>
+            <button type="button" class="btn btn-secondary btn-block" data-action="close-sso">Cancel</button>
+          </div>
+        </div>
+      `
+          : ''
+      }
     </div>
   `;
 
@@ -64,5 +98,20 @@ export function renderLogin(root, { error = '' } = {}) {
     }
     setSession(user, keep);
     location.hash = homeRouteForRole(user.role);
+  });
+
+  root.querySelectorAll('[data-action="sso"]').forEach((btn) => {
+    btn.addEventListener('click', () => renderLogin(root, { ssoOpen: true }));
+  });
+  root.querySelectorAll('[data-action="close-sso"]').forEach((btn) => {
+    btn.addEventListener('click', () => renderLogin(root));
+  });
+  root.querySelectorAll('[data-sso-user]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const user = USERS.find((u) => u.username === btn.dataset.ssoUser);
+      if (!user) return;
+      setSession(user, true);
+      location.hash = homeRouteForRole(user.role);
+    });
   });
 }

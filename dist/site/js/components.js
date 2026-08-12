@@ -8,6 +8,30 @@ export function brandIcon(size = 22) {
   `;
 }
 
+/** Azentio wordmark — local asset with CDN fallback */
+export function azentioLogo(height = 28) {
+  return `
+    <img
+      class="azentio-logo"
+      src="assets/azentio-logo.svg"
+      alt="Azentio"
+      height="${height}"
+      onerror="this.onerror=null;this.src='https://www.azentio.com/wp-content/uploads/2024/12/logo.svg'"
+    />
+  `;
+}
+
+export function brandMark({ iconSize = 18, logoHeight = 26, showProduct = true } = {}) {
+  return `
+    <div class="brand-mark">
+      ${azentioLogo(logoHeight)}
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div class="brand-icon">${brandIcon(iconSize)}</div>
+      ${showProduct ? `<div class="brand-name">Claim Intel</div>` : ''}
+    </div>
+  `;
+}
+
 export function iconCheck() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
@@ -26,6 +50,10 @@ export function iconLock() {
 
 export function iconBack() {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+export function iconClose() {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
 export function renderShell(session, active, content, { showMobileNav = true } = {}) {
@@ -54,10 +82,7 @@ export function renderShell(session, active, content, { showMobileNav = true } =
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-left">
-          <div class="brand-mark">
-            <div class="brand-icon">${brandIcon(18)}</div>
-            <div class="brand-name">Claim Intel</div>
-          </div>
+          ${brandMark({ iconSize: 16, logoHeight: 24 })}
           <nav class="nav-links">${nav}</nav>
         </div>
         <div class="topbar-right">
