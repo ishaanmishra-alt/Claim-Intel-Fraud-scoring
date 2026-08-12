@@ -1898,6 +1898,58 @@ a {
   gap: 12px;
 }
 
+.field-row-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.version-dates-block {
+  margin-top: 16px;
+  padding: 14px 14px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.version-dates-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.version-dates-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.version-dates-error {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.optional-label {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.required-mark {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.modal-card input[type='date'] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -1941,3 +1993,182 @@ a {
 }
 
 
+
+
+.version-notice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.btn-request {
+  background: #0f766e;
+}
+
+.btn-request:hover:not(:disabled) {
+  background: #0d9488;
+}
+
+.uc-picker {
+  position: relative;
+}
+
+.uc-picker-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+
+.uc-picker-trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uc-picker-caret {
+  color: var(--text-secondary);
+}
+
+.uc-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #cbd5e1;
+}
+
+.uc-picker-trigger.is-enabled .uc-status-dot,
+.uc-picker-option.is-enabled .uc-status-dot,
+.uc-status-dot.is-enabled {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.uc-picker-trigger.is-locked .uc-status-dot,
+.uc-picker-option.is-locked .uc-status-dot,
+.uc-status-dot.is-locked {
+  background: #94a3b8;
+}
+
+.uc-picker-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+}
+
+.uc-picker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.uc-picker-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.uc-picker-group-label {
+  padding: 8px 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.uc-picker-empty {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.uc-picker-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+}
+
+.uc-picker-option:hover,
+.uc-picker-option.is-selected {
+  background: var(--surface-muted);
+}
+
+.uc-picker-option.is-locked {
+  color: #64748b;
+}
+
+.uc-picker-option-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uc-picker-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.uc-picker-name {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.uc-picker-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.uc-picker-option.is-enabled .uc-picker-badge {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.uc-picker-option.is-locked .uc-picker-badge {
+  background: #e2e8f0;
+  color: #475569;
+}

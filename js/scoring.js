@@ -1,4 +1,4 @@
-import { CHECK_DEFINITIONS, DEFAULT_WEIGHTS, RAW_CLAIMS, CLAIM_STAGES, checkCode } from './data.js';
+import { USE_CASE_LIBRARY, DEFAULT_WEIGHTS, RAW_CLAIMS, CLAIM_STAGES, checkCode } from './data.js';
 import { getActiveUseCases, getWeights as getStoreWeights } from './state.js';
 
 function scoreBand(score) {
@@ -33,7 +33,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
   const active = activeUseCases || getActiveUseCases();
   const activeIds = new Set(active.map((u) => u.id));
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
-  const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
+  const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
 
   const results = claim.checks
     .filter((c) => activeIds.has(c.checkId))
@@ -118,8 +118,9 @@ export function scoreAllClaims(weights, activeUseCases) {
 
 /** Aggregate fail counts per use-case across a claim set */
 export function useCaseFailStats(claims) {
-  const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
-  const stats = CHECK_DEFINITIONS.map((def) => ({
+  const active = getActiveUseCases();
+  const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
+  const stats = active.map((def) => ({
     checkId: def.id,
     code: checkCode(def.id),
     name: def.name,

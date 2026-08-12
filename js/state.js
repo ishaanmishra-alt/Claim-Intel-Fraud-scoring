@@ -1,8 +1,8 @@
-import { USERS, CHECK_DEFINITIONS, DEFAULT_WEIGHTS, checkCode } from './data.js';
+import { USERS, enabledSeedDefinitions, DEFAULT_WEIGHTS, checkCode } from './data.js';
 
 const SESSION_KEY = 'claim-intel-session';
-const WEIGHTS_KEY = 'claim-intel-weights-v2';
-const CONFIG_KEY = 'claim-intel-config-v3';
+const WEIGHTS_KEY = 'claim-intel-weights-v3';
+const CONFIG_KEY = 'claim-intel-config-v4';
 
 /** Prototype "today" for version dating */
 export const CONFIG_TODAY = '2026-08-12';
@@ -46,16 +46,21 @@ function cloneUseCases(list) {
 }
 
 export function defaultUseCasesFromDefinitions() {
-  return CHECK_DEFINITIONS.map((d) => ({
-    id: d.id,
-    code: checkCode(d.id),
-    name: d.name,
-    description: d.description,
-    stage: d.stage,
-    riskCategory: d.riskCategory || (d.hardFail ? 'critical' : 'high'),
-    hardFail: !!d.hardFail,
-    weight: d.hardFail ? null : d.weight,
-  }));
+  return enabledSeedDefinitions().map((d) => {
+    let weight = d.hardFail ? null : d.weight;
+    // Stage soft totals after removing #11–#20 from the seeded table
+    if (d.id === 8 || d.id === 10) weight = 100;
+    return {
+      id: d.id,
+      code: checkCode(d.id),
+      name: d.name,
+      description: d.description,
+      stage: d.stage,
+      riskCategory: d.riskCategory || (d.hardFail ? 'critical' : 'high'),
+      hardFail: !!d.hardFail,
+      weight,
+    };
+  });
 }
 
 function seedConfigStore() {
@@ -119,8 +124,31 @@ function persistConfig(store) {
   return store;
 }
 
-export function getCurrentConfigVersion(store = getConfigStore()) {
+/** Inclusive coverage: startDate <= asOf and (no end or endDate >= asOf). */
+export function versionCoversDate(version, asOf = CONFIG_TODAY) {
+  if (!version?.startDate) return false;
+  if (version.startDate > asOf) return false;
+  if (version.endDate && version.endDate < asOf) return false;
+  return true;
+}
+
+/** Active config version for a given date (defaults to prototype today). */
+export function getVersionForDate(asOf = CONFIG_TODAY, store = getConfigStore()) {
+  const covering = store.versions
+    .filter((v) => versionCoversDate(v, asOf))
+    .sort((a, b) => a.number - b.number);
+  if (covering.length) return covering[covering.length - 1];
+
+  const started = store.versions
+    .filter((v) => v.startDate && v.startDate <= asOf)
+    .sort((a, b) => a.number - b.number);
+  if (started.length) return started[started.length - 1];
+
   return store.versions.find((v) => v.id === store.currentId) || store.versions[store.versions.length - 1];
+}
+
+export function getCurrentConfigVersion(store = getConfigStore()) {
+  return getVersionForDate(CONFIG_TODAY, store);
 }
 
 export function getConfigVersionById(id, store = getConfigStore()) {
@@ -139,25 +167,40 @@ export function getWeights() {
   return { ...DEFAULT_WEIGHTS, ...fromConfig };
 }
 
-/** Apply a mutation to current use-cases and open a new version. */
-export function commitConfigChange(nextUseCases) {
-  const store = getConfigStore();
-  const current = getCurrentConfigVersion(store);
-  const today = CONFIG_TODAY;
+export function dayBefore(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
-  current.endDate = today;
+/**
+ * Apply a mutation to current use-cases and open a new version.
+ * @param {object[]} nextUseCases
+ * @param {{ startDate?: string, endDate?: string|null }} [dates]
+ */
+export function commitConfigChange(nextUseCases, dates = {}) {
+  const store = getConfigStore();
+  const startDate = dates.startDate || CONFIG_TODAY;
+  const endDate = dates.endDate || null;
+
+  // Close any open/overlapping versions that start before the new one.
+  store.versions.forEach((v) => {
+    if (v.startDate < startDate && (!v.endDate || v.endDate >= startDate)) {
+      v.endDate = dayBefore(startDate);
+    }
+  });
 
   const newNumber = Math.max(...store.versions.map((v) => v.number)) + 1;
   const newVersion = {
     id: Math.max(...store.versions.map((v) => v.id)) + 1,
     number: newNumber,
-    startDate: today,
-    endDate: null,
+    startDate,
+    endDate,
     useCases: cloneUseCases(nextUseCases),
   };
 
   store.versions.push(newVersion);
-  store.currentId = newVersion.id;
+  store.currentId = getVersionForDate(CONFIG_TODAY, store).id;
   return persistConfig(store);
 }
 
@@ -189,8 +232,14 @@ export function formatLongDate(iso) {
   return `${dd}-${month}-${yyyy}`;
 }
 
+export function isFutureVersion(version, asOf = CONFIG_TODAY) {
+  return !!version?.startDate && version.startDate > asOf;
+}
+
 export function formatVersionLabel(version, { isCurrent = false } = {}) {
   const start = formatLongDate(version.startDate);
-  const end = isCurrent || !version.endDate ? 'Present' : formatLongDate(version.endDate);
-  return `Version ${version.number} (${start} – ${end})`;
+  const end = !version.endDate ? 'Present' : formatLongDate(version.endDate);
+  const scheduled = isFutureVersion(version) ? ' · Scheduled' : '';
+  void isCurrent;
+  return `Version ${version.number} (${start} – ${end})${scheduled}`;
 }

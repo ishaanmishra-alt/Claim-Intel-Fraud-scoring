@@ -59,8 +59,160 @@ export const CHECK_DEFINITIONS = [
   { id: 19, code: '19', name: 'No prior rejected/flagged claim on same vehicle or claimant', description: 'Surfaces prior rejected or flagged claims on the same vehicle or claimant.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
 ];
 
+/**
+ * Extra catalog entries for Add Use-Case.
+ * tenantEnabled=true  → green / can add now
+ * tenantEnabled=false → grey / Raise a Request
+ */
+export const OPTIONAL_USE_CASES = [
+  {
+    id: 21,
+    code: '21',
+    name: 'Police report number present when required',
+    description: 'Confirms a police report reference is captured when the loss type requires one.',
+    category: 'identity',
+    stage: 'fnol',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 15,
+    tenantEnabled: false,
+  },
+  {
+    id: 22,
+    code: '22',
+    name: 'Driver licence class matches vehicle category',
+    description: 'Validates that the reported driver’s licence class covers the insured vehicle category.',
+    category: 'identity',
+    stage: 'fnol',
+    hardFail: true,
+    riskCategory: 'critical',
+    weight: null,
+    tenantEnabled: false,
+  },
+  {
+    id: 23,
+    code: '23',
+    name: 'Third-party details complete for TP claims',
+    description: 'Checks that counterparty name, contact, and vehicle identifiers are present on third-party claims.',
+    category: 'identity',
+    stage: 'intimation',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 20,
+    tenantEnabled: false,
+  },
+  {
+    id: 24,
+    code: '24',
+    name: 'Surveyor assigned within SLA',
+    description: 'Flags assessment cases where surveyor assignment exceeds the configured SLA window.',
+    category: 'timing',
+    stage: 'assessment',
+    hardFail: false,
+    riskCategory: 'low',
+    weight: 15,
+    tenantEnabled: false,
+  },
+  {
+    id: 25,
+    code: '25',
+    name: 'Labour hours consistent with repair scope',
+    description: 'Compares billed labour hours against expected ranges for the approved repair scope.',
+    category: 'garage',
+    stage: 'assessment',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 20,
+    tenantEnabled: false,
+  },
+  {
+    id: 26,
+    code: '26',
+    name: 'Payee bank details match claimant / nominated payee',
+    description: 'Verifies settlement payee account details against the claimant or nominated payee on file.',
+    category: 'financial',
+    stage: 'settlement',
+    hardFail: true,
+    riskCategory: 'critical',
+    weight: null,
+    tenantEnabled: false,
+  },
+  {
+    id: 27,
+    code: '27',
+    name: 'No duplicate open claim for same loss event',
+    description: 'Detects another open claim sharing the same loss date, vehicle, and broadly similar narrative.',
+    category: 'behavioural',
+    stage: 'settlement',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 25,
+    tenantEnabled: false,
+  },
+  {
+    id: 28,
+    code: '28',
+    name: 'Photos / documents uploaded before assessment close',
+    description: 'Ensures required photos and supporting documents are on file before assessment is closed.',
+    category: 'garage',
+    stage: 'assessment',
+    hardFail: false,
+    riskCategory: 'low',
+    weight: 10,
+    tenantEnabled: false,
+  },
+  {
+    id: 29,
+    code: '29',
+    name: 'Telematics / dashcam corroboration of loss',
+    description: 'Cross-checks reported loss timing and severity against telematics or dashcam feeds when available.',
+    category: 'behavioural',
+    stage: 'fnol',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 20,
+    tenantEnabled: false,
+  },
+  {
+    id: 30,
+    code: '30',
+    name: 'Workshop invoice OCR vs estimate match',
+    description: 'Compares OCR’d workshop invoice lines against the approved estimate for material variances.',
+    category: 'garage',
+    stage: 'settlement',
+    hardFail: false,
+    riskCategory: 'high',
+    weight: 20,
+    tenantEnabled: false,
+  },
+];
+
+/** Full catalog for Add Use-Case picker and scoring metadata lookups.
+ * Only #01–#10 are enabled for the tenant; #11–#20 (+ extras) are grey / request-only.
+ */
+export const USE_CASE_LIBRARY = [
+  ...CHECK_DEFINITIONS.map((d) => ({ ...d, tenantEnabled: d.id >= 1 && d.id <= 10 })),
+  ...OPTIONAL_USE_CASES.map((d) => ({ ...d, tenantEnabled: false })),
+];
+
+export function isTenantEnabledUseCase(def) {
+  return def?.tenantEnabled === true;
+}
+
+/** Use-cases seeded into the active configuration table (#01–#10 only). */
+export function enabledSeedDefinitions() {
+  return CHECK_DEFINITIONS.filter((d) => d.id >= 1 && d.id <= 10);
+}
+
 export const DEFAULT_WEIGHTS = Object.fromEntries(
-  CHECK_DEFINITIONS.filter((c) => !c.hardFail).map((c) => [c.id, c.weight])
+  enabledSeedDefinitions()
+    .filter((c) => !c.hardFail)
+    .map((c) => {
+      // Sole soft checks in their stage after #11–#20 are removed from seed
+      let weight = c.weight;
+      if (c.id === 8 || c.id === 10) weight = 100;
+      return [c.id, weight];
+    })
 );
 
 export function checkCode(id) {
@@ -103,7 +255,7 @@ export const ROLE_LABELS = {
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
 function buildChecks(overrides = {}) {
-  return CHECK_DEFINITIONS.map((def) => {
+  return USE_CASE_LIBRARY.map((def) => {
     const o = overrides[def.id] || {};
     return {
       checkId: def.id,

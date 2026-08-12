@@ -1,18 +1,22 @@
 import { renderShell } from '../components.js';
 import {
   ROLE_LABELS,
-  CHECK_DEFINITIONS,
+  USE_CASE_LIBRARY,
   CLAIM_STAGES,
   RISK_CATEGORIES,
   checkCode,
+  isTenantEnabledUseCase,
 } from '../data.js';
 import { canAccess } from '../scoring.js';
 import {
+  CONFIG_TODAY,
   getConfigStore,
   getCurrentConfigVersion,
   getConfigVersionById,
   commitConfigChange,
   formatVersionLabel,
+  formatLongDate,
+  isFutureVersion,
 } from '../state.js';
 
 function stageName(id) {
@@ -43,6 +47,7 @@ let openMenuId = null;
 let modal = null; // { type: 'add'|'edit'|'delete', useCaseId?, draft? }
 let prevVersionsOpen = false;
 let feedback = null;
+let ucPickerOpen = false;
 
 function getViewVersion() {
   const store = getConfigStore();
@@ -70,17 +75,147 @@ function filteredRows(useCases) {
   });
 }
 
-function applyMutation(mutator) {
+function defaultVersionDates() {
+  return { startDate: '', endDate: '' };
+}
+
+function readVersionDates(root) {
+  const startDate = root.querySelector('#modal-start-date')?.value || '';
+  const endRaw = root.querySelector('#modal-end-date')?.value || '';
+  return {
+    startDate,
+    endDate: endRaw || null,
+  };
+}
+
+function validateVersionDates(dates) {
+  if (!dates.startDate) return 'Please select a start date for the new version.';
+  if (!dates.endDate) return 'Please select an end date for the new version.';
+  if (dates.endDate < dates.startDate) {
+    return 'End date must be on or after the start date.';
+  }
+  return null;
+}
+
+function hasCompleteVersionDates(draft = {}) {
+  return !!(draft.startDate && draft.endDate && draft.endDate >= draft.startDate);
+}
+
+function applyMutation(mutator, dates) {
   const store = getConfigStore();
   const current = getCurrentConfigVersion(store);
   const next = mutator(cloneUseCases(current.useCases));
-  commitConfigChange(next);
+  const result = commitConfigChange(next, dates);
+  const created = result.versions[result.versions.length - 1];
   viewingVersionId = null;
-  feedback = { type: 'success', message: 'New version created.' };
+  const endLabel = created.endDate ? formatLongDate(created.endDate) : 'Present';
+  const when = isFutureVersion(created) ? 'scheduled' : 'created';
+  feedback = {
+    type: 'success',
+    message: `Version ${created.number} ${when} (${formatLongDate(created.startDate)} – ${endLabel}).`,
+  };
 }
 
 function cloneUseCases(list) {
   return list.map((u) => ({ ...u }));
+}
+
+function versionNoticeHtml() {
+  return `
+    <div class="version-notice" role="status">
+      Your changes will be saved as a new version. Select the start date and end date for this new version to continue.
+    </div>
+  `;
+}
+
+function versionDateFieldsHtml(draft = {}) {
+  const start = draft.startDate || '';
+  const end = draft.endDate || '';
+  const err = draft.dateError
+    ? `<p class="version-dates-error">${draft.dateError}</p>`
+    : '';
+  return `
+    <div class="version-dates-block">
+      <div class="version-dates-title">Select version dates</div>
+      <p class="version-dates-hint">Both dates are required before a new version can be created. Use a future start date to schedule this version.</p>
+      <div class="field-row field-row-2">
+        <div class="field">
+          <label for="modal-start-date">Start date <span class="required-mark">*</span></label>
+          <input type="date" id="modal-start-date" value="${start}" required />
+        </div>
+        <div class="field">
+          <label for="modal-end-date">End date <span class="required-mark">*</span></label>
+          <input type="date" id="modal-end-date" value="${end}" required />
+        </div>
+      </div>
+      ${err}
+    </div>
+  `;
+}
+
+function useCasePickerHtml(currentUseCases, draft = {}) {
+  const catalog = USE_CASE_LIBRARY.filter((d) => !currentUseCases.some((u) => u.id === d.id));
+  const enabled = catalog.filter((d) => isTenantEnabledUseCase(d));
+  const locked = catalog.filter((d) => !isTenantEnabledUseCase(d));
+  const selected = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
+  const selectedEnabled = selected ? isTenantEnabledUseCase(selected) : null;
+
+  const optionBtn = (d) => {
+    const enabledUc = isTenantEnabledUseCase(d);
+    const selectedCls = Number(draft.id) === d.id ? 'is-selected' : '';
+    return `
+      <button type="button"
+        class="uc-picker-option ${enabledUc ? 'is-enabled' : 'is-locked'} ${selectedCls}"
+        data-pick-uc="${d.id}">
+        <span class="uc-status-dot" aria-hidden="true"></span>
+        <span class="uc-picker-option-text">
+          <span class="uc-picker-code">${checkCode(d.id)}</span>
+          <span class="uc-picker-name">${d.name}</span>
+        </span>
+        <span class="uc-picker-badge">${enabledUc ? 'Available' : 'Not enabled'}</span>
+      </button>
+    `;
+  };
+
+  const triggerLabel = selected
+    ? `${checkCode(selected.id)} — ${selected.name}`
+    : 'Select use-case…';
+
+  return `
+    <div class="field">
+      <label>Use-case</label>
+      <div class="uc-picker ${ucPickerOpen ? 'is-open' : ''}">
+        <button type="button" class="uc-picker-trigger ${selected ? (selectedEnabled ? 'is-enabled' : 'is-locked') : ''}" data-action="toggle-uc-picker" aria-expanded="${ucPickerOpen ? 'true' : 'false'}">
+          <span class="uc-status-dot" aria-hidden="true"></span>
+          <span class="uc-picker-trigger-label">${triggerLabel}</span>
+          <span class="uc-picker-caret" aria-hidden="true">▾</span>
+        </button>
+        ${
+          ucPickerOpen
+            ? `
+          <div class="uc-picker-menu" role="listbox">
+            <div class="uc-picker-legend">
+              <span><span class="uc-status-dot is-enabled"></span> Available (enabled)</span>
+              <span><span class="uc-status-dot is-locked"></span> Not enabled</span>
+            </div>
+            ${
+              enabled.length
+                ? `<div class="uc-picker-group-label">Available</div>${enabled.map(optionBtn).join('')}`
+                : `<div class="uc-picker-empty">No available use-cases left to add.</div>`
+            }
+            ${
+              locked.length
+                ? `<div class="uc-picker-group-label">Not enabled for your organisation</div>${locked.map(optionBtn).join('')}`
+                : ''
+            }
+            ${!enabled.length && !locked.length ? `<div class="uc-picker-empty">All catalog use-cases are already configured.</div>` : ''}
+          </div>
+        `
+            : ''
+        }
+      </div>
+    </div>
+  `;
 }
 
 export function renderConfig(root, session) {
@@ -116,6 +251,7 @@ export function renderConfig(root, session) {
         <div class="current-version-pill">
           ${formatVersionLabel(readOnly ? view : current, { isCurrent: !readOnly })}
           ${readOnly ? '<span class="readonly-tag">Read-only</span>' : ''}
+          ${isFutureVersion(view) ? '<span class="readonly-tag">Scheduled</span>' : ''}
         </div>
         <div class="prev-versions-wrap">
           <button type="button" class="btn btn-secondary prev-versions-btn" data-action="toggle-prev">
@@ -240,16 +376,46 @@ export function renderConfig(root, session) {
 function renderModalHtml(currentUseCases) {
   if (!modal) return '';
 
+  const draft = modal.draft || defaultVersionDates();
+  const step = modal.step || 'form';
+
+  // Step 2: require start/end dates before creating the version
+  if (step === 'version-dates') {
+    const summary =
+      modal.type === 'delete'
+        ? `Delete use-case from configuration`
+        : modal.type === 'add'
+          ? `Add ${draft.code || ''} ${draft.name || 'use-case'}`
+          : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
+    return `
+      <div class="modal-backdrop" data-action="close-modal">
+        <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
+          <h2>Create new version</h2>
+          ${versionNoticeHtml()}
+          <p class="modal-copy"><strong>Change:</strong> ${summary}</p>
+          ${versionDateFieldsHtml(draft)}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-action="back-form-step">Back</button>
+            <button type="button" class="btn btn-primary" data-action="confirm-version" ${hasCompleteVersionDates(draft) ? '' : 'disabled'}>
+              Create version
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   if (modal.type === 'delete') {
     const uc = currentUseCases.find((u) => u.id === modal.useCaseId);
     return `
       <div class="modal-backdrop" data-action="close-modal">
-        <div class="modal-card" onclick="event.stopPropagation()">
+        <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
           <h2>Delete use-case?</h2>
-          <p class="modal-copy">Remove <strong>${uc?.code} ${uc?.name}</strong> from the configuration? This will create a new version.</p>
+          <div class="version-notice" role="status">Your changes will be saved as a new version.</div>
+          <p class="modal-copy">Remove <strong>${uc?.code} ${uc?.name}</strong> from the configuration? You’ll set the new version’s start and end dates next.</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
-            <button type="button" class="btn btn-danger" data-action="confirm-delete">Delete</button>
+            <button type="button" class="btn btn-danger" data-action="continue-version-dates">Continue</button>
           </div>
         </div>
       </div>
@@ -257,52 +423,69 @@ function renderModalHtml(currentUseCases) {
   }
 
   const isAdd = modal.type === 'add';
-  const draft = modal.draft || {};
-  const available = isAdd
-    ? CHECK_DEFINITIONS.filter((d) => !currentUseCases.some((u) => u.id === d.id))
-    : CHECK_DEFINITIONS;
-
-  const selectedDef = CHECK_DEFINITIONS.find((d) => d.id === Number(draft.id));
+  const selectedDef = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
   const isCriticalHard = selectedDef?.hardFail || draft.hardFail;
+  const selectedEnabled = selectedDef ? isTenantEnabledUseCase(selectedDef) : false;
+  const isLockedSelection = isAdd && selectedDef && !selectedEnabled;
+
+  let primaryLabel = 'Continue';
+  let primaryAction = 'continue-version-dates';
+  let primaryDisabled = false;
+  let primaryClass = 'btn btn-primary';
+
+  if (isAdd) {
+    if (!selectedDef) {
+      primaryLabel = 'Add Use-Case';
+      primaryDisabled = true;
+      primaryAction = 'continue-version-dates';
+    } else if (isLockedSelection) {
+      primaryLabel = 'Raise a Request';
+      primaryAction = 'raise-request';
+      primaryClass = 'btn btn-primary btn-request';
+      primaryDisabled = false;
+    } else {
+      primaryLabel = 'Add Use-Case';
+      primaryDisabled = false;
+      primaryAction = 'continue-version-dates';
+    }
+  }
 
   return `
     <div class="modal-backdrop" data-action="close-modal">
       <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
         <h2>${isAdd ? 'Add use-case' : 'Edit use-case'}</h2>
-        <p class="modal-copy">${isAdd ? 'Select a use-case and set category / weightage. Saving creates a new version.' : 'Update category or weightage. Saving creates a new version.'}</p>
+        ${
+          isLockedSelection
+            ? `<p class="modal-copy">This use-case is not enabled for your organisation. Raise a request to Azentio to enable it.</p>`
+            : `<div class="version-notice" role="status">Your changes will be saved as a new version. You’ll select the start date and end date in the next step.</div>
+               <p class="modal-copy">${isAdd ? 'Select an available (green) use-case and set category / weightage.' : 'Update category or weightage.'}</p>`
+        }
 
+        ${isAdd ? useCasePickerHtml(currentUseCases, draft) : `
         <div class="field">
           <label>Use-case</label>
-          ${
-            isAdd
-              ? `<select id="modal-uc-id">
-                  <option value="">Select use-case…</option>
-                  ${available
-                    .map(
-                      (d) =>
-                        `<option value="${d.id}" ${Number(draft.id) === d.id ? 'selected' : ''}>${checkCode(d.id)} — ${d.name}</option>`
-                    )
-                    .join('')}
-                </select>`
-              : `<div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>`
-          }
-        </div>
+          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>
+        </div>`}
 
         <div class="field">
           <label>Description</label>
           <textarea id="modal-desc" rows="3" readonly>${(draft.description || selectedDef?.description || '').replace(/</g, '&lt;')}</textarea>
         </div>
 
+        ${
+          isLockedSelection
+            ? ''
+            : `
         <div class="field-row">
           <div class="field">
             <label>Stage</label>
-            <select id="modal-stage" ${isAdd && !selectedDef ? '' : ''}>
+            <select id="modal-stage" ${isAdd && !selectedDef ? 'disabled' : ''}>
               ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${(draft.stage || selectedDef?.stage) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
           </div>
           <div class="field">
             <label>Category</label>
-            <select id="modal-category">
+            <select id="modal-category" ${isAdd && !selectedDef ? 'disabled' : ''}>
               ${RISK_CATEGORIES.map((c) => `<option value="${c.id}" ${(draft.riskCategory || selectedDef?.riskCategory || 'high') === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
           </div>
@@ -310,13 +493,15 @@ function renderModalHtml(currentUseCases) {
             <label>Weightage %</label>
             <input type="number" id="modal-weight" min="0" max="100" step="1"
               value="${isCriticalHard ? '' : draft.weight ?? selectedDef?.weight ?? 0}"
-              ${isCriticalHard ? 'disabled placeholder="N/A for hard-fail"' : ''} />
+              ${isCriticalHard || (isAdd && !selectedDef) ? 'disabled placeholder="N/A"' : ''} />
           </div>
         </div>
+        `
+        }
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
-          <button type="button" class="btn btn-primary" data-action="save-modal">${isAdd ? 'Add use-case' : 'Save changes'}</button>
+          <button type="button" class="${primaryClass}" data-action="${primaryAction}" ${primaryDisabled ? 'disabled' : ''}>${primaryLabel}</button>
         </div>
       </div>
     </div>
@@ -363,7 +548,12 @@ function bindConfigEvents(root, session, currentUseCases) {
 
   root.querySelector('[data-action="add-uc"]')?.addEventListener('click', () => {
     openMenuId = null;
-    modal = { type: 'add', draft: { riskCategory: 'high', weight: 0, stage: 'fnol' } };
+    ucPickerOpen = false;
+    modal = {
+      type: 'add',
+      step: 'form',
+      draft: { riskCategory: 'high', weight: 0, stage: 'fnol', ...defaultVersionDates() },
+    };
     rerender();
   });
 
@@ -382,7 +572,8 @@ function bindConfigEvents(root, session, currentUseCases) {
       const id = Number(btn.dataset.edit);
       const uc = currentUseCases.find((u) => u.id === id);
       openMenuId = null;
-      modal = { type: 'edit', useCaseId: id, draft: { ...uc } };
+      ucPickerOpen = false;
+      modal = { type: 'edit', step: 'form', useCaseId: id, draft: { ...uc, ...defaultVersionDates() } };
       rerender();
     });
   });
@@ -390,7 +581,13 @@ function bindConfigEvents(root, session, currentUseCases) {
   root.querySelectorAll('[data-delete]').forEach((btn) => {
     btn.addEventListener('click', () => {
       openMenuId = null;
-      modal = { type: 'delete', useCaseId: Number(btn.dataset.delete) };
+      ucPickerOpen = false;
+      modal = {
+        type: 'delete',
+        step: 'form',
+        useCaseId: Number(btn.dataset.delete),
+        draft: defaultVersionDates(),
+      };
       rerender();
     });
   });
@@ -398,92 +595,205 @@ function bindConfigEvents(root, session, currentUseCases) {
   root.querySelectorAll('[data-action="close-modal"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       modal = null;
+      ucPickerOpen = false;
       rerender();
     });
   });
 
-  root.querySelector('[data-action="confirm-delete"]')?.addEventListener('click', () => {
-    const id = modal.useCaseId;
-    applyMutation((list) => list.filter((u) => u.id !== id));
-    modal = null;
+  root.querySelector('[data-action="toggle-uc-picker"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ucPickerOpen = !ucPickerOpen;
     rerender();
   });
 
-  const ucSelect = root.querySelector('#modal-uc-id');
-  ucSelect?.addEventListener('change', () => {
-    const id = Number(ucSelect.value);
-    const def = CHECK_DEFINITIONS.find((d) => d.id === id);
-    if (!def) return;
-    modal.draft = {
-      id: def.id,
-      code: checkCode(def.id),
-      name: def.name,
-      description: def.description,
-      stage: def.stage,
-      riskCategory: def.riskCategory,
-      hardFail: def.hardFail,
-      weight: def.hardFail ? null : def.weight,
-    };
-    rerender();
+  root.querySelectorAll('[data-pick-uc]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.pickUc);
+      const def = USE_CASE_LIBRARY.find((d) => d.id === id);
+      if (!def) return;
+      modal.draft = {
+        ...(modal.draft || {}),
+        id: def.id,
+        code: checkCode(def.id),
+        name: def.name,
+        description: def.description,
+        stage: def.stage,
+        riskCategory: def.riskCategory,
+        hardFail: def.hardFail,
+        weight: def.hardFail ? null : def.weight,
+        startDate: '',
+        endDate: '',
+        dateError: null,
+      };
+      ucPickerOpen = false;
+      rerender();
+    });
   });
 
-  root.querySelector('[data-action="save-modal"]')?.addEventListener('click', () => {
+  function captureFormDraft() {
     const stage = root.querySelector('#modal-stage')?.value;
     const riskCategory = root.querySelector('#modal-category')?.value;
     const weightRaw = root.querySelector('#modal-weight')?.value;
     const weight = weightRaw === '' || weightRaw == null ? null : parseInt(weightRaw, 10);
+    modal.draft = {
+      ...(modal.draft || {}),
+      stage: stage || modal.draft?.stage,
+      riskCategory: riskCategory || modal.draft?.riskCategory,
+      weight: modal.draft?.hardFail ? null : Number.isFinite(weight) ? weight : modal.draft?.weight,
+      dateError: null,
+    };
+  }
 
+  root.querySelector('[data-action="continue-version-dates"]')?.addEventListener('click', () => {
     if (modal.type === 'add') {
-      const id = Number(root.querySelector('#modal-uc-id')?.value);
-      const def = CHECK_DEFINITIONS.find((d) => d.id === id);
-      if (!def) {
-        feedback = { type: 'error', message: 'Select a use-case to add.' };
+      const id = Number(modal.draft?.id);
+      const def = USE_CASE_LIBRARY.find((d) => d.id === id);
+      if (!def || !isTenantEnabledUseCase(def)) {
+        feedback = { type: 'error', message: 'Select an available (green) use-case to add.' };
         rerender();
         return;
       }
-      if (!def.hardFail && (!Number.isFinite(weight) || weight < 0)) {
-        feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
-        rerender();
-        return;
+      captureFormDraft();
+      if (!def.hardFail) {
+        const w = modal.draft.weight;
+        if (!Number.isFinite(w) || w < 0) {
+          feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
+          rerender();
+          return;
+        }
       }
-      applyMutation((list) => [
-        ...list,
-        {
-          id: def.id,
-          code: checkCode(def.id),
-          name: def.name,
-          description: def.description,
-          stage: stage || def.stage,
-          riskCategory: riskCategory || def.riskCategory,
-          hardFail: def.hardFail,
-          weight: def.hardFail ? null : weight,
-        },
-      ]);
     } else if (modal.type === 'edit') {
-      const id = modal.useCaseId;
-      applyMutation((list) =>
-        list.map((u) => {
-          if (u.id !== id) return u;
-          return {
-            ...u,
-            stage: stage || u.stage,
-            riskCategory: riskCategory || u.riskCategory,
-            weight: u.hardFail ? null : Number.isFinite(weight) ? weight : u.weight,
-          };
-        })
-      );
+      captureFormDraft();
+    } else if (modal.type === 'delete') {
+      const uc = currentUseCases.find((u) => u.id === modal.useCaseId);
+      modal.draft = {
+        ...(modal.draft || defaultVersionDates()),
+        code: uc?.code,
+        name: uc?.name,
+        dateError: null,
+      };
     }
-    modal = null;
+    modal.step = 'version-dates';
+    ucPickerOpen = false;
     rerender();
   });
 
-  // close menus on outside click
+  root.querySelector('[data-action="back-form-step"]')?.addEventListener('click', () => {
+    const dates = readVersionDates(root);
+    modal.draft = {
+      ...(modal.draft || {}),
+      startDate: dates.startDate || '',
+      endDate: dates.endDate || '',
+      dateError: null,
+    };
+    modal.step = 'form';
+    rerender();
+  });
+
+  const syncVersionDateDraft = () => {
+    const dates = readVersionDates(root);
+    modal.draft = {
+      ...(modal.draft || {}),
+      startDate: dates.startDate || '',
+      endDate: dates.endDate || '',
+      dateError: null,
+    };
+    const btn = root.querySelector('[data-action="confirm-version"]');
+    if (btn) btn.disabled = !hasCompleteVersionDates(modal.draft);
+  };
+
+  root.querySelector('#modal-start-date')?.addEventListener('change', syncVersionDateDraft);
+  root.querySelector('#modal-end-date')?.addEventListener('change', syncVersionDateDraft);
+  root.querySelector('#modal-start-date')?.addEventListener('input', syncVersionDateDraft);
+  root.querySelector('#modal-end-date')?.addEventListener('input', syncVersionDateDraft);
+
+  root.querySelector('[data-action="confirm-version"]')?.addEventListener('click', () => {
+    const dates = readVersionDates(root);
+    const dateError = validateVersionDates(dates);
+    if (dateError) {
+      modal.draft = {
+        ...(modal.draft || {}),
+        startDate: dates.startDate || '',
+        endDate: dates.endDate || '',
+        dateError,
+      };
+      rerender();
+      return;
+    }
+
+    if (modal.type === 'add') {
+      const def = USE_CASE_LIBRARY.find((d) => d.id === Number(modal.draft?.id));
+      if (!def || !isTenantEnabledUseCase(def)) {
+        feedback = { type: 'error', message: 'Select an available (green) use-case to add.' };
+        modal = null;
+        rerender();
+        return;
+      }
+      applyMutation(
+        (list) => [
+          ...list,
+          {
+            id: def.id,
+            code: checkCode(def.id),
+            name: def.name,
+            description: def.description,
+            stage: modal.draft.stage || def.stage,
+            riskCategory: modal.draft.riskCategory || def.riskCategory,
+            hardFail: def.hardFail,
+            weight: def.hardFail ? null : modal.draft.weight,
+          },
+        ],
+        dates
+      );
+    } else if (modal.type === 'edit') {
+      const id = modal.useCaseId;
+      applyMutation(
+        (list) =>
+          list.map((u) => {
+            if (u.id !== id) return u;
+            return {
+              ...u,
+              stage: modal.draft.stage || u.stage,
+              riskCategory: modal.draft.riskCategory || u.riskCategory,
+              weight: u.hardFail ? null : modal.draft.weight,
+            };
+          }),
+        dates
+      );
+    } else if (modal.type === 'delete') {
+      const id = modal.useCaseId;
+      applyMutation((list) => list.filter((u) => u.id !== id), dates);
+    }
+
+    modal = null;
+    ucPickerOpen = false;
+    rerender();
+  });
+
+  root.querySelector('[data-action="raise-request"]')?.addEventListener('click', () => {
+    const def = USE_CASE_LIBRARY.find((d) => d.id === Number(modal?.draft?.id));
+    feedback = {
+      type: 'success',
+      message: def
+        ? `Request raised for ${checkCode(def.id)} — ${def.name}. Azentio will follow up to enable it.`
+        : 'Request raised. Azentio will follow up.',
+    };
+    modal = null;
+    ucPickerOpen = false;
+    rerender();
+  });
+
+  // Keep picker open clicks from bubbling; close menus on outside click
+  root.querySelector('.uc-picker-menu')?.addEventListener('click', (e) => e.stopPropagation());
+
   root.querySelector('.main')?.addEventListener(
     'click',
     () => {
-      if (openMenuId != null || prevVersionsOpen) {
+      if (openMenuId != null || prevVersionsOpen || ucPickerOpen) {
         openMenuId = null;
         prevVersionsOpen = false;
+        ucPickerOpen = false;
         rerender();
       }
     },
