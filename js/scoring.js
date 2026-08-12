@@ -1,4 +1,5 @@
 import { CHECK_DEFINITIONS, DEFAULT_WEIGHTS, RAW_CLAIMS, CLAIM_STAGES, checkCode } from './data.js';
+import { getActiveUseCases, getWeights as getStoreWeights } from './state.js';
 
 function scoreBand(score) {
   if (score >= 8) return 'green';
@@ -26,24 +27,32 @@ function scoreSoftGroup(softResults) {
 }
 
 /**
- * Stage-based scoring: each stage's soft weights sum to 100%.
- * Overall context score = average of evaluable stage scores.
- * Any hard-fail fail forces Red.
+ * Stage-based scoring using the active config use-case set.
  */
-export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
+export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
+  const active = activeUseCases || getActiveUseCases();
+  const activeIds = new Set(active.map((u) => u.id));
+  const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(CHECK_DEFINITIONS.map((d) => [d.id, d]));
-  const results = claim.checks.map((c) => {
-    const def = defById[c.checkId];
-    return {
-      ...c,
-      name: def.name,
-      code: def.code || checkCode(def.id),
-      category: def.category,
-      stage: def.stage,
-      hardFail: def.hardFail,
-      weight: def.hardFail ? null : weights[c.checkId] ?? def.weight,
-    };
-  });
+
+  const results = claim.checks
+    .filter((c) => activeIds.has(c.checkId))
+    .map((c) => {
+      const def = defById[c.checkId];
+      const meta = metaById[c.checkId];
+      const hardFail = meta?.hardFail ?? def.hardFail;
+      return {
+        ...c,
+        name: meta?.name || def.name,
+        code: meta?.code || checkCode(def.id),
+        description: meta?.description || def.description,
+        category: def.category,
+        stage: meta?.stage || def.stage,
+        riskCategory: meta?.riskCategory || def.riskCategory,
+        hardFail,
+        weight: hardFail ? null : weights[c.checkId] ?? meta?.weight ?? def.weight,
+      };
+    });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
   const soft = results.filter((r) => !r.hardFail);
@@ -65,7 +74,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
       cantEvaluateCount: stageSoft.filter((r) => r.state === 'cant_evaluate').length,
       checkCount: stageResults.length,
     };
-  });
+  }).filter((s) => s.checkCount > 0);
 
   const evaluableStages = stageScores.filter((s) => s.activeWeight > 0);
   let contextScore;
@@ -98,9 +107,11 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS) {
   };
 }
 
-export function scoreAllClaims(weights = DEFAULT_WEIGHTS) {
+export function scoreAllClaims(weights, activeUseCases) {
+  const w = weights || getStoreWeights();
+  const active = activeUseCases || getActiveUseCases();
   return RAW_CLAIMS.map((claim) => {
-    const scored = scoreClaim(claim, weights);
+    const scored = scoreClaim(claim, w, active);
     return { ...claim, ...scored };
   });
 }

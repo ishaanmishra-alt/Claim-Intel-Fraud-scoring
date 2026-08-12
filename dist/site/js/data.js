@@ -1,13 +1,19 @@
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'} Role */
-/** @typedef {'fnol'|'registration'|'assessment'|'settlement'} ClaimStage */
+/** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
 
 export const CLAIM_STAGES = [
   { id: 'fnol', name: 'FNOL', description: 'First notice of loss & intake' },
-  { id: 'registration', name: 'Registration', description: 'Claim registration & cover checks' },
+  { id: 'intimation', name: 'Intimation', description: 'Claim intimation & cover checks' },
   { id: 'assessment', name: 'Assessment', description: 'Repair, garage & damage assessment' },
   { id: 'settlement', name: 'Settlement', description: 'Financial & settlement signals' },
+];
+
+export const RISK_CATEGORIES = [
+  { id: 'critical', name: 'Critical' },
+  { id: 'high', name: 'High' },
+  { id: 'low', name: 'Low' },
 ];
 
 export const CHECK_CATEGORIES = {
@@ -21,35 +27,36 @@ export const CHECK_CATEGORIES = {
 /**
  * 20 use-cases grouped by claim stage.
  * Soft weights sum to 100% within each stage (hard fails have no weight).
+ * riskCategory: Critical / High / Low (config table).
  */
 export const CHECK_DEFINITIONS = [
   // FNOL — soft: 55 + 45 = 100
-  { id: 1, code: '01', name: 'Plate number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
-  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
-  { id: 3, code: '03', name: 'Policy active on date of loss', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
-  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', category: 'identity', stage: 'fnol', hardFail: true, weight: null },
-  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', category: 'timing', stage: 'fnol', hardFail: false, weight: 55 },
-  { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', category: 'behavioural', stage: 'fnol', hardFail: false, weight: 45 },
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 55 },
+  { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', description: 'Assesses whether loss location aligns with the vehicle’s usual operating area.', category: 'behavioural', stage: 'fnol', hardFail: false, riskCategory: 'low', weight: 45 },
 
-  // Registration — soft: 25+30+20+25 = 100
-  { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', category: 'identity', stage: 'registration', hardFail: false, weight: 25 },
-  { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', category: 'timing', stage: 'registration', hardFail: false, weight: 30 },
-  { id: 7, code: '07', name: 'Loss not immediately before policy expiry', category: 'timing', stage: 'registration', hardFail: false, weight: 20 },
-  { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', category: 'timing', stage: 'registration', hardFail: false, weight: 25 },
-  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', category: 'financial', stage: 'registration', hardFail: true, weight: null },
+  // Intimation — soft: 25+30+20+25 = 100
+  { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', description: 'Matches claimed vehicle attributes to the policy schedule.', category: 'identity', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
+  { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', description: 'Detects losses occurring too soon after policy inception.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 30 },
+  { id: 7, code: '07', name: 'Loss not immediately before policy expiry', description: 'Flags losses clustered just before policy expiry/renewal.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'low', weight: 20 },
+  { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', description: 'Checks if loss coincides with a newly added cover endorsement.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: null },
 
   // Assessment — soft: 25+30+25+20 = 100
-  { id: 10, code: '10', name: 'Garage is network / auto-assigned', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
-  { id: 11, code: '11', name: 'Garage not on an internal watchlist', category: 'garage', stage: 'assessment', hardFail: false, weight: 30 },
-  { id: 12, code: '12', name: 'Repair estimate within normal range for damage type', category: 'garage', stage: 'assessment', hardFail: false, weight: 25 },
-  { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', category: 'garage', stage: 'assessment', hardFail: false, weight: 20 },
+  { id: 10, code: '10', name: 'Garage is network / auto-assigned', description: 'Prefers network or auto-assigned garages over self-selected workshops.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
+  { id: 11, code: '11', name: 'Garage not on an internal watchlist', description: 'Screens the repairer against the internal garage watchlist.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 30 },
+  { id: 12, code: '12', name: 'Repair estimate within normal range for damage type', description: 'Benchmarks the estimate against peer ranges for the damage type.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
+  { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', description: 'Validates that claimed parts align with reported damage evidence.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'low', weight: 20 },
 
   // Settlement — soft: 30+20+25+25 = 100
-  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', category: 'financial', stage: 'settlement', hardFail: true, weight: null },
-  { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', category: 'financial', stage: 'settlement', hardFail: false, weight: 30 },
-  { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', category: 'financial', stage: 'settlement', hardFail: false, weight: 20 },
-  { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
-  { id: 19, code: '19', name: 'No prior rejected/flagged claim on same vehicle or claimant', category: 'behavioural', stage: 'settlement', hardFail: false, weight: 25 },
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', description: 'Compares claim amount to the claimant’s historical average claim size.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 30 },
+  { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', description: 'Checks salvage or total-loss values for consistency with the claim.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'low', weight: 20 },
+  { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', description: 'Reviews claim frequency for the claimant/vehicle over 12 months.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
+  { id: 19, code: '19', name: 'No prior rejected/flagged claim on same vehicle or claimant', description: 'Surfaces prior rejected or flagged claims on the same vehicle or claimant.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
 ];
 
 export const DEFAULT_WEIGHTS = Object.fromEntries(

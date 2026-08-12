@@ -103,24 +103,10 @@ function render() {
       location.hash = '#/queue';
       return;
     }
-    renderConfig(
-      root,
-      session,
-      weights,
-      weightDraft,
-      configFeedback,
-      (draft, feedback, opts = {}) => {
-        weightDraft = { ...draft };
-        configFeedback = feedback;
-        if (!opts.silent) render();
-      },
-      (saved, feedback) => {
-        weights = saved;
-        weightDraft = { ...saved };
-        configFeedback = feedback;
-        render();
-      }
-    );
+    renderConfig(root, session);
+    // Refresh weights from config store after config interactions
+    weights = getWeights();
+    weightDraft = { ...weights };
   } else {
     location.hash = session ? homeRouteForRole(session.role) : '#/login';
     return;
