@@ -3801,21 +3801,8 @@ function renderDashboard(root, session, claims, state, onChange) {
 
 /* ===== js/views/config.js ===== */
 
-import {
-  ROLE_LABELS,
-  CHECK_DEFINITIONS,
-  CLAIM_STAGES,
-  RISK_CATEGORIES,
-  checkCode,
-} from '../data.js';
 
-import {
-  getConfigStore,
-  getCurrentConfigVersion,
-  getConfigVersionById,
-  commitConfigChange,
-  formatVersionLabel,
-} from '../state.js';
+
 
 function stageName(id) {
   return CLAIM_STAGES.find((s) => s.id === id)?.name || id;
