@@ -457,7 +457,7 @@ function renderModalHtml(currentUseCases) {
         ${
           isLockedSelection
             ? `<p class="modal-copy">This use-case is not enabled for your organisation. Raise a request to Azentio to enable it.</p>`
-            : `<div class="version-notice" role="status">Your changes will be saved as a new version. You’ll select the start date and end date in the next step.</div>
+            : `<div class="version-notice" role="status">Your changes will be saved as a new version.</div>
                <p class="modal-copy">${isAdd ? 'Select an available (green) use-case and set category / weightage.' : 'Update category or weightage.'}</p>`
         }
 
