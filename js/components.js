@@ -67,9 +67,9 @@ export function renderShell(session, active, content, { showMobileNav = true } =
   const nav = links
     .filter((l) => {
       if (l.feature === 'dashboard' || l.feature === 'report') {
-        return session.role === 'claim_head' || session.role === 'admin';
+        return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
-      if (l.feature === 'config') return session.role === 'admin';
+      if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';
       return true;
     })
     .map(

@@ -2195,7 +2195,7 @@ a {
 /* ==== js/data.js ==== */
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
-/** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
 
 const CLAIM_STAGES = [
@@ -2439,12 +2439,21 @@ const USERS = [
     initials: 'SH',
     id: 'u-sara',
   },
+  {
+    username: 'fiu',
+    password: 'demo123',
+    role: /** @type {Role} */ ('fiu'),
+    name: 'Noura Al-Qahtani',
+    initials: 'NQ',
+    id: 'u-noura',
+  },
 ];
 
 const ROLE_LABELS = {
   claim_user: 'Claim User',
   claim_head: 'Claim Head',
   admin: 'Admin',
+  fiu: 'FIU',
 };
 
 const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
@@ -3262,17 +3271,17 @@ function sortChecksForDisplay(results) {
 
 function canAccess(role, feature) {
   const matrix = {
-    queue: ['claim_user', 'claim_head', 'admin'],
-    claim: ['claim_user', 'claim_head', 'admin'],
-    dashboard: ['claim_head', 'admin'],
-    report: ['claim_head', 'admin'],
-    config: ['admin'],
+    queue: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    claim: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    dashboard: ['claim_head', 'admin', 'fiu'],
+    report: ['claim_head', 'admin', 'fiu'],
+    config: ['admin', 'fiu'],
   };
   return (matrix[feature] || []).includes(role);
 }
 
 function homeRouteForRole(role) {
-  if (role === 'admin') return '#/dashboard';
+  if (role === 'admin' || role === 'fiu') return '#/dashboard';
   return '#/queue';
 }
 
@@ -3348,9 +3357,9 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
   const nav = links
     .filter((l) => {
       if (l.feature === 'dashboard' || l.feature === 'report') {
-        return session.role === 'claim_head' || session.role === 'admin';
+        return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
-      if (l.feature === 'config') return session.role === 'admin';
+      if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';
       return true;
     })
     .map(

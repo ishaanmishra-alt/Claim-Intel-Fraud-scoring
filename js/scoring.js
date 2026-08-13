@@ -197,17 +197,17 @@ export function sortChecksForDisplay(results) {
 
 export function canAccess(role, feature) {
   const matrix = {
-    queue: ['claim_user', 'claim_head', 'admin'],
-    claim: ['claim_user', 'claim_head', 'admin'],
-    dashboard: ['claim_head', 'admin'],
-    report: ['claim_head', 'admin'],
-    config: ['admin'],
+    queue: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    claim: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    dashboard: ['claim_head', 'admin', 'fiu'],
+    report: ['claim_head', 'admin', 'fiu'],
+    config: ['admin', 'fiu'],
   };
   return (matrix[feature] || []).includes(role);
 }
 
 export function homeRouteForRole(role) {
-  if (role === 'admin') return '#/dashboard';
+  if (role === 'admin' || role === 'fiu') return '#/dashboard';
   return '#/queue';
 }
 

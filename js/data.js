@@ -1,6 +1,6 @@
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
-/** @typedef {'claim_user'|'claim_head'|'admin'} Role */
+/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
 
 export const CLAIM_STAGES = [
@@ -244,12 +244,21 @@ export const USERS = [
     initials: 'SH',
     id: 'u-sara',
   },
+  {
+    username: 'fiu',
+    password: 'demo123',
+    role: /** @type {Role} */ ('fiu'),
+    name: 'Noura Al-Qahtani',
+    initials: 'NQ',
+    id: 'u-noura',
+  },
 ];
 
 export const ROLE_LABELS = {
   claim_user: 'Claim User',
   claim_head: 'Claim Head',
   admin: 'Admin',
+  fiu: 'FIU',
 };
 
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
