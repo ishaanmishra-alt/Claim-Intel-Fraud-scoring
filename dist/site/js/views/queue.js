@@ -1,10 +1,86 @@
-import { renderShell } from '../components.js';
-import { ROLE_LABELS, WORKFLOW_STAGES, getClaimWorkflowStage, stageDisplayName } from '../data.js';
+import { renderShell, iconChevron } from '../components.js';
+import {
+  ROLE_LABELS,
+  WORKFLOW_STAGES,
+  getClaimWorkflowStage,
+  stageDisplayName,
+  canViewClaimAudit,
+  getClaimAuditLog,
+} from '../data.js';
 import { formatAED, tierLabel } from '../scoring.js';
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatAuditDate(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function auditTableHtml(claim) {
+  const rows = getClaimAuditLog(claim);
+  if (!rows.length) {
+    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
+  }
+  return `
+    <div class="claim-audit-head">
+      <strong>Version audit</strong>
+      <span>${rows.length} change${rows.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="claim-audit-scroll">
+      <table class="claim-audit-table">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Change type</th>
+            <th>Entity</th>
+            <th>Field</th>
+            <th>Old value</th>
+            <th>New value</th>
+            <th>Status</th>
+            <th>Comments</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `
+            <tr>
+              <td class="mono">${esc(r.version)}</td>
+              <td>${esc(formatAuditDate(r.date))}</td>
+              <td class="mono">${esc(r.time)}</td>
+              <td>${esc(r.user)}</td>
+              <td>${esc(r.action)}</td>
+              <td>${esc(r.changeType)}</td>
+              <td>${esc(r.entity)}</td>
+              <td>${esc(r.field)}</td>
+              <td>${esc(r.oldValue)}</td>
+              <td>${esc(r.newValue)}</td>
+              <td><span class="audit-status">${esc(r.status)}</span></td>
+              <td class="audit-comment">${esc(r.comments)}</td>
+            </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
 export function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
-  const { scope, sort, stage = 'all' } = state;
+  const canAudit = canViewClaimAudit(session.role);
+  const { scope, sort, stage = 'all', auditClaimId = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
   const scoped = isSurveyor || scope === 'all' ? pool : mine;
@@ -76,8 +152,9 @@ export function renderQueue(root, session, claims, state, onChange) {
       </div>
     </div>
 
-    <div class="claims-list">
+    <div class="claims-list ${canAudit ? 'has-audit' : ''}">
       <div class="claims-list-head" aria-hidden="true">
+        ${canAudit ? '<span class="audit-col"></span>' : ''}
         <span></span>
         <span>Claim</span>
         <span>Amount</span>
@@ -98,8 +175,8 @@ export function renderQueue(root, session, claims, state, onChange) {
                       ? 'due today'
                       : `due in ${c.dueInDays}d`;
                 const workflow = getClaimWorkflowStage(c);
-                return `
-            <button type="button" class="claim-row" data-claim-id="${c.id}">
+                const open = canAudit && auditClaimId === c.id;
+                const row = `
               <div class="score-circle sm ${c.tier}">${c.score}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
@@ -112,7 +189,29 @@ export function renderQueue(root, session, claims, state, onChange) {
               <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
-            </button>
+            `;
+                if (!canAudit) {
+                  return `<button type="button" class="claim-row" data-claim-id="${c.id}">${row}</button>`;
+                }
+                return `
+            <article class="claim-item ${open ? 'is-open' : ''}">
+              <div class="claim-row-line">
+                <button
+                  type="button"
+                  class="audit-toggle ${open ? 'is-open' : ''}"
+                  data-audit-toggle="${c.id}"
+                  aria-expanded="${open ? 'true' : 'false'}"
+                  aria-controls="audit-${c.id}"
+                  aria-label="Version audit for ${c.id}"
+                >${iconChevron()}</button>
+                <button type="button" class="claim-row" data-claim-id="${c.id}">${row}</button>
+              </div>
+              ${
+                open
+                  ? `<div class="claim-audit" id="audit-${c.id}">${auditTableHtml(c)}</div>`
+                  : `<div class="claim-audit" id="audit-${c.id}" hidden></div>`
+              }
+            </article>
           `;
               })
               .join('')
@@ -131,6 +230,13 @@ export function renderQueue(root, session, claims, state, onChange) {
   });
   root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
     onChange({ ...state, stage: e.target.value });
+  });
+  root.querySelectorAll('[data-audit-toggle]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.auditToggle;
+      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id });
+    });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
     btn.addEventListener('click', () => {

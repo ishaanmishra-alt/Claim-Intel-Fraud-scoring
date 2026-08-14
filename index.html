@@ -595,16 +595,20 @@ a {
   color: var(--text-muted);
 }
 
-.claims-list-head span:nth-child(3) {
+.claims-list.has-audit .claims-list-head {
+  grid-template-columns: 32px 56px 1fr auto auto 110px auto;
+}
+
+.claims-list-head span:nth-last-child(4) {
   text-align: right;
 }
 
-.claims-list-head span:nth-child(4),
-.claims-list-head span:nth-child(5) {
+.claims-list-head span:nth-last-child(3),
+.claims-list-head span:nth-last-child(2) {
   text-align: center;
 }
 
-.claims-list-head span:nth-child(6) {
+.claims-list-head span:nth-last-child(1) {
   text-align: right;
 }
 
@@ -622,6 +626,144 @@ a {
 .claim-row:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow);
+}
+
+.claim-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.claim-row-line {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: stretch;
+}
+
+.audit-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.audit-toggle:hover {
+  color: var(--navy-deep);
+  background: var(--navy-soft);
+}
+
+.audit-toggle.is-open {
+  color: var(--navy-deep);
+  background: var(--navy-soft);
+}
+
+.audit-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.audit-toggle.is-open svg {
+  transform: rotate(90deg);
+}
+
+.claim-item .claim-row {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.claim-item.is-open .claim-row {
+  border-radius: 0 var(--radius) 0 0;
+}
+
+.claim-item.is-open .audit-toggle {
+  border-radius: var(--radius) 0 0 0;
+}
+
+.claim-audit {
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface-muted);
+}
+
+.claim-audit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.claim-audit-head strong {
+  color: var(--navy-deep);
+  font-size: 0.85rem;
+}
+
+.claim-audit-scroll {
+  overflow-x: auto;
+  padding: 0 10px 12px;
+}
+
+.claim-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 980px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.claim-audit-table th,
+.claim-audit-table td {
+  padding: 7px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.claim-audit-table th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: #f8fbf9;
+}
+
+.claim-audit-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.claim-audit-table .mono {
+  font-family: var(--mono);
+}
+
+.claim-audit-table .audit-comment {
+  white-space: normal;
+  min-width: 180px;
+  color: var(--text-secondary);
+}
+
+.audit-status {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--green-bg);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.claim-audit-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .score-circle {
@@ -1293,7 +1435,8 @@ a {
     display: none;
   }
 
-  .claim-row {
+  .claim-row,
+  .claims-list.has-audit .claim-row {
     grid-template-columns: 48px 1fr;
     gap: 12px;
   }
@@ -2781,6 +2924,12 @@ const ROLE_LABELS = {
   surveyor: 'Surveyor',
 };
 
+const CLAIM_AUDIT_ROLES = new Set(['claim_head', 'admin', 'fiu']);
+
+function canViewClaimAudit(role) {
+  return CLAIM_AUDIT_ROLES.has(role);
+}
+
 const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
 /** Display label for claim-detail stage blocks (id stays assessment). */
@@ -3122,6 +3271,16 @@ function submitSurveyorAssessment(claimId) {
     return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
   }
   claim.surveyorSubmitted = true;
+  appendClaimAudit(claimId, {
+    user: 'Hassan Al-Falasi',
+    action: 'Submitted',
+    changeType: 'Status',
+    entity: 'Stage',
+    field: 'Claim stage',
+    oldValue: 'Surveyor',
+    newValue: 'Settlement',
+    comments: 'Surveyor documents submitted for further scoring.',
+  });
   return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
 }
 
@@ -3186,12 +3345,13 @@ function seedDocuments(claim, overrides = {}) {
   return docs;
 }
 
-function mockUploadClaimDocument(claimId, docId) {
+function mockUploadClaimDocument(claimId, docId, actor) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   const def = DOCUMENT_CATALOG.find((d) => d.id === docId);
   if (!claim || !def) return null;
   const pdf = def.kind === 'pdf';
   const count = def.minCount || 1;
+  const prev = claim.documents?.[docId];
   claim.documents = claim.documents || {};
   claim.documents[docId] = {
     status: 'uploaded',
@@ -3200,6 +3360,16 @@ function mockUploadClaimDocument(claimId, docId) {
     note: 'Uploaded in Claim Intel (demo).',
     count,
   };
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Uploaded',
+    changeType: 'Upload',
+    entity: 'Document',
+    field: def.name,
+    oldValue: prev?.filename || 'Missing',
+    newValue: claim.documents[docId].filename,
+    comments: `Document captured at ${stageDisplayName(def.stage)}.`,
+  });
   return claim.documents[docId];
 }
 
@@ -3709,6 +3879,259 @@ const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
   return claim;
 });
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatAuditAmount(amount) {
+  return `AED ${Number(amount).toLocaleString('en-US')}`;
+}
+
+function nextAuditStamp() {
+  const seq = (nextAuditStamp.seq = (nextAuditStamp.seq || 0) + 1);
+  const mins = 15 + seq;
+  return { date: '2026-08-14', time: `${pad2(16 + Math.floor(mins / 60))}:${pad2(mins % 60)}` };
+}
+
+function versionedAudit(entries) {
+  return entries.map((row, i) => ({
+    version: `v${i + 1}`,
+    status: row.status || 'Completed',
+    comments: row.comments || '',
+    oldValue: row.oldValue ?? '—',
+    newValue: row.newValue ?? '—',
+    entity: row.entity || 'Claim',
+    ...row,
+    version: `v${i + 1}`,
+  }));
+}
+
+function buildSeedAudit(claim) {
+  const filed = claim.filedAt;
+  const handler = claim.assignedName || 'Fatima Al-Najjar';
+  const salt = claim.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const hour = 8 + (salt % 3);
+  const rows = [];
+  const stage = getClaimWorkflowStage(claim);
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:12`,
+    user: 'Claim Intel',
+    action: 'Created',
+    changeType: 'Create',
+    entity: 'Claim',
+    field: 'Claim number',
+    oldValue: '—',
+    newValue: claim.id,
+    comments: `FNOL ingested for ${claim.claimant}.`,
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:18`,
+    user: 'Khalid Al-Mansouri',
+    action: 'Assigned',
+    changeType: 'Assignment',
+    entity: 'Claim',
+    field: 'Assigned to',
+    oldValue: 'Unassigned',
+    newValue: handler,
+    comments: 'Routed to claims handler.',
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:21`,
+    user: handler,
+    action: 'Updated',
+    changeType: 'Update',
+    entity: 'Claim',
+    field: 'Claim amount',
+    oldValue: '—',
+    newValue: formatAuditAmount(claim.amount),
+    comments: 'Reserve captured from FNOL.',
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:24`,
+    user: handler,
+    action: 'Updated',
+    changeType: 'Status',
+    entity: 'Stage',
+    field: 'Claim stage',
+    oldValue: '—',
+    newValue: 'FNOL',
+    comments: 'Claim opened at FNOL.',
+  });
+
+  const docs = getStageDocumentRows(claim, 'fnol')
+    .concat(getStageDocumentRows(claim, 'intimation'))
+    .concat(getStageDocumentRows(claim, 'assessment'))
+    .concat(getStageDocumentRows(claim, 'settlement'))
+    .filter((row) => row.displayStatus !== 'missing');
+
+  docs.forEach((row, i) => {
+    const day = shiftDate(filed, row.def.stage === 'fnol' ? 0 : row.def.stage === 'intimation' ? 1 : 2);
+    const statusLabel =
+      row.displayStatus === 'waived'
+        ? 'Waived'
+        : row.displayStatus === 'already_on_file'
+          ? 'Already on file'
+          : row.rec.filename || 'Uploaded';
+    rows.push({
+      date: day,
+      time: `${pad2(hour + 1)}:${pad2(10 + (i % 40))}`,
+      user: row.def.stage === 'assessment' ? 'Hassan Al-Falasi' : handler,
+      action: row.displayStatus === 'waived' ? 'Waived' : 'Uploaded',
+      changeType: row.displayStatus === 'waived' ? 'Update' : 'Upload',
+      entity: 'Document',
+      field: row.def.name,
+      oldValue: 'Missing',
+      newValue: statusLabel,
+      comments: row.rec.note || `Document recorded at ${stageDisplayName(row.def.stage)}.`,
+    });
+  });
+
+  if (hasStageDocsComplete(claim, 'fnol') && (stage === 'intimation' || stage === 'assessment' || stage === 'settlement')) {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:05`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'FNOL',
+      newValue: 'Intimation',
+      comments: 'FNOL documents complete — moved to Intimation.',
+    });
+  }
+
+  if (hasStageDocsComplete(claim, 'intimation') && (stage === 'assessment' || stage === 'settlement')) {
+    rows.push({
+      date: shiftDate(filed, 2),
+      time: `${pad2(hour + 2)}:16`,
+      user: 'Khalid Al-Mansouri',
+      action: 'Assigned',
+      changeType: 'Assignment',
+      entity: 'Stage',
+      field: 'Surveyor',
+      oldValue: '—',
+      newValue: 'Hassan Al-Falasi',
+      comments: 'Surveyor assigned after Intimation.',
+    });
+    rows.push({
+      date: shiftDate(filed, 2),
+      time: `${pad2(hour + 2)}:17`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'Intimation',
+      newValue: 'Surveyor',
+      comments: 'Claim released to surveyor.',
+    });
+  }
+
+  if (claim.surveyorSubmitted) {
+    rows.push({
+      date: shiftDate(filed, 3),
+      time: `${pad2(hour + 2)}:48`,
+      user: 'Hassan Al-Falasi',
+      action: 'Submitted',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'Surveyor',
+      newValue: 'Settlement',
+      comments: 'Surveyor pack submitted for further scoring.',
+    });
+  }
+
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail').length;
+  const cant = (claim.checks || []).filter((c) => c.state === 'cant_evaluate').length;
+  rows.push({
+    date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
+    time: `${pad2(hour + 3)}:02`,
+    user: 'Claim Intel',
+    action: 'Scored',
+    changeType: 'Score',
+    entity: 'Score',
+    field: 'Fraud risk score',
+    oldValue: '—',
+    newValue: 'Published',
+    comments: `${failed} failed check${failed === 1 ? '' : 's'}${cant ? ` · ${cant} could not be evaluated` : ''}.`,
+  });
+
+  if (failed >= 3) {
+    rows.push({
+      date: shiftDate(filed, 3),
+      time: `${pad2(hour + 3)}:40`,
+      user: 'Noura Al-Qahtani',
+      action: 'Reviewed',
+      changeType: 'Review',
+      entity: 'Claim',
+      field: 'FIU flag',
+      oldValue: 'Clear',
+      newValue: 'Flagged',
+      comments: 'Escalated for investigation on repeated soft fails.',
+    });
+  }
+
+  if (claim.amount > 80000) {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:55`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Update',
+      entity: 'Claim',
+      field: 'Claim amount',
+      oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
+      newValue: formatAuditAmount(claim.amount),
+      comments: 'Reserve revised after garage estimate.',
+    });
+  }
+
+  rows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  return versionedAudit(rows);
+}
+
+RAW_CLAIMS.forEach((claim) => {
+  claim.auditLog = buildSeedAudit(claim);
+});
+
+function getClaimAuditLog(claim) {
+  const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
+  return raw?.auditLog || [];
+}
+
+function appendClaimAudit(claimId, partial) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return;
+  if (!claim.auditLog) claim.auditLog = [];
+  const stamp = nextAuditStamp();
+  claim.auditLog.push({
+    version: `v${claim.auditLog.length + 1}`,
+    date: stamp.date,
+    time: stamp.time,
+    user: 'Demo user',
+    action: 'Updated',
+    changeType: 'Update',
+    entity: 'Claim',
+    field: '—',
+    oldValue: '—',
+    newValue: '—',
+    status: 'Completed',
+    comments: '',
+    ...partial,
+    version: `v${claim.auditLog.length + 1}`,
+  });
+}
 
 const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
@@ -4284,6 +4707,10 @@ function iconClose() {
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
+function iconChevron() {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 function renderShell(session, active, content, { showMobileNav = true } = {}) {
   const links = [
     { hash: '#/queue', label: 'Claims', feature: 'queue' },
@@ -4447,9 +4874,78 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
 
 
 /* ==== js/views/queue.js ==== */
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatAuditDate(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function auditTableHtml(claim) {
+  const rows = getClaimAuditLog(claim);
+  if (!rows.length) {
+    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
+  }
+  return `
+    <div class="claim-audit-head">
+      <strong>Version audit</strong>
+      <span>${rows.length} change${rows.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="claim-audit-scroll">
+      <table class="claim-audit-table">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Change type</th>
+            <th>Entity</th>
+            <th>Field</th>
+            <th>Old value</th>
+            <th>New value</th>
+            <th>Status</th>
+            <th>Comments</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `
+            <tr>
+              <td class="mono">${esc(r.version)}</td>
+              <td>${esc(formatAuditDate(r.date))}</td>
+              <td class="mono">${esc(r.time)}</td>
+              <td>${esc(r.user)}</td>
+              <td>${esc(r.action)}</td>
+              <td>${esc(r.changeType)}</td>
+              <td>${esc(r.entity)}</td>
+              <td>${esc(r.field)}</td>
+              <td>${esc(r.oldValue)}</td>
+              <td>${esc(r.newValue)}</td>
+              <td><span class="audit-status">${esc(r.status)}</span></td>
+              <td class="audit-comment">${esc(r.comments)}</td>
+            </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
-  const { scope, sort, stage = 'all' } = state;
+  const canAudit = canViewClaimAudit(session.role);
+  const { scope, sort, stage = 'all', auditClaimId = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
   const scoped = isSurveyor || scope === 'all' ? pool : mine;
@@ -4521,8 +5017,9 @@ function renderQueue(root, session, claims, state, onChange) {
       </div>
     </div>
 
-    <div class="claims-list">
+    <div class="claims-list ${canAudit ? 'has-audit' : ''}">
       <div class="claims-list-head" aria-hidden="true">
+        ${canAudit ? '<span class="audit-col"></span>' : ''}
         <span></span>
         <span>Claim</span>
         <span>Amount</span>
@@ -4543,8 +5040,8 @@ function renderQueue(root, session, claims, state, onChange) {
                       ? 'due today'
                       : `due in ${c.dueInDays}d`;
                 const workflow = getClaimWorkflowStage(c);
-                return `
-            <button type="button" class="claim-row" data-claim-id="${c.id}">
+                const open = canAudit && auditClaimId === c.id;
+                const row = `
               <div class="score-circle sm ${c.tier}">${c.score}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
@@ -4557,7 +5054,29 @@ function renderQueue(root, session, claims, state, onChange) {
               <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
-            </button>
+            `;
+                if (!canAudit) {
+                  return `<button type="button" class="claim-row" data-claim-id="${c.id}">${row}</button>`;
+                }
+                return `
+            <article class="claim-item ${open ? 'is-open' : ''}">
+              <div class="claim-row-line">
+                <button
+                  type="button"
+                  class="audit-toggle ${open ? 'is-open' : ''}"
+                  data-audit-toggle="${c.id}"
+                  aria-expanded="${open ? 'true' : 'false'}"
+                  aria-controls="audit-${c.id}"
+                  aria-label="Version audit for ${c.id}"
+                >${iconChevron()}</button>
+                <button type="button" class="claim-row" data-claim-id="${c.id}">${row}</button>
+              </div>
+              ${
+                open
+                  ? `<div class="claim-audit" id="audit-${c.id}">${auditTableHtml(c)}</div>`
+                  : `<div class="claim-audit" id="audit-${c.id}" hidden></div>`
+              }
+            </article>
           `;
               })
               .join('')
@@ -4576,6 +5095,13 @@ function renderQueue(root, session, claims, state, onChange) {
   });
   root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
     onChange({ ...state, stage: e.target.value });
+  });
+  root.querySelectorAll('[data-audit-toggle]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.auditToggle;
+      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id });
+    });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -5006,7 +5532,7 @@ function renderClaimDetail(
   root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      mockUploadClaimDocument(claim.id, btn.dataset.docId);
+      mockUploadClaimDocument(claim.id, btn.dataset.docId, session);
       persist(filter);
     });
   });
@@ -6258,7 +6784,7 @@ function renderReport(root, session, claims) {
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
-let queueState = { scope: 'mine', sort: 'risk', stage: 'all' };
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume' }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };

@@ -270,6 +270,12 @@ export const ROLE_LABELS = {
   surveyor: 'Surveyor',
 };
 
+const CLAIM_AUDIT_ROLES = new Set(['claim_head', 'admin', 'fiu']);
+
+export function canViewClaimAudit(role) {
+  return CLAIM_AUDIT_ROLES.has(role);
+}
+
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
 /** Display label for claim-detail stage blocks (id stays assessment). */
@@ -611,6 +617,16 @@ export function submitSurveyorAssessment(claimId) {
     return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
   }
   claim.surveyorSubmitted = true;
+  appendClaimAudit(claimId, {
+    user: 'Hassan Al-Falasi',
+    action: 'Submitted',
+    changeType: 'Status',
+    entity: 'Stage',
+    field: 'Claim stage',
+    oldValue: 'Surveyor',
+    newValue: 'Settlement',
+    comments: 'Surveyor documents submitted for further scoring.',
+  });
   return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
 }
 
@@ -675,12 +691,13 @@ function seedDocuments(claim, overrides = {}) {
   return docs;
 }
 
-export function mockUploadClaimDocument(claimId, docId) {
+export function mockUploadClaimDocument(claimId, docId, actor) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   const def = DOCUMENT_CATALOG.find((d) => d.id === docId);
   if (!claim || !def) return null;
   const pdf = def.kind === 'pdf';
   const count = def.minCount || 1;
+  const prev = claim.documents?.[docId];
   claim.documents = claim.documents || {};
   claim.documents[docId] = {
     status: 'uploaded',
@@ -689,6 +706,16 @@ export function mockUploadClaimDocument(claimId, docId) {
     note: 'Uploaded in Claim Intel (demo).',
     count,
   };
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Uploaded',
+    changeType: 'Upload',
+    entity: 'Document',
+    field: def.name,
+    oldValue: prev?.filename || 'Missing',
+    newValue: claim.documents[docId].filename,
+    comments: `Document captured at ${stageDisplayName(def.stage)}.`,
+  });
   return claim.documents[docId];
 }
 
@@ -1198,6 +1225,259 @@ export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
   return claim;
 });
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatAuditAmount(amount) {
+  return `AED ${Number(amount).toLocaleString('en-US')}`;
+}
+
+function nextAuditStamp() {
+  const seq = (nextAuditStamp.seq = (nextAuditStamp.seq || 0) + 1);
+  const mins = 15 + seq;
+  return { date: '2026-08-14', time: `${pad2(16 + Math.floor(mins / 60))}:${pad2(mins % 60)}` };
+}
+
+function versionedAudit(entries) {
+  return entries.map((row, i) => ({
+    version: `v${i + 1}`,
+    status: row.status || 'Completed',
+    comments: row.comments || '',
+    oldValue: row.oldValue ?? '—',
+    newValue: row.newValue ?? '—',
+    entity: row.entity || 'Claim',
+    ...row,
+    version: `v${i + 1}`,
+  }));
+}
+
+function buildSeedAudit(claim) {
+  const filed = claim.filedAt;
+  const handler = claim.assignedName || 'Fatima Al-Najjar';
+  const salt = claim.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const hour = 8 + (salt % 3);
+  const rows = [];
+  const stage = getClaimWorkflowStage(claim);
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:12`,
+    user: 'Claim Intel',
+    action: 'Created',
+    changeType: 'Create',
+    entity: 'Claim',
+    field: 'Claim number',
+    oldValue: '—',
+    newValue: claim.id,
+    comments: `FNOL ingested for ${claim.claimant}.`,
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:18`,
+    user: 'Khalid Al-Mansouri',
+    action: 'Assigned',
+    changeType: 'Assignment',
+    entity: 'Claim',
+    field: 'Assigned to',
+    oldValue: 'Unassigned',
+    newValue: handler,
+    comments: 'Routed to claims handler.',
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:21`,
+    user: handler,
+    action: 'Updated',
+    changeType: 'Update',
+    entity: 'Claim',
+    field: 'Claim amount',
+    oldValue: '—',
+    newValue: formatAuditAmount(claim.amount),
+    comments: 'Reserve captured from FNOL.',
+  });
+
+  rows.push({
+    date: filed,
+    time: `${pad2(hour)}:24`,
+    user: handler,
+    action: 'Updated',
+    changeType: 'Status',
+    entity: 'Stage',
+    field: 'Claim stage',
+    oldValue: '—',
+    newValue: 'FNOL',
+    comments: 'Claim opened at FNOL.',
+  });
+
+  const docs = getStageDocumentRows(claim, 'fnol')
+    .concat(getStageDocumentRows(claim, 'intimation'))
+    .concat(getStageDocumentRows(claim, 'assessment'))
+    .concat(getStageDocumentRows(claim, 'settlement'))
+    .filter((row) => row.displayStatus !== 'missing');
+
+  docs.forEach((row, i) => {
+    const day = shiftDate(filed, row.def.stage === 'fnol' ? 0 : row.def.stage === 'intimation' ? 1 : 2);
+    const statusLabel =
+      row.displayStatus === 'waived'
+        ? 'Waived'
+        : row.displayStatus === 'already_on_file'
+          ? 'Already on file'
+          : row.rec.filename || 'Uploaded';
+    rows.push({
+      date: day,
+      time: `${pad2(hour + 1)}:${pad2(10 + (i % 40))}`,
+      user: row.def.stage === 'assessment' ? 'Hassan Al-Falasi' : handler,
+      action: row.displayStatus === 'waived' ? 'Waived' : 'Uploaded',
+      changeType: row.displayStatus === 'waived' ? 'Update' : 'Upload',
+      entity: 'Document',
+      field: row.def.name,
+      oldValue: 'Missing',
+      newValue: statusLabel,
+      comments: row.rec.note || `Document recorded at ${stageDisplayName(row.def.stage)}.`,
+    });
+  });
+
+  if (hasStageDocsComplete(claim, 'fnol') && (stage === 'intimation' || stage === 'assessment' || stage === 'settlement')) {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:05`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'FNOL',
+      newValue: 'Intimation',
+      comments: 'FNOL documents complete — moved to Intimation.',
+    });
+  }
+
+  if (hasStageDocsComplete(claim, 'intimation') && (stage === 'assessment' || stage === 'settlement')) {
+    rows.push({
+      date: shiftDate(filed, 2),
+      time: `${pad2(hour + 2)}:16`,
+      user: 'Khalid Al-Mansouri',
+      action: 'Assigned',
+      changeType: 'Assignment',
+      entity: 'Stage',
+      field: 'Surveyor',
+      oldValue: '—',
+      newValue: 'Hassan Al-Falasi',
+      comments: 'Surveyor assigned after Intimation.',
+    });
+    rows.push({
+      date: shiftDate(filed, 2),
+      time: `${pad2(hour + 2)}:17`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'Intimation',
+      newValue: 'Surveyor',
+      comments: 'Claim released to surveyor.',
+    });
+  }
+
+  if (claim.surveyorSubmitted) {
+    rows.push({
+      date: shiftDate(filed, 3),
+      time: `${pad2(hour + 2)}:48`,
+      user: 'Hassan Al-Falasi',
+      action: 'Submitted',
+      changeType: 'Status',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: 'Surveyor',
+      newValue: 'Settlement',
+      comments: 'Surveyor pack submitted for further scoring.',
+    });
+  }
+
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail').length;
+  const cant = (claim.checks || []).filter((c) => c.state === 'cant_evaluate').length;
+  rows.push({
+    date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
+    time: `${pad2(hour + 3)}:02`,
+    user: 'Claim Intel',
+    action: 'Scored',
+    changeType: 'Score',
+    entity: 'Score',
+    field: 'Fraud risk score',
+    oldValue: '—',
+    newValue: 'Published',
+    comments: `${failed} failed check${failed === 1 ? '' : 's'}${cant ? ` · ${cant} could not be evaluated` : ''}.`,
+  });
+
+  if (failed >= 3) {
+    rows.push({
+      date: shiftDate(filed, 3),
+      time: `${pad2(hour + 3)}:40`,
+      user: 'Noura Al-Qahtani',
+      action: 'Reviewed',
+      changeType: 'Review',
+      entity: 'Claim',
+      field: 'FIU flag',
+      oldValue: 'Clear',
+      newValue: 'Flagged',
+      comments: 'Escalated for investigation on repeated soft fails.',
+    });
+  }
+
+  if (claim.amount > 80000) {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:55`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Update',
+      entity: 'Claim',
+      field: 'Claim amount',
+      oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
+      newValue: formatAuditAmount(claim.amount),
+      comments: 'Reserve revised after garage estimate.',
+    });
+  }
+
+  rows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  return versionedAudit(rows);
+}
+
+RAW_CLAIMS.forEach((claim) => {
+  claim.auditLog = buildSeedAudit(claim);
+});
+
+export function getClaimAuditLog(claim) {
+  const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
+  return raw?.auditLog || [];
+}
+
+export function appendClaimAudit(claimId, partial) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return;
+  if (!claim.auditLog) claim.auditLog = [];
+  const stamp = nextAuditStamp();
+  claim.auditLog.push({
+    version: `v${claim.auditLog.length + 1}`,
+    date: stamp.date,
+    time: stamp.time,
+    user: 'Demo user',
+    action: 'Updated',
+    changeType: 'Update',
+    entity: 'Claim',
+    field: '—',
+    oldValue: '—',
+    newValue: '—',
+    status: 'Completed',
+    comments: '',
+    ...partial,
+    version: `v${claim.auditLog.length + 1}`,
+  });
+}
 
 export const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },

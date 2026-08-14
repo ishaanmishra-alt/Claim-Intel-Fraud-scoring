@@ -10,7 +10,7 @@ import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
-let queueState = { scope: 'mine', sort: 'risk', stage: 'all' };
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume' }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };

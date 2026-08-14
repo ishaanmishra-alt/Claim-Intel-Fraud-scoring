@@ -433,7 +433,7 @@ export function renderClaimDetail(
   root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      mockUploadClaimDocument(claim.id, btn.dataset.docId);
+      mockUploadClaimDocument(claim.id, btn.dataset.docId, session);
       persist(filter);
     });
   });
