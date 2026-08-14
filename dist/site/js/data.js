@@ -1453,7 +1453,11 @@ RAW_CLAIMS.forEach((claim) => {
 
 export function getClaimAuditLog(claim) {
   const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
-  return raw?.auditLog || [];
+  return [...(raw?.auditLog || [])].sort((a, b) => {
+    const byWhen = `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`);
+    if (byWhen) return byWhen;
+    return parseInt(String(b.version).replace(/\D/g, ''), 10) - parseInt(String(a.version).replace(/\D/g, ''), 10);
+  });
 }
 
 export function appendClaimAudit(claimId, partial) {
