@@ -6,6 +6,7 @@ import {
   stageDisplayName,
   canViewClaimAudit,
   getClaimAuditLog,
+  getPendingExceptions,
 } from '../data.js';
 import { formatAED, tierLabel } from '../scoring.js';
 
@@ -182,6 +183,7 @@ export function renderQueue(root, session, claims, state, onChange) {
                 <div class="claim-id-line">
                   <span class="claim-id">${c.id}</span>
                   ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
+                  ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>

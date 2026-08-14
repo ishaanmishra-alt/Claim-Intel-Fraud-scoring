@@ -18,6 +18,8 @@ let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 let claimFilter = 'all';
 let claimDrawerOpen = false;
 let claimStageTab = null;
+let claimExceptionPanel = null;
+let claimExceptionNotice = null;
 let lastClaimId = null;
 let weights = getWeights();
 let weightDraft = { ...weights };
@@ -78,6 +80,8 @@ function render() {
       claimFilter = 'all';
       claimDrawerOpen = false;
       claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+      claimExceptionPanel = null;
+      claimExceptionNotice = null;
     }
     const claim = claims.find((c) => c.id === id);
     renderClaimDetail(
@@ -89,9 +93,16 @@ function render() {
         claimFilter = f;
         claimDrawerOpen = !!opts.drawerOpen;
         if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
+        if (opts.exceptionPanel !== undefined) claimExceptionPanel = opts.exceptionPanel;
+        if (opts.exceptionNotice !== undefined) claimExceptionNotice = opts.exceptionNotice;
         render();
       },
-      { drawerOpen: claimDrawerOpen, selectedStage: claimStageTab }
+      {
+        drawerOpen: claimDrawerOpen,
+        selectedStage: claimStageTab,
+        exceptionPanel: claimExceptionPanel,
+        exceptionNotice: claimExceptionNotice,
+      }
     );
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
@@ -133,6 +144,8 @@ window.addEventListener('hashchange', () => {
     claimFilter = 'all';
     claimDrawerOpen = false;
     claimStageTab = null;
+    claimExceptionPanel = null;
+    claimExceptionNotice = null;
     lastClaimId = null;
   }
   render();

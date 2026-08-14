@@ -245,6 +245,12 @@ a {
   width: 100%;
 }
 
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+
 .login-error {
   background: var(--red-bg);
   border: 1px solid var(--red-border);
@@ -1059,6 +1065,10 @@ a {
   border-left: 3px solid var(--green);
 }
 
+.check-row.waived {
+  border-left: 3px solid var(--accent);
+}
+
 .check-state-icon {
   width: 22px;
   height: 22px;
@@ -1081,6 +1091,11 @@ a {
 .check-state-icon.cant_evaluate {
   background: var(--amber-bg);
   color: var(--amber);
+}
+
+.check-state-icon.waived {
+  background: var(--navy-soft);
+  color: var(--navy);
 }
 
 .check-body .check-name {
@@ -2643,6 +2658,97 @@ button.stage-chip.is-active {
   min-width: 220px;
 }
 
+.exception-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.exception-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exception-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.exception-status.is-pending {
+  color: #b45309;
+}
+
+.exception-status.is-back {
+  color: var(--red);
+}
+
+.exception-note,
+.exception-lead,
+.exception-evidence {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.exception-panel {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--navy-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exception-panel strong {
+  color: var(--navy-deep);
+  font-size: 0.85rem;
+}
+
+.exception-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.exception-panel label,
+.exception-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.exception-panel input,
+.exception-panel textarea {
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.exception-panel textarea {
+  resize: vertical;
+  min-height: 56px;
+}
+
+.tier-label .tag {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 
   </style>
 </head>
@@ -2652,7 +2758,7 @@ button.stage-chip.is-active {
 (function () {
 
 /* ==== js/data.js ==== */
-/** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
+/** @typedef {'pass'|'fail'|'cant_evaluate'|'waived'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'|'surveyor'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
@@ -3394,6 +3500,27 @@ function shiftDate(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
+function parseVehicle(vehicle) {
+  const raw = String(vehicle || '');
+  const [left, colourPart] = raw.split('·').map((s) => s.trim());
+  const yearMatch = (left || '').match(/(\d{4})$/);
+  const year = yearMatch ? yearMatch[1] : '';
+  const rest = (left || '').replace(/\s+\d{4}$/, '').trim();
+  const parts = rest.split(' ').filter(Boolean);
+  return {
+    make: parts[0] || '',
+    model: parts.slice(1).join(' '),
+    year,
+    colour: colourPart || '',
+  };
+}
+
+function composeVehicle(claim) {
+  const year = claim.vehicleYear ? ` ${claim.vehicleYear}` : '';
+  const colour = claim.vehicleColour ? ` · ${claim.vehicleColour}` : '';
+  return `${claim.vehicleMake || ''} ${claim.vehicleModel || ''}${year}${colour}`.replace(/\s+/g, ' ').trim();
+}
+
 const BRANCH_PREFIX = {
   Dubai: 'DXB',
   'Abu Dhabi': 'AUH',
@@ -3438,7 +3565,9 @@ const RAW_CLAIMS_BASE = [
     filedAt: '2026-08-02',
     dueInDays: 3,
     plate: 'AD 12-88421',
+    policyPlate: 'AD 12-77109',
     vehicle: 'BMW X5 2023 · Black',
+    policyColour: 'Silver',
     checks: buildChecks({
       1: { state: 'fail', evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421' },
       5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
@@ -3473,6 +3602,7 @@ const RAW_CLAIMS_BASE = [
     dueInDays: 7,
     plate: 'SHJ 6-33011',
     vehicle: 'Lexus RX 2020 · Pearl',
+    lossDate: '2026-06-27',
     checks: buildChecks({
       8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
       10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
@@ -3493,6 +3623,9 @@ const RAW_CLAIMS_BASE = [
     dueInDays: 4,
     plate: 'AD 1-55210',
     vehicle: 'Mercedes GLE 2024 · White',
+    lossDate: '2026-07-20',
+    policyStart: '2026-07-16',
+    sumInsured: 88000,
     checks: buildChecks({
       14: { state: 'fail', evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500' },
       6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
@@ -3869,11 +4002,29 @@ const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
     claimType: meta.claimType,
     towed: !!meta.towed,
     policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
-    lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
-    sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+    lossDate: c.lossDate || shiftDate(c.filedAt, -(1 + (i % 3))),
+    sumInsured: c.sumInsured || Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
     garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
     lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
   };
+  const parsed = parseVehicle(claim.vehicle);
+  claim.vin = c.vin || `WBA${String(784100 + i * 17).slice(-8)}CH${String(i).padStart(2, '0')}`;
+  claim.policyVin = c.policyVin || claim.vin;
+  claim.policyPlate = c.policyPlate || claim.plate;
+  claim.policyholder = c.policyholder || claim.claimant;
+  claim.vehicleMake = parsed.make;
+  claim.vehicleModel = parsed.model;
+  claim.vehicleYear = parsed.year;
+  claim.vehicleColour = parsed.colour;
+  claim.policyMake = c.policyMake || parsed.make;
+  claim.policyModel = c.policyModel || parsed.model;
+  claim.policyColour = c.policyColour || parsed.colour;
+  claim.policyStart = c.policyStart || shiftDate(claim.filedAt, -200);
+  claim.policyEnd = c.policyEnd || shiftDate(claim.filedAt, 165);
+  claim.usualArea = c.usualArea || `${claim.branch} registered area`;
+  claim.exceptions = [];
+  claim.waivedCheckIds = [];
+  claim.dispositions = {};
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
   const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
@@ -4137,6 +4288,340 @@ function appendClaimAudit(claimId, partial) {
   });
 }
 
+const CLAIM_RUNTIME_KEY = 'claim-intel-claim-runtime-v1';
+
+const RUNTIME_FIELDS = [
+  'plate',
+  'policyPlate',
+  'vin',
+  'policyVin',
+  'policyNumber',
+  'lossDate',
+  'filedAt',
+  'policyStart',
+  'policyEnd',
+  'claimant',
+  'policyholder',
+  'vehicleMake',
+  'vehicleModel',
+  'vehicleYear',
+  'vehicleColour',
+  'policyMake',
+  'policyModel',
+  'policyColour',
+  'vehicle',
+  'garage',
+  'amount',
+  'sumInsured',
+  'lossLocation',
+  'usualArea',
+];
+
+const NUMBER_FIELDS = new Set(['amount', 'sumInsured']);
+
+/** Fields a Resolve action may edit, keyed by use-case id. */
+const EXCEPTION_FIELD_MAP = {
+  1: [
+    { key: 'plate', label: 'Claim plate' },
+    { key: 'policyPlate', label: 'Policy plate' },
+  ],
+  2: [
+    { key: 'vin', label: 'Claim VIN / chassis' },
+    { key: 'policyVin', label: 'Policy VIN / chassis' },
+  ],
+  3: [
+    { key: 'policyNumber', label: 'Policy number' },
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Policy start', type: 'date' },
+    { key: 'policyEnd', label: 'Policy end', type: 'date' },
+  ],
+  4: [
+    { key: 'claimant', label: 'Claimant / driver' },
+    { key: 'policyholder', label: 'Policyholder' },
+  ],
+  5: [
+    { key: 'vehicleMake', label: 'Claim make' },
+    { key: 'vehicleModel', label: 'Claim model' },
+    { key: 'vehicleColour', label: 'Claim colour' },
+    { key: 'policyMake', label: 'Policy make' },
+    { key: 'policyModel', label: 'Policy model' },
+    { key: 'policyColour', label: 'Policy colour' },
+  ],
+  6: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Policy start', type: 'date' },
+  ],
+  7: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyEnd', label: 'Policy end', type: 'date' },
+  ],
+  8: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'filedAt', label: 'Reported date', type: 'date' },
+  ],
+  9: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Endorsement / policy start', type: 'date' },
+  ],
+  10: [{ key: 'garage', label: 'Garage' }],
+  11: [{ key: 'garage', label: 'Garage' }],
+  12: [{ key: 'amount', label: 'Repair estimate (AED)', type: 'number' }],
+  13: [{ key: 'garage', label: 'Garage' }],
+  14: [
+    { key: 'amount', label: 'Claim amount (AED)', type: 'number' },
+    { key: 'sumInsured', label: 'Sum insured / IDV (AED)', type: 'number' },
+  ],
+  15: [{ key: 'amount', label: 'Claim amount (AED)', type: 'number' }],
+  16: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'plate', label: 'Plate' },
+  ],
+  17: [{ key: 'amount', label: 'Claim amount (AED)', type: 'number' }],
+  18: [{ key: 'claimant', label: 'Claimant' }],
+  19: [{ key: 'claimant', label: 'Claimant' }],
+  20: [
+    { key: 'lossLocation', label: 'Loss location' },
+    { key: 'usualArea', label: 'Registered / usual area' },
+  ],
+};
+
+function getExceptionFields(checkId) {
+  return EXCEPTION_FIELD_MAP[Number(checkId)] || [];
+}
+
+function isCheckerRole(role) {
+  return role === 'claim_head' || role === 'admin' || role === 'fiu';
+}
+
+function getPendingExceptions(claim) {
+  return (claim?.exceptions || []).filter((e) => e.status === 'pending');
+}
+
+function latestExceptionForCheck(claim, checkId) {
+  const id = Number(checkId);
+  const list = (claim?.exceptions || []).filter((e) => e.checkId === id);
+  return list.length ? list[list.length - 1] : null;
+}
+
+function loadRuntimeStore() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CLAIM_RUNTIME_KEY) || 'null');
+    if (parsed && parsed.claims) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return { claims: {} };
+}
+
+function persistClaimRuntime(claim) {
+  const store = loadRuntimeStore();
+  const fields = {};
+  RUNTIME_FIELDS.forEach((key) => {
+    if (claim[key] != null) fields[key] = claim[key];
+  });
+  store.claims[claim.id] = {
+    fields,
+    exceptions: claim.exceptions || [],
+    waivedCheckIds: claim.waivedCheckIds || [],
+    dispositions: claim.dispositions || {},
+  };
+  localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
+}
+
+function hydrateClaimRuntime() {
+  const store = loadRuntimeStore();
+  RAW_CLAIMS.forEach((claim) => {
+    const slice = store.claims[claim.id];
+    if (!slice) return;
+    Object.assign(claim, slice.fields || {});
+    if (slice.fields?.vehicleMake || slice.fields?.vehicleColour) {
+      claim.vehicle = composeVehicle(claim);
+    }
+    claim.exceptions = slice.exceptions || [];
+    claim.waivedCheckIds = slice.waivedCheckIds || [];
+    claim.dispositions = slice.dispositions || {};
+  });
+}
+
+function applyProposedFields(claim, proposed = {}) {
+  Object.entries(proposed).forEach(([key, value]) => {
+    claim[key] = NUMBER_FIELDS.has(key) ? Number(value) : value;
+  });
+  if (
+    proposed.vehicleMake != null ||
+    proposed.vehicleModel != null ||
+    proposed.vehicleYear != null ||
+    proposed.vehicleColour != null
+  ) {
+    claim.vehicle = composeVehicle(claim);
+  }
+}
+
+function actorSnapshot(actor) {
+  return {
+    userId: actor?.userId || actor?.id || '',
+    name: actor?.name || 'Demo user',
+    role: actor?.role || '',
+  };
+}
+
+function fieldSummary(fields = {}) {
+  const parts = Object.entries(fields).map(([k, v]) => `${k}=${v}`);
+  return parts.join(', ') || '—';
+}
+
+function proposeCheckException(claimId, payload, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  const checkId = Number(payload.checkId);
+  const type = payload.type;
+  const comment = String(payload.comment || '').trim();
+  if (!['resolve', 'reject', 'approve'].includes(type)) {
+    return { ok: false, message: 'Unknown exception action.' };
+  }
+  if (!comment) return { ok: false, message: 'A comment is required.' };
+
+  const pending = latestExceptionForCheck(claim, checkId);
+  if (pending?.status === 'pending') {
+    return { ok: false, message: 'This check already has a pending exception.' };
+  }
+
+  const hardFail = !!payload.hardFail;
+  if (type === 'reject' && hardFail && actor?.role === 'claim_user') {
+    return { ok: false, message: 'Claim Users cannot waive a hard-fail. Resolve the data or refer to FIU.' };
+  }
+  if (type === 'reject' && hardFail && !isCheckerRole(actor?.role)) {
+    return { ok: false, message: 'Only Claim Head or FIU can waive a hard-fail.' };
+  }
+
+  const proposedFields = type === 'resolve' ? { ...(payload.proposedFields || {}) } : {};
+  if (type === 'resolve') {
+    const allowed = new Set(getExceptionFields(checkId).map((f) => f.key));
+    Object.keys(proposedFields).forEach((key) => {
+      if (!allowed.has(key)) delete proposedFields[key];
+    });
+  }
+
+  const previousFields = {};
+  Object.keys(proposedFields).forEach((key) => {
+    previousFields[key] = claim[key] ?? '—';
+  });
+
+  const exception = {
+    id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
+    checkId,
+    type,
+    status: 'pending',
+    comment,
+    proposedFields,
+    previousFields,
+    hardFail,
+    disposition: type === 'approve' ? (hardFail ? 'refer' : 'continue') : null,
+    requestedBy: actorSnapshot(actor),
+    requestedAt: '2026-08-14',
+    decidedBy: null,
+    decidedAt: null,
+    decisionComment: '',
+  };
+  claim.exceptions = claim.exceptions || [];
+  claim.exceptions.push(exception);
+  persistClaimRuntime(claim);
+
+  const actionLabel = type === 'resolve' ? 'Exception resolve' : type === 'reject' ? 'Exception reject' : 'Exception approve';
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: actionLabel,
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(checkId),
+    oldValue: type === 'resolve' ? fieldSummary(previousFields) : 'Active fail',
+    newValue: type === 'resolve' ? fieldSummary(proposedFields) : type === 'reject' ? 'Pending waive' : exception.disposition,
+    comments: comment,
+  });
+  persistClaimRuntime(claim);
+  return { ok: true, exception };
+}
+
+function decideCheckException(claimId, exceptionId, decision, comment, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  if (!isCheckerRole(actor?.role)) {
+    return { ok: false, message: 'Only Claim Head, Admin, or FIU can decide an exception.' };
+  }
+  const exception = (claim.exceptions || []).find((e) => e.id === exceptionId);
+  if (!exception || exception.status !== 'pending') {
+    return { ok: false, message: 'No pending exception found.' };
+  }
+  const actorId = actor?.userId || actor?.id;
+  if (actorId && exception.requestedBy?.userId && actorId === exception.requestedBy.userId) {
+    return { ok: false, message: 'Maker cannot approve their own request.' };
+  }
+  if (decision === 'sent_back') {
+    const note = String(comment || '').trim();
+    if (!note) return { ok: false, message: 'A comment is required to send back.' };
+    exception.status = 'sent_back';
+    exception.decisionComment = note;
+    exception.decidedBy = actorSnapshot(actor);
+    exception.decidedAt = '2026-08-14';
+    persistClaimRuntime(claim);
+    appendClaimAudit(claimId, {
+      user: actor?.name || 'Demo user',
+      action: 'Exception sent back',
+      changeType: 'Exception',
+      entity: 'Use-case',
+      field: checkCode(exception.checkId),
+      oldValue: 'Pending',
+      newValue: 'Sent back',
+      comments: note,
+    });
+    persistClaimRuntime(claim);
+    return { ok: true, exception };
+  }
+  if (decision !== 'approved') return { ok: false, message: 'Unknown decision.' };
+
+  exception.status = 'approved';
+  exception.decisionComment = String(comment || '').trim();
+  exception.decidedBy = actorSnapshot(actor);
+  exception.decidedAt = '2026-08-14';
+
+  if (exception.type === 'resolve') {
+    applyProposedFields(claim, exception.proposedFields);
+  } else if (exception.type === 'reject') {
+    const ids = new Set(claim.waivedCheckIds || []);
+    ids.add(exception.checkId);
+    claim.waivedCheckIds = [...ids];
+  } else if (exception.type === 'approve') {
+    claim.dispositions = { ...(claim.dispositions || {}), [exception.checkId]: exception.disposition };
+  }
+  persistClaimRuntime(claim);
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Exception approved',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(exception.checkId),
+    oldValue:
+      exception.type === 'resolve'
+        ? fieldSummary(exception.previousFields)
+        : exception.type === 'reject'
+          ? 'Fail'
+          : 'Fail',
+    newValue:
+      exception.type === 'resolve'
+        ? fieldSummary(exception.proposedFields)
+        : exception.type === 'reject'
+          ? 'Waived'
+          : exception.disposition === 'refer'
+            ? 'Refer to FIU'
+            : 'Accept risk',
+    comments: exception.decisionComment || exception.comment,
+  });
+  persistClaimRuntime(claim);
+  return { ok: true, exception };
+}
+
+hydrateClaimRuntime();
+
 const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
   { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },
@@ -4394,6 +4879,95 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
 
 
 /* ==== js/scoring.js ==== */
+function daysBetween(fromIso, toIso) {
+  const a = new Date(`${fromIso}T12:00:00`);
+  const b = new Date(`${toIso}T12:00:00`);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+function normField(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function evaluateCheckFromFields(claim, checkId, seeded) {
+  switch (checkId) {
+    case 1: {
+      if (!claim.plate || !claim.policyPlate) return seeded;
+      const match = normField(claim.plate) === normField(claim.policyPlate);
+      return match
+        ? { state: 'pass', evidence: `Claim plate ${claim.plate} matches policy plate ${claim.policyPlate}.` }
+        : { state: 'fail', evidence: `Policy plate ${claim.policyPlate} vs claim plate ${claim.plate}` };
+    }
+    case 2: {
+      if (!claim.vin || !claim.policyVin) return seeded;
+      const match = normField(claim.vin) === normField(claim.policyVin);
+      return match
+        ? { state: 'pass', evidence: `VIN ${claim.vin} matches the policy chassis record.` }
+        : { state: 'fail', evidence: `Policy VIN ${claim.policyVin} vs claim VIN ${claim.vin}` };
+    }
+    case 3: {
+      if (!claim.lossDate || !claim.policyStart || !claim.policyEnd) return seeded;
+      const inForce = claim.lossDate >= claim.policyStart && claim.lossDate <= claim.policyEnd;
+      return inForce
+        ? { state: 'pass', evidence: `Policy ${claim.policyNumber} in force on ${claim.lossDate}.` }
+        : {
+            state: 'fail',
+            evidence: `Loss date ${claim.lossDate} is outside policy ${claim.policyNumber} (${claim.policyStart} – ${claim.policyEnd}).`,
+          };
+    }
+    case 4: {
+      if (!claim.claimant || !claim.policyholder) return seeded;
+      const match = normField(claim.claimant) === normField(claim.policyholder);
+      return match
+        ? { state: 'pass', evidence: `${claim.claimant} matches the policyholder / endorsed driver.` }
+        : {
+            state: 'fail',
+            evidence: `Claimant ${claim.claimant} is not the policyholder ${claim.policyholder}.`,
+          };
+    }
+    case 5: {
+      const claimSpec = [claim.vehicleMake, claim.vehicleModel, claim.vehicleColour].filter(Boolean).join(' ');
+      const policySpec = [claim.policyMake, claim.policyModel, claim.policyColour].filter(Boolean).join(' ');
+      if (!claimSpec || !policySpec) return seeded;
+      const match =
+        normField(claim.vehicleMake) === normField(claim.policyMake) &&
+        normField(claim.vehicleModel) === normField(claim.policyModel) &&
+        normField(claim.vehicleColour) === normField(claim.policyColour);
+      return match
+        ? { state: 'pass', evidence: `Vehicle ${claimSpec} matches the policy schedule.` }
+        : { state: 'fail', evidence: `Policy: ${policySpec} · Claim: ${claimSpec}` };
+    }
+    case 6: {
+      if (!claim.lossDate || !claim.policyStart) return seeded;
+      const days = daysBetween(claim.policyStart, claim.lossDate);
+      return days >= 14
+        ? { state: 'pass', evidence: `Loss is ${days} days after policy inception.` }
+        : { state: 'fail', evidence: `Loss ${days} days after policy inception (minimum cover: 14 days)` };
+    }
+    case 8: {
+      if (!claim.lossDate || !claim.filedAt) return seeded;
+      const days = daysBetween(claim.lossDate, claim.filedAt);
+      return days <= 14
+        ? { state: 'pass', evidence: `Reported within ${days} day${days === 1 ? '' : 's'} of loss.` }
+        : { state: 'fail', evidence: `Reported ${days} days after date of loss` };
+    }
+    case 14: {
+      if (claim.amount == null || claim.sumInsured == null) return seeded;
+      return claim.amount <= claim.sumInsured
+        ? { state: 'pass', evidence: `Claim ${claim.amount} is within IDV ${claim.sumInsured}.` }
+        : {
+            state: 'fail',
+            evidence: `Claim AED ${Number(claim.amount).toLocaleString('en-US')} exceeds IDV AED ${Number(claim.sumInsured).toLocaleString('en-US')}.`,
+          };
+    }
+    default:
+      return seeded;
+  }
+}
+
 function scoreBand(score) {
   if (score >= 8) return 'green';
   if (score >= 5) return 'yellow';
@@ -4401,7 +4975,7 @@ function scoreBand(score) {
 }
 
 function scoreSoftGroup(softResults) {
-  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate');
+  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate' && r.state !== 'waived');
   const passed = evaluable.filter((r) => r.state === 'pass');
   const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
   const earnedWeight = passed.reduce((sum, r) => sum + (r.weight || 0), 0);
@@ -4428,24 +5002,34 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
 
+  const waivedIds = new Set(claim.waivedCheckIds || []);
+  const dispositions = claim.dispositions || {};
+
   const results = claim.checks
     .filter((c) => activeIds.has(c.checkId))
     .map((c) => {
       const def = defById[c.checkId];
       const meta = metaById[c.checkId];
       const hardFail = meta?.hardFail ?? def.hardFail;
-      let state = c.state;
-      let evidence = c.evidence;
-      const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
-      if (missingDocs.length && state !== 'fail') {
-        state = 'cant_evaluate';
-        evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+      const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
+      let state = evaluated.state;
+      let evidence = evaluated.evidence;
+      if (waivedIds.has(c.checkId)) {
+        state = 'waived';
+        evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
       } else {
-        const onFile = uploadedDocsForCheck(claim, c.checkId);
-        if (onFile.length && !/Document on file:/i.test(evidence)) {
-          evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+        const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
+        if (missingDocs.length && state !== 'fail') {
+          state = 'cant_evaluate';
+          evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+        } else {
+          const onFile = uploadedDocsForCheck(claim, c.checkId);
+          if (onFile.length && !/Document on file:/i.test(evidence)) {
+            evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+          }
         }
       }
+      const disposition = dispositions[c.checkId] || null;
       return {
         ...c,
         state,
@@ -4458,18 +5042,20 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
         riskCategory: meta?.riskCategory || def.riskCategory,
         hardFail,
         weight: hardFail ? null : weights[c.checkId] ?? meta?.weight ?? def.weight,
+        waived: state === 'waived',
+        disposition,
       };
     });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const soft = results.filter((r) => !r.hardFail);
+  const soft = results.filter((r) => !r.hardFail && r.state !== 'waived');
   const failedSoft = soft.filter((r) => r.state === 'fail');
   const passedSoft = soft.filter((r) => r.state === 'pass');
   const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
 
   const stageScores = CLAIM_STAGES.map((stage) => {
     const stageResults = results.filter((r) => r.stage === stage.id);
-    const stageSoft = stageResults.filter((r) => !r.hardFail);
+    const stageSoft = stageResults.filter((r) => !r.hardFail && r.state !== 'waived');
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
     const scored = scoreSoftGroup(stageSoft);
     return {
@@ -4503,6 +5089,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
     score: contextScore,
     tier,
     forcedRed,
+    hasOverride: waivedIds.size > 0,
     hardFails,
     results,
     stageScores,
@@ -4546,8 +5133,9 @@ function useCaseFailStats(claims) {
     claim.results.forEach((r) => {
       const row = byId[r.checkId];
       if (!row) return;
+      if (r.state === 'waived') return;
       row.total += 1;
-      row[r.state] += 1;
+      if (row[r.state] != null) row[r.state] += 1;
     });
   });
 
@@ -4590,6 +5178,7 @@ function sortChecksForDisplay(results) {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail') return 1;
     if (r.state === 'cant_evaluate') return 2;
+    if (r.state === 'waived') return 4;
     return 3;
   };
   return [...results].sort((a, b) => {
@@ -5051,6 +5640,7 @@ function renderQueue(root, session, claims, state, onChange) {
                 <div class="claim-id-line">
                   <span class="claim-id">${c.id}</span>
                   ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
+                  ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
@@ -5119,7 +5709,165 @@ function renderQueue(root, session, claims, state, onChange) {
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
+  if (state === 'waived') {
+    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  }
   return iconAlert();
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function exceptionPanelHtml(result, mode, claim, pending) {
+  const commentRequired = mode !== 'approved';
+  if (mode === 'resolve') {
+    const fields = getExceptionFields(result.checkId);
+    return `
+      <form class="exception-panel" data-exception-form data-mode="resolve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Resolve ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Data is wrong. Edit the field(s) this check used. A comment is required. The fail stays until Claim Head approves.</p>
+        <p class="exception-evidence">Current evidence: ${esc(result.evidence)}</p>
+        <div class="exception-fields">
+          ${fields
+            .map((field) => {
+              const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text';
+              const value = claim[field.key] ?? '';
+              return `<label>${esc(field.label)}<input name="${field.key}" data-field="${field.key}" type="${type}" value="${esc(value)}" /></label>`;
+            })
+            .join('')}
+        </div>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why is the captured data wrong?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'reject') {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="reject" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Reject ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">False positive — the data is already correct. After approval this check is waived (not Pass) and marked as an override.</p>
+        <label>Reason
+          <textarea name="comment" rows="2" required placeholder="Why is this a false positive?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'approve') {
+    const refer = !!result.hardFail;
+    return `
+      <form class="exception-panel" data-exception-form data-mode="approve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Approve ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">${
+          refer
+            ? 'The hard-fail is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
+            : 'The fail is correct. Accept the risk — the flag remains and the claim can continue after Claim Head approval.'
+        }</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why accept this result?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'send_back' && pending) {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="send_back" data-exception-id="${pending.id}">
+        <strong>Send back ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Return this request to the maker. A comment is required.</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="What should the maker change?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Send back</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  void commentRequired;
+  return '';
+}
+
+function exceptionBlockHtml(result, session, panel, claim) {
+  if (session.role === 'surveyor') return '';
+  const latest = latestExceptionForCheck(claim, result.checkId);
+  const pending = latest?.status === 'pending' ? latest : null;
+  const sentBack = latest?.status === 'sent_back' ? latest : null;
+  const eligibleState = result.state === 'fail' || result.state === 'cant_evaluate';
+  const canPropose = session.role === 'claim_user' && eligibleState && !pending;
+  const canWaiveHard = isCheckerRole(session.role) && result.hardFail && result.state === 'fail' && !pending;
+  const canDecide = isCheckerRole(session.role) && !!pending;
+
+  const bits = [];
+  if (pending) {
+    bits.push(
+      `<div class="exception-status is-pending">Pending Claim Head · ${esc(pending.type)} requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
+    );
+    if (pending.comment) bits.push(`<p class="exception-note">${esc(pending.comment)}</p>`);
+  } else if (sentBack && (canPropose || canWaiveHard)) {
+    bits.push(
+      `<div class="exception-status is-back">Sent back${sentBack.decidedBy?.name ? ` by ${esc(sentBack.decidedBy.name)}` : ''}: ${esc(sentBack.decisionComment)}</div>`
+    );
+  }
+  if (result.state === 'waived') bits.push(`<span class="tag override">Waived</span>`);
+  if (result.disposition === 'refer') bits.push(`<span class="tag critical">Refer to FIU</span>`);
+  if (result.disposition === 'continue') bits.push(`<span class="tag override">Accepted risk</span>`);
+
+  const buttons = [];
+  if (canPropose) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="approve" data-check-id="${result.checkId}">Approve</button>`
+    );
+    if (!result.hardFail) {
+      buttons.push(
+        `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
+      );
+    }
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="resolve" data-check-id="${result.checkId}">Resolve</button>`
+    );
+  }
+  if (canWaiveHard) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
+    );
+  }
+  if (canDecide) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-decide" data-decision="approved" data-exception-id="${pending.id}">Approve</button>`
+    );
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="send_back" data-check-id="${result.checkId}" data-exception-id="${pending.id}">Send back</button>`
+    );
+  }
+
+  const open = panel && Number(panel.checkId) === result.checkId;
+  const panelHtml = open ? exceptionPanelHtml(result, panel.mode, claim, pending) : '';
+  if (!bits.length && !buttons.length && !panelHtml) return '';
+  return `
+    <div class="exception-block">
+      ${bits.join('')}
+      ${buttons.length ? `<div class="exception-actions">${buttons.join('')}</div>` : ''}
+      ${panelHtml}
+    </div>
+  `;
 }
 
 function requiredTag(def) {
@@ -5252,7 +6000,7 @@ function renderClaimDetail(
   claim,
   filter,
   onFilter,
-  { drawerOpen = false, selectedStage = null } = {}
+  { drawerOpen = false, selectedStage = null, exceptionPanel = null, exceptionNotice = null } = {}
 ) {
   if (!claim) {
     root.innerHTML = renderShell(
@@ -5302,6 +6050,7 @@ function renderClaimDetail(
     .filter(Boolean)
     .join(' · ');
 
+  const pendingExceptions = getPendingExceptions(claim);
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
   const checksByStage = displayStages.map((stage) => {
@@ -5360,6 +6109,19 @@ function renderClaimDetail(
     </div>
 
     ${
+      exceptionNotice
+        ? `<div class="surveyor-banner">${esc(exceptionNotice)}</div>`
+        : ''
+    }
+    ${
+      pendingExceptions.length
+        ? `<div class="surveyor-banner">
+        <strong>Pending exceptions</strong>
+        <p>${pendingExceptions.length} use-case exception${pendingExceptions.length === 1 ? '' : 's'} waiting for Claim Head. Checks stay failed until approved.</p>
+      </div>`
+        : ''
+    }
+    ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
         <strong>Surveyor stage</strong>
@@ -5398,7 +6160,9 @@ function renderClaimDetail(
       <div class="score-circle lg ${claim.tier}">${claim.score}</div>
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
-        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
+        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
+          claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
+        }</div>
         <p class="summary-line">${summaryLine}</p>
       </div>
     </div>
@@ -5475,9 +6239,11 @@ function renderClaimDetail(
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
                         ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
+                      ${exceptionBlockHtml(r, session, exceptionPanel, claim)}
                     </div>
                     <div class="check-weight">${metaLabel}</div>
                   </div>
@@ -5520,7 +6286,13 @@ function renderClaimDetail(
     location.hash = '#/queue';
   });
   const persist = (nextFilter, extra = {}) =>
-    onFilter(nextFilter, { drawerOpen, selectedStage: stageTab, ...extra });
+    onFilter(nextFilter, {
+      drawerOpen,
+      selectedStage: stageTab,
+      exceptionPanel,
+      exceptionNotice: null,
+      ...extra,
+    });
   root.querySelectorAll('[data-filter]').forEach((btn) => {
     btn.addEventListener('click', () => persist(btn.dataset.filter, { drawerOpen: false }));
   });
@@ -5543,6 +6315,67 @@ function renderClaimDetail(
   root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
     const result = submitSurveyorAssessment(claim.id);
     persist(filter, { surveyorMessage: result.message });
+  });
+  root.querySelectorAll('[data-action="exception-open"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      persist(filter, {
+        exceptionPanel: { checkId: Number(btn.dataset.checkId), mode: btn.dataset.mode },
+        exceptionNotice: null,
+      });
+    });
+  });
+  root.querySelectorAll('[data-action="exception-cancel"]').forEach((btn) => {
+    btn.addEventListener('click', () => persist(filter, { exceptionPanel: null }));
+  });
+  root.querySelectorAll('[data-action="exception-decide"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const result = decideCheckException(
+        claim.id,
+        btn.dataset.exceptionId,
+        btn.dataset.decision,
+        '',
+        session
+      );
+      persist(filter, {
+        exceptionPanel: null,
+        exceptionNotice: result.ok ? null : result.message,
+      });
+    });
+  });
+  root.querySelectorAll('[data-exception-form]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const mode = form.dataset.mode;
+      const comment = form.querySelector('[name="comment"]')?.value || '';
+      if (mode === 'send_back') {
+        const result = decideCheckException(claim.id, form.dataset.exceptionId, 'sent_back', comment, session);
+        persist(filter, {
+          exceptionPanel: null,
+          exceptionNotice: result.ok ? null : result.message,
+        });
+        return;
+      }
+      const proposedFields = {};
+      form.querySelectorAll('[data-field]').forEach((input) => {
+        proposedFields[input.dataset.field] = input.value;
+      });
+      const result = proposeCheckException(
+        claim.id,
+        {
+          checkId: Number(form.dataset.checkId),
+          type: mode,
+          comment,
+          proposedFields,
+          hardFail: form.dataset.hardFail === '1',
+        },
+        session
+      );
+      persist(filter, {
+        exceptionPanel: result.ok ? null : exceptionPanel,
+        exceptionNotice: result.ok ? null : result.message,
+      });
+    });
   });
 }
 
@@ -6796,6 +7629,8 @@ let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 let claimFilter = 'all';
 let claimDrawerOpen = false;
 let claimStageTab = null;
+let claimExceptionPanel = null;
+let claimExceptionNotice = null;
 let lastClaimId = null;
 let weights = getWeights();
 let weightDraft = { ...weights };
@@ -6856,6 +7691,8 @@ function render() {
       claimFilter = 'all';
       claimDrawerOpen = false;
       claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+      claimExceptionPanel = null;
+      claimExceptionNotice = null;
     }
     const claim = claims.find((c) => c.id === id);
     renderClaimDetail(
@@ -6867,9 +7704,16 @@ function render() {
         claimFilter = f;
         claimDrawerOpen = !!opts.drawerOpen;
         if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
+        if (opts.exceptionPanel !== undefined) claimExceptionPanel = opts.exceptionPanel;
+        if (opts.exceptionNotice !== undefined) claimExceptionNotice = opts.exceptionNotice;
         render();
       },
-      { drawerOpen: claimDrawerOpen, selectedStage: claimStageTab }
+      {
+        drawerOpen: claimDrawerOpen,
+        selectedStage: claimStageTab,
+        exceptionPanel: claimExceptionPanel,
+        exceptionNotice: claimExceptionNotice,
+      }
     );
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
@@ -6911,6 +7755,8 @@ window.addEventListener('hashchange', () => {
     claimFilter = 'all';
     claimDrawerOpen = false;
     claimStageTab = null;
+    claimExceptionPanel = null;
+    claimExceptionNotice = null;
     lastClaimId = null;
   }
   render();

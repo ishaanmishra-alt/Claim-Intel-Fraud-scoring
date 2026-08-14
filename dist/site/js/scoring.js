@@ -9,6 +9,95 @@ import {
 } from './data.js';
 import { getActiveUseCases, getWeights as getStoreWeights } from './state.js';
 
+function daysBetween(fromIso, toIso) {
+  const a = new Date(`${fromIso}T12:00:00`);
+  const b = new Date(`${toIso}T12:00:00`);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+function normField(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function evaluateCheckFromFields(claim, checkId, seeded) {
+  switch (checkId) {
+    case 1: {
+      if (!claim.plate || !claim.policyPlate) return seeded;
+      const match = normField(claim.plate) === normField(claim.policyPlate);
+      return match
+        ? { state: 'pass', evidence: `Claim plate ${claim.plate} matches policy plate ${claim.policyPlate}.` }
+        : { state: 'fail', evidence: `Policy plate ${claim.policyPlate} vs claim plate ${claim.plate}` };
+    }
+    case 2: {
+      if (!claim.vin || !claim.policyVin) return seeded;
+      const match = normField(claim.vin) === normField(claim.policyVin);
+      return match
+        ? { state: 'pass', evidence: `VIN ${claim.vin} matches the policy chassis record.` }
+        : { state: 'fail', evidence: `Policy VIN ${claim.policyVin} vs claim VIN ${claim.vin}` };
+    }
+    case 3: {
+      if (!claim.lossDate || !claim.policyStart || !claim.policyEnd) return seeded;
+      const inForce = claim.lossDate >= claim.policyStart && claim.lossDate <= claim.policyEnd;
+      return inForce
+        ? { state: 'pass', evidence: `Policy ${claim.policyNumber} in force on ${claim.lossDate}.` }
+        : {
+            state: 'fail',
+            evidence: `Loss date ${claim.lossDate} is outside policy ${claim.policyNumber} (${claim.policyStart} – ${claim.policyEnd}).`,
+          };
+    }
+    case 4: {
+      if (!claim.claimant || !claim.policyholder) return seeded;
+      const match = normField(claim.claimant) === normField(claim.policyholder);
+      return match
+        ? { state: 'pass', evidence: `${claim.claimant} matches the policyholder / endorsed driver.` }
+        : {
+            state: 'fail',
+            evidence: `Claimant ${claim.claimant} is not the policyholder ${claim.policyholder}.`,
+          };
+    }
+    case 5: {
+      const claimSpec = [claim.vehicleMake, claim.vehicleModel, claim.vehicleColour].filter(Boolean).join(' ');
+      const policySpec = [claim.policyMake, claim.policyModel, claim.policyColour].filter(Boolean).join(' ');
+      if (!claimSpec || !policySpec) return seeded;
+      const match =
+        normField(claim.vehicleMake) === normField(claim.policyMake) &&
+        normField(claim.vehicleModel) === normField(claim.policyModel) &&
+        normField(claim.vehicleColour) === normField(claim.policyColour);
+      return match
+        ? { state: 'pass', evidence: `Vehicle ${claimSpec} matches the policy schedule.` }
+        : { state: 'fail', evidence: `Policy: ${policySpec} · Claim: ${claimSpec}` };
+    }
+    case 6: {
+      if (!claim.lossDate || !claim.policyStart) return seeded;
+      const days = daysBetween(claim.policyStart, claim.lossDate);
+      return days >= 14
+        ? { state: 'pass', evidence: `Loss is ${days} days after policy inception.` }
+        : { state: 'fail', evidence: `Loss ${days} days after policy inception (minimum cover: 14 days)` };
+    }
+    case 8: {
+      if (!claim.lossDate || !claim.filedAt) return seeded;
+      const days = daysBetween(claim.lossDate, claim.filedAt);
+      return days <= 14
+        ? { state: 'pass', evidence: `Reported within ${days} day${days === 1 ? '' : 's'} of loss.` }
+        : { state: 'fail', evidence: `Reported ${days} days after date of loss` };
+    }
+    case 14: {
+      if (claim.amount == null || claim.sumInsured == null) return seeded;
+      return claim.amount <= claim.sumInsured
+        ? { state: 'pass', evidence: `Claim ${claim.amount} is within IDV ${claim.sumInsured}.` }
+        : {
+            state: 'fail',
+            evidence: `Claim AED ${Number(claim.amount).toLocaleString('en-US')} exceeds IDV AED ${Number(claim.sumInsured).toLocaleString('en-US')}.`,
+          };
+    }
+    default:
+      return seeded;
+  }
+}
+
 function scoreBand(score) {
   if (score >= 8) return 'green';
   if (score >= 5) return 'yellow';
@@ -16,7 +105,7 @@ function scoreBand(score) {
 }
 
 function scoreSoftGroup(softResults) {
-  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate');
+  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate' && r.state !== 'waived');
   const passed = evaluable.filter((r) => r.state === 'pass');
   const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
   const earnedWeight = passed.reduce((sum, r) => sum + (r.weight || 0), 0);
@@ -43,24 +132,34 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
 
+  const waivedIds = new Set(claim.waivedCheckIds || []);
+  const dispositions = claim.dispositions || {};
+
   const results = claim.checks
     .filter((c) => activeIds.has(c.checkId))
     .map((c) => {
       const def = defById[c.checkId];
       const meta = metaById[c.checkId];
       const hardFail = meta?.hardFail ?? def.hardFail;
-      let state = c.state;
-      let evidence = c.evidence;
-      const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
-      if (missingDocs.length && state !== 'fail') {
-        state = 'cant_evaluate';
-        evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+      const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
+      let state = evaluated.state;
+      let evidence = evaluated.evidence;
+      if (waivedIds.has(c.checkId)) {
+        state = 'waived';
+        evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
       } else {
-        const onFile = uploadedDocsForCheck(claim, c.checkId);
-        if (onFile.length && !/Document on file:/i.test(evidence)) {
-          evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+        const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
+        if (missingDocs.length && state !== 'fail') {
+          state = 'cant_evaluate';
+          evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+        } else {
+          const onFile = uploadedDocsForCheck(claim, c.checkId);
+          if (onFile.length && !/Document on file:/i.test(evidence)) {
+            evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+          }
         }
       }
+      const disposition = dispositions[c.checkId] || null;
       return {
         ...c,
         state,
@@ -73,18 +172,20 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
         riskCategory: meta?.riskCategory || def.riskCategory,
         hardFail,
         weight: hardFail ? null : weights[c.checkId] ?? meta?.weight ?? def.weight,
+        waived: state === 'waived',
+        disposition,
       };
     });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const soft = results.filter((r) => !r.hardFail);
+  const soft = results.filter((r) => !r.hardFail && r.state !== 'waived');
   const failedSoft = soft.filter((r) => r.state === 'fail');
   const passedSoft = soft.filter((r) => r.state === 'pass');
   const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
 
   const stageScores = CLAIM_STAGES.map((stage) => {
     const stageResults = results.filter((r) => r.stage === stage.id);
-    const stageSoft = stageResults.filter((r) => !r.hardFail);
+    const stageSoft = stageResults.filter((r) => !r.hardFail && r.state !== 'waived');
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
     const scored = scoreSoftGroup(stageSoft);
     return {
@@ -118,6 +219,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
     score: contextScore,
     tier,
     forcedRed,
+    hasOverride: waivedIds.size > 0,
     hardFails,
     results,
     stageScores,
@@ -161,8 +263,9 @@ export function useCaseFailStats(claims) {
     claim.results.forEach((r) => {
       const row = byId[r.checkId];
       if (!row) return;
+      if (r.state === 'waived') return;
       row.total += 1;
-      row[r.state] += 1;
+      if (row[r.state] != null) row[r.state] += 1;
     });
   });
 
@@ -205,6 +308,7 @@ export function sortChecksForDisplay(results) {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail') return 1;
     if (r.state === 'cant_evaluate') return 2;
+    if (r.state === 'waived') return 4;
     return 3;
   };
   return [...results].sort((a, b) => {

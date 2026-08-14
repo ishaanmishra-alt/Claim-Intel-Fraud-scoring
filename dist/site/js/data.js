@@ -1,4 +1,4 @@
-/** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
+/** @typedef {'pass'|'fail'|'cant_evaluate'|'waived'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'|'surveyor'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
@@ -740,6 +740,27 @@ function shiftDate(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
+function parseVehicle(vehicle) {
+  const raw = String(vehicle || '');
+  const [left, colourPart] = raw.split('·').map((s) => s.trim());
+  const yearMatch = (left || '').match(/(\d{4})$/);
+  const year = yearMatch ? yearMatch[1] : '';
+  const rest = (left || '').replace(/\s+\d{4}$/, '').trim();
+  const parts = rest.split(' ').filter(Boolean);
+  return {
+    make: parts[0] || '',
+    model: parts.slice(1).join(' '),
+    year,
+    colour: colourPart || '',
+  };
+}
+
+function composeVehicle(claim) {
+  const year = claim.vehicleYear ? ` ${claim.vehicleYear}` : '';
+  const colour = claim.vehicleColour ? ` · ${claim.vehicleColour}` : '';
+  return `${claim.vehicleMake || ''} ${claim.vehicleModel || ''}${year}${colour}`.replace(/\s+/g, ' ').trim();
+}
+
 const BRANCH_PREFIX = {
   Dubai: 'DXB',
   'Abu Dhabi': 'AUH',
@@ -784,7 +805,9 @@ const RAW_CLAIMS_BASE = [
     filedAt: '2026-08-02',
     dueInDays: 3,
     plate: 'AD 12-88421',
+    policyPlate: 'AD 12-77109',
     vehicle: 'BMW X5 2023 · Black',
+    policyColour: 'Silver',
     checks: buildChecks({
       1: { state: 'fail', evidence: 'Policy plate AD 12-77109 vs claim plate AD 12-88421' },
       5: { state: 'fail', evidence: 'Policy: BMW X5 Silver · Claim: BMW X5 Black' },
@@ -819,6 +842,7 @@ const RAW_CLAIMS_BASE = [
     dueInDays: 7,
     plate: 'SHJ 6-33011',
     vehicle: 'Lexus RX 2020 · Pearl',
+    lossDate: '2026-06-27',
     checks: buildChecks({
       8: { state: 'fail', evidence: 'Reported 31 days after date of loss' },
       10: { state: 'fail', evidence: 'Self-selected garage outside network panel' },
@@ -839,6 +863,9 @@ const RAW_CLAIMS_BASE = [
     dueInDays: 4,
     plate: 'AD 1-55210',
     vehicle: 'Mercedes GLE 2024 · White',
+    lossDate: '2026-07-20',
+    policyStart: '2026-07-16',
+    sumInsured: 88000,
     checks: buildChecks({
       14: { state: 'fail', evidence: 'Claim AED 96,500 exceeds IDV AED 88,000 by AED 8,500' },
       6: { state: 'fail', evidence: 'Loss 4 days after policy inception (minimum cover: 14 days)' },
@@ -1215,11 +1242,29 @@ export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
     claimType: meta.claimType,
     towed: !!meta.towed,
     policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
-    lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
-    sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+    lossDate: c.lossDate || shiftDate(c.filedAt, -(1 + (i % 3))),
+    sumInsured: c.sumInsured || Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
     garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
     lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
   };
+  const parsed = parseVehicle(claim.vehicle);
+  claim.vin = c.vin || `WBA${String(784100 + i * 17).slice(-8)}CH${String(i).padStart(2, '0')}`;
+  claim.policyVin = c.policyVin || claim.vin;
+  claim.policyPlate = c.policyPlate || claim.plate;
+  claim.policyholder = c.policyholder || claim.claimant;
+  claim.vehicleMake = parsed.make;
+  claim.vehicleModel = parsed.model;
+  claim.vehicleYear = parsed.year;
+  claim.vehicleColour = parsed.colour;
+  claim.policyMake = c.policyMake || parsed.make;
+  claim.policyModel = c.policyModel || parsed.model;
+  claim.policyColour = c.policyColour || parsed.colour;
+  claim.policyStart = c.policyStart || shiftDate(claim.filedAt, -200);
+  claim.policyEnd = c.policyEnd || shiftDate(claim.filedAt, 165);
+  claim.usualArea = c.usualArea || `${claim.branch} registered area`;
+  claim.exceptions = [];
+  claim.waivedCheckIds = [];
+  claim.dispositions = {};
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
   const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
@@ -1482,6 +1527,340 @@ export function appendClaimAudit(claimId, partial) {
     version: `v${claim.auditLog.length + 1}`,
   });
 }
+
+const CLAIM_RUNTIME_KEY = 'claim-intel-claim-runtime-v1';
+
+const RUNTIME_FIELDS = [
+  'plate',
+  'policyPlate',
+  'vin',
+  'policyVin',
+  'policyNumber',
+  'lossDate',
+  'filedAt',
+  'policyStart',
+  'policyEnd',
+  'claimant',
+  'policyholder',
+  'vehicleMake',
+  'vehicleModel',
+  'vehicleYear',
+  'vehicleColour',
+  'policyMake',
+  'policyModel',
+  'policyColour',
+  'vehicle',
+  'garage',
+  'amount',
+  'sumInsured',
+  'lossLocation',
+  'usualArea',
+];
+
+const NUMBER_FIELDS = new Set(['amount', 'sumInsured']);
+
+/** Fields a Resolve action may edit, keyed by use-case id. */
+export const EXCEPTION_FIELD_MAP = {
+  1: [
+    { key: 'plate', label: 'Claim plate' },
+    { key: 'policyPlate', label: 'Policy plate' },
+  ],
+  2: [
+    { key: 'vin', label: 'Claim VIN / chassis' },
+    { key: 'policyVin', label: 'Policy VIN / chassis' },
+  ],
+  3: [
+    { key: 'policyNumber', label: 'Policy number' },
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Policy start', type: 'date' },
+    { key: 'policyEnd', label: 'Policy end', type: 'date' },
+  ],
+  4: [
+    { key: 'claimant', label: 'Claimant / driver' },
+    { key: 'policyholder', label: 'Policyholder' },
+  ],
+  5: [
+    { key: 'vehicleMake', label: 'Claim make' },
+    { key: 'vehicleModel', label: 'Claim model' },
+    { key: 'vehicleColour', label: 'Claim colour' },
+    { key: 'policyMake', label: 'Policy make' },
+    { key: 'policyModel', label: 'Policy model' },
+    { key: 'policyColour', label: 'Policy colour' },
+  ],
+  6: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Policy start', type: 'date' },
+  ],
+  7: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyEnd', label: 'Policy end', type: 'date' },
+  ],
+  8: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'filedAt', label: 'Reported date', type: 'date' },
+  ],
+  9: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'policyStart', label: 'Endorsement / policy start', type: 'date' },
+  ],
+  10: [{ key: 'garage', label: 'Garage' }],
+  11: [{ key: 'garage', label: 'Garage' }],
+  12: [{ key: 'amount', label: 'Repair estimate (AED)', type: 'number' }],
+  13: [{ key: 'garage', label: 'Garage' }],
+  14: [
+    { key: 'amount', label: 'Claim amount (AED)', type: 'number' },
+    { key: 'sumInsured', label: 'Sum insured / IDV (AED)', type: 'number' },
+  ],
+  15: [{ key: 'amount', label: 'Claim amount (AED)', type: 'number' }],
+  16: [
+    { key: 'lossDate', label: 'Loss date', type: 'date' },
+    { key: 'plate', label: 'Plate' },
+  ],
+  17: [{ key: 'amount', label: 'Claim amount (AED)', type: 'number' }],
+  18: [{ key: 'claimant', label: 'Claimant' }],
+  19: [{ key: 'claimant', label: 'Claimant' }],
+  20: [
+    { key: 'lossLocation', label: 'Loss location' },
+    { key: 'usualArea', label: 'Registered / usual area' },
+  ],
+};
+
+export function getExceptionFields(checkId) {
+  return EXCEPTION_FIELD_MAP[Number(checkId)] || [];
+}
+
+export function isCheckerRole(role) {
+  return role === 'claim_head' || role === 'admin' || role === 'fiu';
+}
+
+export function getPendingExceptions(claim) {
+  return (claim?.exceptions || []).filter((e) => e.status === 'pending');
+}
+
+export function latestExceptionForCheck(claim, checkId) {
+  const id = Number(checkId);
+  const list = (claim?.exceptions || []).filter((e) => e.checkId === id);
+  return list.length ? list[list.length - 1] : null;
+}
+
+function loadRuntimeStore() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CLAIM_RUNTIME_KEY) || 'null');
+    if (parsed && parsed.claims) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return { claims: {} };
+}
+
+function persistClaimRuntime(claim) {
+  const store = loadRuntimeStore();
+  const fields = {};
+  RUNTIME_FIELDS.forEach((key) => {
+    if (claim[key] != null) fields[key] = claim[key];
+  });
+  store.claims[claim.id] = {
+    fields,
+    exceptions: claim.exceptions || [],
+    waivedCheckIds: claim.waivedCheckIds || [],
+    dispositions: claim.dispositions || {},
+  };
+  localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
+}
+
+function hydrateClaimRuntime() {
+  const store = loadRuntimeStore();
+  RAW_CLAIMS.forEach((claim) => {
+    const slice = store.claims[claim.id];
+    if (!slice) return;
+    Object.assign(claim, slice.fields || {});
+    if (slice.fields?.vehicleMake || slice.fields?.vehicleColour) {
+      claim.vehicle = composeVehicle(claim);
+    }
+    claim.exceptions = slice.exceptions || [];
+    claim.waivedCheckIds = slice.waivedCheckIds || [];
+    claim.dispositions = slice.dispositions || {};
+  });
+}
+
+function applyProposedFields(claim, proposed = {}) {
+  Object.entries(proposed).forEach(([key, value]) => {
+    claim[key] = NUMBER_FIELDS.has(key) ? Number(value) : value;
+  });
+  if (
+    proposed.vehicleMake != null ||
+    proposed.vehicleModel != null ||
+    proposed.vehicleYear != null ||
+    proposed.vehicleColour != null
+  ) {
+    claim.vehicle = composeVehicle(claim);
+  }
+}
+
+function actorSnapshot(actor) {
+  return {
+    userId: actor?.userId || actor?.id || '',
+    name: actor?.name || 'Demo user',
+    role: actor?.role || '',
+  };
+}
+
+function fieldSummary(fields = {}) {
+  const parts = Object.entries(fields).map(([k, v]) => `${k}=${v}`);
+  return parts.join(', ') || '—';
+}
+
+export function proposeCheckException(claimId, payload, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  const checkId = Number(payload.checkId);
+  const type = payload.type;
+  const comment = String(payload.comment || '').trim();
+  if (!['resolve', 'reject', 'approve'].includes(type)) {
+    return { ok: false, message: 'Unknown exception action.' };
+  }
+  if (!comment) return { ok: false, message: 'A comment is required.' };
+
+  const pending = latestExceptionForCheck(claim, checkId);
+  if (pending?.status === 'pending') {
+    return { ok: false, message: 'This check already has a pending exception.' };
+  }
+
+  const hardFail = !!payload.hardFail;
+  if (type === 'reject' && hardFail && actor?.role === 'claim_user') {
+    return { ok: false, message: 'Claim Users cannot waive a hard-fail. Resolve the data or refer to FIU.' };
+  }
+  if (type === 'reject' && hardFail && !isCheckerRole(actor?.role)) {
+    return { ok: false, message: 'Only Claim Head or FIU can waive a hard-fail.' };
+  }
+
+  const proposedFields = type === 'resolve' ? { ...(payload.proposedFields || {}) } : {};
+  if (type === 'resolve') {
+    const allowed = new Set(getExceptionFields(checkId).map((f) => f.key));
+    Object.keys(proposedFields).forEach((key) => {
+      if (!allowed.has(key)) delete proposedFields[key];
+    });
+  }
+
+  const previousFields = {};
+  Object.keys(proposedFields).forEach((key) => {
+    previousFields[key] = claim[key] ?? '—';
+  });
+
+  const exception = {
+    id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
+    checkId,
+    type,
+    status: 'pending',
+    comment,
+    proposedFields,
+    previousFields,
+    hardFail,
+    disposition: type === 'approve' ? (hardFail ? 'refer' : 'continue') : null,
+    requestedBy: actorSnapshot(actor),
+    requestedAt: '2026-08-14',
+    decidedBy: null,
+    decidedAt: null,
+    decisionComment: '',
+  };
+  claim.exceptions = claim.exceptions || [];
+  claim.exceptions.push(exception);
+  persistClaimRuntime(claim);
+
+  const actionLabel = type === 'resolve' ? 'Exception resolve' : type === 'reject' ? 'Exception reject' : 'Exception approve';
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: actionLabel,
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(checkId),
+    oldValue: type === 'resolve' ? fieldSummary(previousFields) : 'Active fail',
+    newValue: type === 'resolve' ? fieldSummary(proposedFields) : type === 'reject' ? 'Pending waive' : exception.disposition,
+    comments: comment,
+  });
+  persistClaimRuntime(claim);
+  return { ok: true, exception };
+}
+
+export function decideCheckException(claimId, exceptionId, decision, comment, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  if (!isCheckerRole(actor?.role)) {
+    return { ok: false, message: 'Only Claim Head, Admin, or FIU can decide an exception.' };
+  }
+  const exception = (claim.exceptions || []).find((e) => e.id === exceptionId);
+  if (!exception || exception.status !== 'pending') {
+    return { ok: false, message: 'No pending exception found.' };
+  }
+  const actorId = actor?.userId || actor?.id;
+  if (actorId && exception.requestedBy?.userId && actorId === exception.requestedBy.userId) {
+    return { ok: false, message: 'Maker cannot approve their own request.' };
+  }
+  if (decision === 'sent_back') {
+    const note = String(comment || '').trim();
+    if (!note) return { ok: false, message: 'A comment is required to send back.' };
+    exception.status = 'sent_back';
+    exception.decisionComment = note;
+    exception.decidedBy = actorSnapshot(actor);
+    exception.decidedAt = '2026-08-14';
+    persistClaimRuntime(claim);
+    appendClaimAudit(claimId, {
+      user: actor?.name || 'Demo user',
+      action: 'Exception sent back',
+      changeType: 'Exception',
+      entity: 'Use-case',
+      field: checkCode(exception.checkId),
+      oldValue: 'Pending',
+      newValue: 'Sent back',
+      comments: note,
+    });
+    persistClaimRuntime(claim);
+    return { ok: true, exception };
+  }
+  if (decision !== 'approved') return { ok: false, message: 'Unknown decision.' };
+
+  exception.status = 'approved';
+  exception.decisionComment = String(comment || '').trim();
+  exception.decidedBy = actorSnapshot(actor);
+  exception.decidedAt = '2026-08-14';
+
+  if (exception.type === 'resolve') {
+    applyProposedFields(claim, exception.proposedFields);
+  } else if (exception.type === 'reject') {
+    const ids = new Set(claim.waivedCheckIds || []);
+    ids.add(exception.checkId);
+    claim.waivedCheckIds = [...ids];
+  } else if (exception.type === 'approve') {
+    claim.dispositions = { ...(claim.dispositions || {}), [exception.checkId]: exception.disposition };
+  }
+  persistClaimRuntime(claim);
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Exception approved',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(exception.checkId),
+    oldValue:
+      exception.type === 'resolve'
+        ? fieldSummary(exception.previousFields)
+        : exception.type === 'reject'
+          ? 'Fail'
+          : 'Fail',
+    newValue:
+      exception.type === 'resolve'
+        ? fieldSummary(exception.proposedFields)
+        : exception.type === 'reject'
+          ? 'Waived'
+          : exception.disposition === 'refer'
+            ? 'Refer to FIU'
+            : 'Accept risk',
+    comments: exception.decisionComment || exception.comment,
+  });
+  persistClaimRuntime(claim);
+  return { ok: true, exception };
+}
+
+hydrateClaimRuntime();
 
 export const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },

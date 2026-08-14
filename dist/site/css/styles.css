@@ -233,6 +233,12 @@ a {
   width: 100%;
 }
 
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+
 .login-error {
   background: var(--red-bg);
   border: 1px solid var(--red-border);
@@ -1047,6 +1053,10 @@ a {
   border-left: 3px solid var(--green);
 }
 
+.check-row.waived {
+  border-left: 3px solid var(--accent);
+}
+
 .check-state-icon {
   width: 22px;
   height: 22px;
@@ -1069,6 +1079,11 @@ a {
 .check-state-icon.cant_evaluate {
   background: var(--amber-bg);
   color: var(--amber);
+}
+
+.check-state-icon.waived {
+  background: var(--navy-soft);
+  color: var(--navy);
 }
 
 .check-body .check-name {
@@ -2629,5 +2644,96 @@ button.stage-chip.is-active {
   color: var(--text-secondary);
   flex: 1;
   min-width: 220px;
+}
+
+.exception-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.exception-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exception-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.exception-status.is-pending {
+  color: #b45309;
+}
+
+.exception-status.is-back {
+  color: var(--red);
+}
+
+.exception-note,
+.exception-lead,
+.exception-evidence {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.exception-panel {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--navy-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exception-panel strong {
+  color: var(--navy-deep);
+  font-size: 0.85rem;
+}
+
+.exception-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.exception-panel label,
+.exception-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.exception-panel input,
+.exception-panel textarea {
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.exception-panel textarea {
+  resize: vertical;
+  min-height: 56px;
+}
+
+.tier-label .tag {
+  margin-left: 6px;
+  vertical-align: middle;
 }
 

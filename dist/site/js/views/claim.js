@@ -10,13 +10,177 @@ import {
   hasPassedPriorStages,
   hasStageDocsComplete,
   submitSurveyorAssessment,
+  getExceptionFields,
+  getPendingExceptions,
+  latestExceptionForCheck,
+  isCheckerRole,
+  proposeCheckException,
+  decideCheckException,
 } from '../data.js';
 import { formatAED, formatDate, tierLabel, sortChecksForDisplay } from '../scoring.js';
 
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
+  if (state === 'waived') {
+    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  }
   return iconAlert();
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function exceptionPanelHtml(result, mode, claim, pending) {
+  const commentRequired = mode !== 'approved';
+  if (mode === 'resolve') {
+    const fields = getExceptionFields(result.checkId);
+    return `
+      <form class="exception-panel" data-exception-form data-mode="resolve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Resolve ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Data is wrong. Edit the field(s) this check used. A comment is required. The fail stays until Claim Head approves.</p>
+        <p class="exception-evidence">Current evidence: ${esc(result.evidence)}</p>
+        <div class="exception-fields">
+          ${fields
+            .map((field) => {
+              const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text';
+              const value = claim[field.key] ?? '';
+              return `<label>${esc(field.label)}<input name="${field.key}" data-field="${field.key}" type="${type}" value="${esc(value)}" /></label>`;
+            })
+            .join('')}
+        </div>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why is the captured data wrong?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'reject') {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="reject" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Reject ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">False positive — the data is already correct. After approval this check is waived (not Pass) and marked as an override.</p>
+        <label>Reason
+          <textarea name="comment" rows="2" required placeholder="Why is this a false positive?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'approve') {
+    const refer = !!result.hardFail;
+    return `
+      <form class="exception-panel" data-exception-form data-mode="approve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Approve ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">${
+          refer
+            ? 'The hard-fail is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
+            : 'The fail is correct. Accept the risk — the flag remains and the claim can continue after Claim Head approval.'
+        }</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why accept this result?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'send_back' && pending) {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="send_back" data-exception-id="${pending.id}">
+        <strong>Send back ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Return this request to the maker. A comment is required.</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="What should the maker change?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Send back</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  void commentRequired;
+  return '';
+}
+
+function exceptionBlockHtml(result, session, panel, claim) {
+  if (session.role === 'surveyor') return '';
+  const latest = latestExceptionForCheck(claim, result.checkId);
+  const pending = latest?.status === 'pending' ? latest : null;
+  const sentBack = latest?.status === 'sent_back' ? latest : null;
+  const eligibleState = result.state === 'fail' || result.state === 'cant_evaluate';
+  const canPropose = session.role === 'claim_user' && eligibleState && !pending;
+  const canWaiveHard = isCheckerRole(session.role) && result.hardFail && result.state === 'fail' && !pending;
+  const canDecide = isCheckerRole(session.role) && !!pending;
+
+  const bits = [];
+  if (pending) {
+    bits.push(
+      `<div class="exception-status is-pending">Pending Claim Head · ${esc(pending.type)} requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
+    );
+    if (pending.comment) bits.push(`<p class="exception-note">${esc(pending.comment)}</p>`);
+  } else if (sentBack && (canPropose || canWaiveHard)) {
+    bits.push(
+      `<div class="exception-status is-back">Sent back${sentBack.decidedBy?.name ? ` by ${esc(sentBack.decidedBy.name)}` : ''}: ${esc(sentBack.decisionComment)}</div>`
+    );
+  }
+  if (result.state === 'waived') bits.push(`<span class="tag override">Waived</span>`);
+  if (result.disposition === 'refer') bits.push(`<span class="tag critical">Refer to FIU</span>`);
+  if (result.disposition === 'continue') bits.push(`<span class="tag override">Accepted risk</span>`);
+
+  const buttons = [];
+  if (canPropose) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="approve" data-check-id="${result.checkId}">Approve</button>`
+    );
+    if (!result.hardFail) {
+      buttons.push(
+        `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
+      );
+    }
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="resolve" data-check-id="${result.checkId}">Resolve</button>`
+    );
+  }
+  if (canWaiveHard) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
+    );
+  }
+  if (canDecide) {
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-decide" data-decision="approved" data-exception-id="${pending.id}">Approve</button>`
+    );
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="send_back" data-check-id="${result.checkId}" data-exception-id="${pending.id}">Send back</button>`
+    );
+  }
+
+  const open = panel && Number(panel.checkId) === result.checkId;
+  const panelHtml = open ? exceptionPanelHtml(result, panel.mode, claim, pending) : '';
+  if (!bits.length && !buttons.length && !panelHtml) return '';
+  return `
+    <div class="exception-block">
+      ${bits.join('')}
+      ${buttons.length ? `<div class="exception-actions">${buttons.join('')}</div>` : ''}
+      ${panelHtml}
+    </div>
+  `;
 }
 
 function requiredTag(def) {
@@ -149,7 +313,7 @@ export function renderClaimDetail(
   claim,
   filter,
   onFilter,
-  { drawerOpen = false, selectedStage = null } = {}
+  { drawerOpen = false, selectedStage = null, exceptionPanel = null, exceptionNotice = null } = {}
 ) {
   if (!claim) {
     root.innerHTML = renderShell(
@@ -199,6 +363,7 @@ export function renderClaimDetail(
     .filter(Boolean)
     .join(' · ');
 
+  const pendingExceptions = getPendingExceptions(claim);
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
   const checksByStage = displayStages.map((stage) => {
@@ -257,6 +422,19 @@ export function renderClaimDetail(
     </div>
 
     ${
+      exceptionNotice
+        ? `<div class="surveyor-banner">${esc(exceptionNotice)}</div>`
+        : ''
+    }
+    ${
+      pendingExceptions.length
+        ? `<div class="surveyor-banner">
+        <strong>Pending exceptions</strong>
+        <p>${pendingExceptions.length} use-case exception${pendingExceptions.length === 1 ? '' : 's'} waiting for Claim Head. Checks stay failed until approved.</p>
+      </div>`
+        : ''
+    }
+    ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
         <strong>Surveyor stage</strong>
@@ -295,7 +473,9 @@ export function renderClaimDetail(
       <div class="score-circle lg ${claim.tier}">${claim.score}</div>
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
-        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
+        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
+          claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
+        }</div>
         <p class="summary-line">${summaryLine}</p>
       </div>
     </div>
@@ -372,9 +552,11 @@ export function renderClaimDetail(
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
                         ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
+                      ${exceptionBlockHtml(r, session, exceptionPanel, claim)}
                     </div>
                     <div class="check-weight">${metaLabel}</div>
                   </div>
@@ -417,7 +599,13 @@ export function renderClaimDetail(
     location.hash = '#/queue';
   });
   const persist = (nextFilter, extra = {}) =>
-    onFilter(nextFilter, { drawerOpen, selectedStage: stageTab, ...extra });
+    onFilter(nextFilter, {
+      drawerOpen,
+      selectedStage: stageTab,
+      exceptionPanel,
+      exceptionNotice: null,
+      ...extra,
+    });
   root.querySelectorAll('[data-filter]').forEach((btn) => {
     btn.addEventListener('click', () => persist(btn.dataset.filter, { drawerOpen: false }));
   });
@@ -440,5 +628,66 @@ export function renderClaimDetail(
   root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
     const result = submitSurveyorAssessment(claim.id);
     persist(filter, { surveyorMessage: result.message });
+  });
+  root.querySelectorAll('[data-action="exception-open"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      persist(filter, {
+        exceptionPanel: { checkId: Number(btn.dataset.checkId), mode: btn.dataset.mode },
+        exceptionNotice: null,
+      });
+    });
+  });
+  root.querySelectorAll('[data-action="exception-cancel"]').forEach((btn) => {
+    btn.addEventListener('click', () => persist(filter, { exceptionPanel: null }));
+  });
+  root.querySelectorAll('[data-action="exception-decide"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const result = decideCheckException(
+        claim.id,
+        btn.dataset.exceptionId,
+        btn.dataset.decision,
+        '',
+        session
+      );
+      persist(filter, {
+        exceptionPanel: null,
+        exceptionNotice: result.ok ? null : result.message,
+      });
+    });
+  });
+  root.querySelectorAll('[data-exception-form]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const mode = form.dataset.mode;
+      const comment = form.querySelector('[name="comment"]')?.value || '';
+      if (mode === 'send_back') {
+        const result = decideCheckException(claim.id, form.dataset.exceptionId, 'sent_back', comment, session);
+        persist(filter, {
+          exceptionPanel: null,
+          exceptionNotice: result.ok ? null : result.message,
+        });
+        return;
+      }
+      const proposedFields = {};
+      form.querySelectorAll('[data-field]').forEach((input) => {
+        proposedFields[input.dataset.field] = input.value;
+      });
+      const result = proposeCheckException(
+        claim.id,
+        {
+          checkId: Number(form.dataset.checkId),
+          type: mode,
+          comment,
+          proposedFields,
+          hardFail: form.dataset.hardFail === '1',
+        },
+        session
+      );
+      persist(filter, {
+        exceptionPanel: result.ok ? null : exceptionPanel,
+        exceptionNotice: result.ok ? null : result.message,
+      });
+    });
   });
 }
