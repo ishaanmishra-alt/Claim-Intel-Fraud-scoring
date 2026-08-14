@@ -5,7 +5,8 @@ import { renderDashboard, destroyChart } from './views/dashboard.js';
 import { renderConfig } from './views/config.js';
 import { renderReport } from './views/report.js';
 import { getSession, clearSession, getWeights } from './state.js';
-import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
+import { scoreAllClaims, canAccess, homeRouteForRole, withVisibleStages } from './scoring.js';
+import { isReadyForSurveyor } from './data.js';
 
 const root = document.getElementById('app');
 
@@ -21,8 +22,12 @@ let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
 
-function getClaims() {
-  return scoreAllClaims(weights);
+function presentClaimForSession(session, claim) {
+  if (!claim || session.role !== 'surveyor') return claim;
+  if (claim.surveyorSubmitted) {
+    return withVisibleStages(claim, ['fnol', 'intimation', 'assessment']);
+  }
+  return withVisibleStages(claim, ['fnol', 'intimation']);
 }
 
 function parseRoute() {
@@ -64,18 +69,25 @@ function render() {
     return;
   }
 
-  const claims = getClaims();
+  const claims = scoreAllClaims(weights);
 
   if (route === 'queue') {
     destroyChart();
-    renderQueue(root, session, claims, queueState, (next) => {
+    const queueClaims =
+      session.role === 'surveyor'
+        ? claims.filter(isReadyForSurveyor).map((c) => presentClaimForSession(session, c))
+        : claims;
+    renderQueue(root, session, queueClaims, queueState, (next) => {
       queueState = next;
       render();
     });
   } else if (route === 'claim') {
     destroyChart();
     const id = parts.slice(1).join('/');
-    const claim = claims.find((c) => c.id === id);
+    const claim = presentClaimForSession(
+      session,
+      claims.find((c) => c.id === id)
+    );
     renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
       claimFilter = f;
       claimDrawerOpen = !!opts.drawerOpen;

@@ -2180,10 +2180,256 @@ a {
   color: #166534;
 }
 
-.uc-picker-option.is-locked .uc-picker-badge {
-  background: #e2e8f0;
-  color: #475569;
+.stage-block-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.empty-checks {
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.doc-complete-chip {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--navy);
+  background: var(--mint-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.doc-checklist {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-checklist-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 2px 2px 0;
+}
+
+.doc-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.doc-row.is-action {
+  cursor: pointer;
+}
+
+.doc-row.is-action:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(95, 255, 190, 0.25);
+}
+
+.doc-row.missing {
+  border-left: 3px solid var(--amber);
+}
+
+.doc-row.rejected {
+  border-left: 3px solid var(--red);
+}
+
+.doc-row.uploaded,
+.doc-row.already_on_file,
+.doc-row.waived {
+  border-left: 3px solid var(--green);
+}
+
+.doc-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.doc-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.doc-min {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.doc-note {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.doc-why {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.doc-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.doc-status.missing { color: var(--amber); }
+.doc-status.rejected { color: var(--red); }
+.doc-status.uploaded,
+.doc-status.already_on_file,
+.doc-status.waived { color: var(--green); }
+
+.tag.doc-required {
+  background: var(--navy-soft);
+  color: var(--navy);
+  border: 1px solid var(--border-strong);
+}
+
+.tag.doc-optional {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.tag.doc-conditional {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.doc-thumb {
+  width: 56px;
+  height: 44px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #16303d 0%, #1d4d3c 100%);
+  color: var(--mint);
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px;
+  line-height: 1.2;
+}
+
+.doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+.doc-chip.pdf {
+  background: #f8fafc;
+  color: var(--navy);
+}
+
+.doc-chip.missing {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.doc-chip.on-file {
+  background: var(--mint-soft);
+  border-color: var(--accent);
+  color: var(--navy);
+}
+
+.doc-chip.waived {
+  background: #f1f5f9;
+}
+
+.doc-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.surveyor-banner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--navy-soft);
+  color: var(--navy);
+}
+
+.surveyor-banner strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.surveyor-banner p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.surveyor-banner.is-done {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.surveyor-banner.is-done strong {
+  color: #166534;
+}
+
+.surveyor-submit {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.surveyor-submit p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 220px;
+}
+
 
   </style>
 </head>
@@ -2195,7 +2441,7 @@ a {
 /* ==== js/data.js ==== */
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
-/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'} Role */
+/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'|'surveyor'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
 
 const CLAIM_STAGES = [
@@ -2447,6 +2693,14 @@ const USERS = [
     initials: 'NQ',
     id: 'u-noura',
   },
+  {
+    username: 'surveyor',
+    password: 'demo123',
+    role: /** @type {Role} */ ('surveyor'),
+    name: 'Hassan Al-Falasi',
+    initials: 'HF',
+    id: 'u-hassan',
+  },
 ];
 
 const ROLE_LABELS = {
@@ -2454,9 +2708,415 @@ const ROLE_LABELS = {
   claim_head: 'Claim Head',
   admin: 'Admin',
   fiu: 'FIU',
+  surveyor: 'Surveyor',
 };
 
 const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
+
+/** Display label for claim-detail stage blocks (id stays assessment). */
+function stageDisplayName(stageId) {
+  if (stageId === 'assessment') return 'Surveyor';
+  return CLAIM_STAGES.find((s) => s.id === stageId)?.name || stageId;
+}
+
+/**
+ * Stage document catalog (GCC motor). Conditionals use claimType / towed.
+ * required: required | optional | conditional
+ */
+const DOCUMENT_CATALOG = [
+  {
+    id: 'fnol-licence',
+    stage: 'fnol',
+    name: 'Driver licence',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [4, 22],
+    minCount: 1,
+    why: 'Confirms the reported driver is licensed and matches the claimant or an endorsed driver.',
+  },
+  {
+    id: 'fnol-mulkiya',
+    stage: 'fnol',
+    name: 'Mulkiya / vehicle registration',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [1, 2, 5],
+    minCount: 1,
+    why: 'Matches plate, VIN and vehicle description to the policy schedule.',
+  },
+  {
+    id: 'fnol-nid',
+    stage: 'fnol',
+    name: 'National ID / Emirates ID',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [4],
+    minCount: 1,
+    why: 'Verifies claimant identity against the policyholder record.',
+  },
+  {
+    id: 'fnol-scene-photos',
+    stage: 'fnol',
+    name: 'Accident-scene photo set',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [1, 5, 20],
+    minCount: 5,
+    why: 'Needs at least 5 photos with the plate in frame to corroborate location, damage and vehicle identity.',
+  },
+  {
+    id: 'fnol-police',
+    stage: 'fnol',
+    name: 'Police report',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'police',
+    linkedCheckIds: [21],
+    minCount: 1,
+    why: 'Required when the loss type needs a police reference (third-party or theft).',
+  },
+  {
+    id: 'fnol-dashcam',
+    stage: 'fnol',
+    name: 'Dashcam / telematics clip',
+    kind: 'either',
+    required: 'optional',
+    condition: null,
+    linkedCheckIds: [29],
+    minCount: 1,
+    why: 'Optional corroboration of loss timing and severity when a clip is available.',
+  },
+  {
+    id: 'int-estimate',
+    stage: 'intimation',
+    name: 'Garage estimate',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10, 12],
+    minCount: 1,
+    why: 'Lets us benchmark repair cost and confirm the nominated workshop’s scope.',
+  },
+  {
+    id: 'int-nomination',
+    stage: 'intimation',
+    name: 'Garage nomination',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10],
+    minCount: 1,
+    why: 'Shows whether the repairer is network / auto-assigned or claimant-selected.',
+  },
+  {
+    id: 'int-tp-pack',
+    stage: 'intimation',
+    name: 'Third-party pack',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'tp',
+    linkedCheckIds: [23],
+    minCount: 1,
+    why: 'Counterparty name, contact and vehicle identifiers for third-party claims.',
+  },
+  {
+    id: 'int-towing',
+    stage: 'intimation',
+    name: 'Towing receipt',
+    kind: 'either',
+    required: 'conditional',
+    condition: 'towed',
+    linkedCheckIds: [10],
+    minCount: 1,
+    why: 'Supports recovery cost and the workshop that received the vehicle.',
+  },
+  {
+    id: 'ass-surveyor',
+    stage: 'assessment',
+    name: 'Surveyor report',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10, 12, 13],
+    minCount: 1,
+    why: 'Independent assessment of damage, liability and repair versus total loss.',
+  },
+  {
+    id: 'ass-prerepair',
+    stage: 'assessment',
+    name: 'Pre-repair photos',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [13, 28],
+    minCount: 3,
+    carryFrom: 'fnol-scene-photos',
+    why: 'Records damage before repair. Scene photos already on file can satisfy this.',
+  },
+  {
+    id: 'ass-parts',
+    stage: 'assessment',
+    name: 'Parts list',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [13],
+    minCount: 1,
+    why: 'Checks claimed parts against reported damage and the surveyor scope.',
+  },
+  {
+    id: 'ass-salvage-photos',
+    stage: 'assessment',
+    name: 'Salvage / total-loss photos',
+    kind: 'image',
+    required: 'conditional',
+    condition: 'total_loss',
+    linkedCheckIds: [17],
+    minCount: 3,
+    why: 'Evidences residual value when the vehicle is declared total loss.',
+  },
+  {
+    id: 'set-invoice',
+    stage: 'settlement',
+    name: 'Final invoice',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [14, 15, 30],
+    minCount: 1,
+    why: 'Settlement amount must match the approved repair or total-loss figure.',
+  },
+  {
+    id: 'set-completion',
+    stage: 'settlement',
+    name: 'Completion photos',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [28],
+    minCount: 3,
+    why: 'Confirms repairs were completed as approved before discharge.',
+  },
+  {
+    id: 'set-discharge',
+    stage: 'settlement',
+    name: 'Discharge voucher',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [14],
+    minCount: 1,
+    why: 'Claimant acknowledgement required before funds are released.',
+  },
+  {
+    id: 'set-iban',
+    stage: 'settlement',
+    name: 'IBAN / payee proof',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [26],
+    minCount: 1,
+    why: 'Payee account must match the claimant or nominated payee on file.',
+  },
+  {
+    id: 'set-salvage-papers',
+    stage: 'settlement',
+    name: 'Salvage handover papers',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'total_loss',
+    linkedCheckIds: [17],
+    minCount: 1,
+    why: 'Transfers salvage title when a total-loss settlement is paid.',
+  },
+];
+
+function documentApplies(claim, def) {
+  if (!def) return false;
+  const type = claim.claimType || 'own_damage';
+  if (!def.condition) return true;
+  if (def.condition === 'tp') return type === 'tp';
+  if (def.condition === 'theft') return type === 'theft';
+  if (def.condition === 'total_loss') return type === 'total_loss';
+  if (def.condition === 'towed') return !!claim.towed;
+  if (def.condition === 'police') return type === 'tp' || type === 'theft';
+  return true;
+}
+
+function emptyDocRecord() {
+  return { status: 'missing', filename: null, thumb: null, note: '', count: 0 };
+}
+
+function getDocRecord(claim, docId) {
+  return claim.documents?.[docId] || emptyDocRecord();
+}
+
+function countMeetsMin(def, rec) {
+  return (rec.count || 0) >= (def.minCount || 1);
+}
+
+function isDocumentSatisfied(claim, def) {
+  if (!def) return false;
+  const rec = getDocRecord(claim, def.id);
+  if (rec.status === 'waived') return true;
+  if (rec.status === 'uploaded' && countMeetsMin(def, rec)) return true;
+  if (def.carryFrom) {
+    const prior = DOCUMENT_CATALOG.find((d) => d.id === def.carryFrom);
+    if (prior && isDocumentSatisfied(claim, prior) && rec.status !== 'rejected') return true;
+  }
+  return false;
+}
+
+/** Required or applicable-conditional docs still outstanding for a check. */
+function missingRequiredDocsForCheck(claim, checkId) {
+  return DOCUMENT_CATALOG.filter((def) => {
+    if (!def.linkedCheckIds?.includes(checkId)) return false;
+    if (def.required === 'optional') return false;
+    if (!documentApplies(claim, def)) return false;
+    return !isDocumentSatisfied(claim, def);
+  });
+}
+
+function uploadedDocsForCheck(claim, checkId) {
+  return DOCUMENT_CATALOG.filter((def) => {
+    if (!def.linkedCheckIds?.includes(checkId)) return false;
+    if (!documentApplies(claim, def)) return false;
+    const rec = getDocRecord(claim, def.id);
+    return rec.status === 'uploaded' && countMeetsMin(def, rec);
+  });
+}
+
+function getStageDocumentRows(claim, stageId) {
+  return DOCUMENT_CATALOG.filter((def) => def.stage === stageId && documentApplies(claim, def)).map((def) => {
+    const rec = getDocRecord(claim, def.id);
+    const prior = def.carryFrom ? DOCUMENT_CATALOG.find((d) => d.id === def.carryFrom) : null;
+    const carried =
+      prior &&
+      isDocumentSatisfied(claim, prior) &&
+      rec.status !== 'uploaded' &&
+      rec.status !== 'rejected' &&
+      rec.status !== 'waived';
+    return {
+      def,
+      rec,
+      displayStatus: carried ? 'already_on_file' : rec.status,
+      alreadyOnFile: !!carried,
+    };
+  });
+}
+
+function getStageDocCompleteness(claim, stageId) {
+  const rows = getStageDocumentRows(claim, stageId).filter((row) => row.def.required !== 'optional');
+  const done = rows.filter((row) => isDocumentSatisfied(claim, row.def)).length;
+  return { done, total: rows.length };
+}
+
+function hasStageDocsComplete(claim, stageId) {
+  const { done, total } = getStageDocCompleteness(claim, stageId);
+  return total === 0 || done === total;
+}
+
+function hasPassedPriorStages(claim, stageIds) {
+  return stageIds.every((id) => hasStageDocsComplete(claim, id));
+}
+
+/** Claims that cleared FNOL + Intimation and are waiting on surveyor submit. */
+function isReadyForSurveyor(claim) {
+  return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+}
+
+function submitSurveyorAssessment(claimId) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  if (!hasStageDocsComplete(claim, 'assessment')) {
+    return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
+  }
+  claim.surveyorSubmitted = true;
+  return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
+}
+
+const AWAITING_SURVEYOR_IDS = new Set([
+  'CLM-2026-08428',
+  'CLM-2026-08448',
+  'CLM-2026-08419',
+  'CLM-2026-08358',
+  'CLM-2026-08401',
+]);
+
+const MISSING_SURVEYOR_DOCS = {
+  'ass-surveyor': {
+    status: 'missing',
+    filename: null,
+    thumb: null,
+    note: 'Awaiting surveyor report.',
+    count: 0,
+  },
+  'ass-parts': {
+    status: 'missing',
+    filename: null,
+    thumb: null,
+    note: 'Parts list not uploaded by surveyor.',
+    count: 0,
+  },
+};
+
+function defaultUploadedRecord(def) {
+  const pdf = def.kind === 'pdf';
+  const count = def.minCount || 1;
+  return {
+    status: 'uploaded',
+    filename: pdf ? `${def.id}.pdf` : `${def.id}-01.jpg`,
+    thumb: pdf ? 'PDF' : count > 1 ? `${count} photos` : 'Photo',
+    note: 'On file from intake.',
+    count,
+  };
+}
+
+function seedDocuments(claim, overrides = {}) {
+  const docs = {};
+  DOCUMENT_CATALOG.forEach((def) => {
+    if (!documentApplies(claim, def)) return;
+    if (overrides[def.id]) {
+      docs[def.id] = { ...emptyDocRecord(), ...overrides[def.id] };
+      return;
+    }
+    if (def.required === 'optional') {
+      docs[def.id] = {
+        ...emptyDocRecord(),
+        note: 'Not provided.',
+      };
+      return;
+    }
+    if (def.carryFrom) {
+      docs[def.id] = emptyDocRecord();
+      return;
+    }
+    docs[def.id] = defaultUploadedRecord(def);
+  });
+  return docs;
+}
+
+function mockUploadClaimDocument(claimId, docId) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  const def = DOCUMENT_CATALOG.find((d) => d.id === docId);
+  if (!claim || !def) return null;
+  const pdf = def.kind === 'pdf';
+  const count = def.minCount || 1;
+  claim.documents = claim.documents || {};
+  claim.documents[docId] = {
+    status: 'uploaded',
+    filename: pdf ? `${def.id}-uploaded.pdf` : `${def.id}-upload-01.jpg`,
+    thumb: pdf ? 'PDF' : count > 1 ? `${count} photos` : 'Photo',
+    note: 'Uploaded in Claim Intel (demo).',
+    count,
+  };
+  return claim.documents[docId];
+}
 
 function buildChecks(overrides = {}) {
   return USE_CASE_LIBRARY.map((def) => {
@@ -2806,14 +3466,164 @@ const RAW_CLAIMS_BASE = [
   },
 ];
 
-const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => ({
-  ...c,
-  policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
-  lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
-  sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
-  garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
-  lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
-}));
+const CLAIM_META = {
+  'CLM-2026-08412': { claimType: 'own_damage', towed: true },
+  'CLM-2026-08391': { claimType: 'tp', towed: false },
+  'CLM-2026-08455': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08344': { claimType: 'own_damage', towed: true },
+  'CLM-2026-08298': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08401': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08372': { claimType: 'tp', towed: false },
+  'CLM-2026-08428': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08255': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08460': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08315': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08419': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08280': { claimType: 'theft', towed: true },
+  'CLM-2026-08433': { claimType: 'tp', towed: false },
+  'CLM-2026-08358': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08448': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08305': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08470': { claimType: 'own_damage', towed: false },
+};
+
+const DOCUMENT_SEEDS = {
+  'CLM-2026-08412': {
+    'fnol-licence': {
+      status: 'rejected',
+      filename: 'licence-omar-blur.jpg',
+      thumb: 'Photo',
+      note: 'Image too blurry — licence number not readable.',
+      count: 1,
+    },
+  },
+  'CLM-2026-08455': {
+    'fnol-scene-photos': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Scene photos not attached at FNOL (need 5, plate in frame).',
+      count: 0,
+    },
+    'set-iban': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Payee IBAN letter not on file.',
+      count: 0,
+    },
+    'set-invoice': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Final invoice not received.',
+      count: 0,
+    },
+    'set-completion': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Completion photos pending repair close.',
+      count: 0,
+    },
+    'set-discharge': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Discharge voucher not signed.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08344': {
+    'ass-surveyor': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Surveyor report not uploaded.',
+      count: 0,
+    },
+    'ass-prerepair': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Pre-repair photos pending surveyor visit.',
+      count: 0,
+    },
+    'ass-parts': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Parts schedule missing from claim record.',
+      count: 0,
+    },
+    'fnol-scene-photos': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Only 2 scene photos on file — below the 5-photo minimum.',
+      count: 2,
+    },
+  },
+  'CLM-2026-08460': {
+    'int-estimate': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Garage estimate not received — cannot benchmark repair cost.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08470': {
+    'int-nomination': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Garage assignment channel blank — network vs self-select unknown.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08298': {
+    'set-salvage-papers': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Salvage handover papers outstanding.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08428': {
+    'fnol-dashcam': {
+      status: 'waived',
+      filename: null,
+      thumb: null,
+      note: 'No dashcam fitted — waived at FNOL.',
+      count: 0,
+    },
+    ...MISSING_SURVEYOR_DOCS,
+  },
+  'CLM-2026-08448': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08419': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08358': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08401': { ...MISSING_SURVEYOR_DOCS },
+};
+
+const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
+  const meta = CLAIM_META[c.id] || { claimType: 'own_damage', towed: false };
+  const claim = {
+    ...c,
+    claimType: meta.claimType,
+    towed: !!meta.towed,
+    policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
+    lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
+    sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+    garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
+    lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
+  };
+  claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
+  const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
+  claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
+  return claim;
+});
 
 const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
@@ -3115,8 +3925,22 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
       const def = defById[c.checkId];
       const meta = metaById[c.checkId];
       const hardFail = meta?.hardFail ?? def.hardFail;
+      let state = c.state;
+      let evidence = c.evidence;
+      const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
+      if (missingDocs.length && state !== 'fail') {
+        state = 'cant_evaluate';
+        evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+      } else {
+        const onFile = uploadedDocsForCheck(claim, c.checkId);
+        if (onFile.length && !/Document on file:/i.test(evidence)) {
+          evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+        }
+      }
       return {
         ...c,
+        state,
+        evidence,
         name: meta?.name || def.name,
         code: meta?.code || checkCode(def.id),
         description: meta?.description || def.description,
@@ -3150,13 +3974,15 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
     };
   }).filter((s) => s.checkCount > 0);
 
-  const evaluableStages = stageScores.filter((s) => s.activeWeight > 0);
+  // Keep stages with only can't-evaluate soft checks in the average (score 6)
+  // so missing documents cannot hide a stage and make the claim look like Pass.
+  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
   let contextScore;
-  if (evaluableStages.length === 0) {
+  if (stagesForAverage.length === 0) {
     contextScore = 6;
   } else {
     contextScore = Math.round(
-      evaluableStages.reduce((sum, s) => sum + s.score, 0) / evaluableStages.length
+      stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length
     );
   }
 
@@ -3271,8 +4097,8 @@ function sortChecksForDisplay(results) {
 
 function canAccess(role, feature) {
   const matrix = {
-    queue: ['claim_user', 'claim_head', 'admin', 'fiu'],
-    claim: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    queue: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
+    claim: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
     dashboard: ['claim_head', 'admin', 'fiu'],
     report: ['claim_head', 'admin', 'fiu'],
     config: ['admin', 'fiu'],
@@ -3283,6 +4109,37 @@ function canAccess(role, feature) {
 function homeRouteForRole(role) {
   if (role === 'admin' || role === 'fiu') return '#/dashboard';
   return '#/queue';
+}
+
+/** Restrict a scored claim to selected stages (surveyor sees prior-stage scores until submit). */
+function withVisibleStages(scored, stageIds) {
+  const idSet = new Set(stageIds);
+  const results = (scored.results || []).filter((r) => idSet.has(r.stage));
+  const stageScores = (scored.stageScores || []).filter((s) => idSet.has(s.stageId));
+  const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
+  const soft = results.filter((r) => !r.hardFail);
+  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
+  let contextScore = 6;
+  if (stagesForAverage.length) {
+    contextScore = Math.round(stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length);
+  }
+  const forcedRed = hardFails.length > 0;
+  return {
+    ...scored,
+    results,
+    stageScores,
+    hardFails,
+    score: contextScore,
+    tier: forcedRed ? 'red' : scoreBand(contextScore),
+    forcedRed,
+    summary: {
+      hardFailCount: hardFails.length,
+      softFailCount: soft.filter((r) => r.state === 'fail').length,
+      softPassCount: soft.filter((r) => r.state === 'pass').length,
+      softTotal: soft.length,
+      cantEvaluateCount: soft.filter((r) => r.state === 'cant_evaluate').length,
+    },
+  };
 }
 
 
@@ -3360,7 +4217,7 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
         return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
       if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';
-      return true;
+      return l.feature === 'queue';
     })
     .map(
       (l) =>
@@ -3517,9 +4374,11 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
 
 
 function renderQueue(root, session, claims, state, onChange) {
+  const isSurveyor = session.role === 'surveyor';
   const { scope, sort } = state;
-  const mine = claims.filter((c) => c.assignedTo === session.userId);
-  const list = scope === 'mine' ? mine : claims;
+  const pool = isSurveyor ? claims.filter(isReadyForSurveyor) : claims;
+  const mine = pool.filter((c) => c.assignedTo === session.userId);
+  const list = isSurveyor ? pool : scope === 'mine' ? mine : pool;
 
   const sorted = [...list].sort((a, b) => {
     if (sort === 'deadline') {
@@ -3539,11 +4398,12 @@ function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = scope === 'mine' ? 'My claims' : 'All claims';
-  const subtitle =
-    scope === 'mine'
+  const title = isSurveyor ? 'Surveyor queue' : scope === 'mine' ? 'My claims' : 'All claims';
+  const subtitle = isSurveyor
+    ? `${list.length} claim${list.length === 1 ? '' : 's'} that passed FNOL and Intimation · awaiting your documents`
+    : scope === 'mine'
       ? `${mine.length} assigned to you · already scored`
-      : `${claims.length} claims in portfolio · already scored`;
+      : `${pool.length} claims in portfolio · already scored`;
 
   const content = `
     <div class="page-header">
@@ -3551,10 +4411,14 @@ function renderQueue(root, session, claims, state, onChange) {
         <h1>${title} <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
         <p class="page-subtitle">${subtitle}</p>
       </div>
-      <div class="segmented" role="group" aria-label="Claim scope">
+      ${
+        isSurveyor
+          ? ''
+          : `<div class="segmented" role="group" aria-label="Claim scope">
         <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
         <button type="button" data-scope="all" class="${scope === 'all' ? 'active' : ''}">All claims</button>
-      </div>
+      </div>`
+      }
     </div>
 
     <div class="tier-strip">
@@ -3634,6 +4498,77 @@ function stateIcon(state) {
   return iconAlert();
 }
 
+function requiredTag(def) {
+  if (def.required === 'optional') return `<span class="tag doc-optional">Optional</span>`;
+  if (def.required === 'conditional') return `<span class="tag doc-conditional">Conditional</span>`;
+  return `<span class="tag doc-required">Required</span>`;
+}
+
+function docStatusLabel(status) {
+  if (status === 'uploaded') return 'Uploaded';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'waived') return 'Waived';
+  if (status === 'already_on_file') return 'Already on file';
+  return 'Missing';
+}
+
+function docThumb(row) {
+  const { def, rec, displayStatus } = row;
+  if (displayStatus === 'already_on_file') {
+    return `<div class="doc-chip on-file" title="Already on file">On file</div>`;
+  }
+  if (displayStatus === 'waived') {
+    return `<div class="doc-chip waived">Waived</div>`;
+  }
+  if (displayStatus === 'missing') {
+    return `<div class="doc-chip missing">${def.kind === 'pdf' ? 'PDF' : 'IMG'}</div>`;
+  }
+  const isPdf = def.kind === 'pdf' || (rec.filename && rec.filename.toLowerCase().endsWith('.pdf'));
+  if (isPdf) {
+    return `<div class="doc-chip pdf" title="${rec.filename || ''}"><span>PDF</span><span class="doc-chip-name">${rec.filename || 'Document.pdf'}</span></div>`;
+  }
+  return `<div class="doc-thumb" title="${rec.filename || rec.thumb || ''}"><span>${rec.thumb || 'Photo'}</span></div>`;
+}
+
+function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
+  const rows = getStageDocumentRows(claim, stageId);
+  if (!rows.length) return '';
+  return `
+    <div class="doc-checklist">
+      <div class="doc-checklist-label">Documents</div>
+      ${rows
+        .map((row) => {
+          const clickable =
+            !readOnly && (row.displayStatus === 'missing' || row.displayStatus === 'rejected');
+          const statusNote =
+            row.displayStatus === 'already_on_file'
+              ? 'Captured at an earlier stage — not requested again.'
+              : row.rec.note || '';
+          return `
+            <${clickable ? 'button type="button"' : 'div'}
+              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}"
+              ${clickable ? `data-action="upload-doc" data-doc-id="${row.def.id}"` : ''}
+            >
+              <div class="doc-row-main">
+                <div class="doc-row-title">
+                  <span class="doc-name">${row.def.name}${
+                    row.def.minCount > 1 ? ` <span class="doc-min">(min ${row.def.minCount})</span>` : ''
+                  }</span>
+                  ${requiredTag(row.def)}
+                  <span class="doc-status ${row.displayStatus}">${docStatusLabel(row.displayStatus)}</span>
+                </div>
+                ${statusNote ? `<p class="doc-note">${statusNote}</p>` : ''}
+                <p class="doc-why">Why we need this: ${row.def.why}</p>
+              </div>
+              ${docThumb(row)}
+            </${clickable ? 'button' : 'div'}>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
 function claimInfoDrawer(claim) {
   return `
     <div class="drawer-backdrop" data-action="close-drawer">
@@ -3657,6 +4592,11 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Branch</label><div class="value">${claim.branch}</div></div>
             <div class="meta-item"><label>Plate</label><div class="value">${claim.plate}</div></div>
             <div class="meta-item"><label>Vehicle</label><div class="value">${claim.vehicle}</div></div>
+            <div class="meta-item"><label>Claim type</label><div class="value">${
+              { own_damage: 'Own damage', tp: 'Third party', theft: 'Theft', total_loss: 'Total loss' }[
+                claim.claimType
+              ] || 'Own damage'
+            }</div></div>
             <div class="meta-item"><label>Loss location</label><div class="value">${claim.lossLocation}</div></div>
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
@@ -3693,7 +4633,25 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
     return;
   }
 
-  const isClaimUser = session.role === 'claim_user';
+  const isSurveyor = session.role === 'surveyor';
+  const isClaimUser = session.role === 'claim_user' || isSurveyor;
+  const surveyorCanWork =
+    isSurveyor && hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+  const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
+
+  if (isSurveyor && !hasPassedPriorStages(claim, ['fnol', 'intimation'])) {
+    root.innerHTML = renderShell(
+      session,
+      '#/queue',
+      `<div class="empty-state">This claim has not passed FNOL and Intimation yet. <a href="#/queue">Back to surveyor queue</a></div>`
+    );
+    root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+    return;
+  }
+
+  const displayStages = isSurveyor
+    ? CLAIM_STAGES.filter((s) => s.id !== 'settlement')
+    : CLAIM_STAGES;
   const sorted = sortChecksForDisplay(claim.results);
   const counts = {
     all: claim.results.length,
@@ -3718,10 +4676,10 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
 
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
-  const checksByStage = CLAIM_STAGES.map((stage) => {
+  const checksByStage = displayStages.map((stage) => {
     const items = filtered.filter((r) => r.stage === stage.id);
     return { stage, items };
-  }).filter((g) => g.items.length > 0);
+  });
 
   const content = `
     <button type="button" class="back-link" data-action="back">${iconBack()} Back to claims</button>
@@ -3762,9 +4720,33 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
           <label>Vehicle</label>
           <div class="value">${claim.vehicle}</div>
         </div>
+        <div class="meta-item">
+          <label>Claim type</label>
+          <div class="value">${
+            { own_damage: 'Own damage', tp: 'Third party', theft: 'Theft', total_loss: 'Total loss' }[
+              claim.claimType
+            ] || claim.claimType || 'Own damage'
+          }</div>
+        </div>
       </div>
     </div>
 
+    ${
+      surveyorCanWork
+        ? `<div class="surveyor-banner">
+        <strong>Prior-stage scoring</strong>
+        <p>This claim has passed FNOL and Intimation. Upload your Surveyor documents and submit to run the next-stage score.</p>
+      </div>`
+        : ''
+    }
+    ${
+      surveyorSubmitted
+        ? `<div class="surveyor-banner is-done">
+        <strong>Submitted for further scoring</strong>
+        <p>Surveyor documents are on file. Assessment scoring is now included and the claim has moved to the next stage.</p>
+      </div>`
+        : ''
+    }
     ${
       claim.forcedRed
         ? `
@@ -3784,20 +4766,26 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
-        <p class="summary-line">${summaryLine}</p>
+        <p class="summary-line">${summaryLine}${
+          isSurveyor && !surveyorSubmitted
+            ? ' · Score reflects FNOL and Intimation only'
+            : ''
+        }</p>
       </div>
     </div>
 
     <div class="stage-chips">
       ${(claim.stageScores || [])
-        .map(
-          (st) => `
+        .map((st) => {
+          const docs = getStageDocCompleteness(claim, st.stageId);
+          return `
         <div class="stage-chip">
-          <span class="stage-chip-name">${st.stageName}</span>
+          <span class="stage-chip-name">${stageDisplayName(st.stageId)}</span>
           <span class="score-circle xs ${st.tier}">${st.score}</span>
+          ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         </div>
-      `
-        )
+      `;
+        })
         .join('')}
     </div>
 
@@ -3817,30 +4805,36 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
     </div>
 
     <div class="checks-by-stage">
-      ${
-        checksByStage.length === 0
-          ? `<div class="empty-state">No checks in this result state.</div>`
-          : checksByStage
+      ${checksByStage
               .map(({ stage, items }) => {
                 const stageScore = (claim.stageScores || []).find((x) => x.stageId === stage.id);
+                const docs = getStageDocCompleteness(claim, stage.id);
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
                 <div>
-                  <h3>${stage.name}</h3>
-                  <p>${stage.description}</p>
+                  <h3>${stageDisplayName(stage.id)}</h3>
+                  <p>${stage.id === 'assessment' ? 'Surveyor inspection, repair photos & damage assessment' : stage.description}</p>
                 </div>
-                ${
-                  stageScore
-                    ? `<div class="stage-block-score"><span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span></div>`
-                    : ''
-                }
+                <div class="stage-block-score">
+                  ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
+                  ${
+                    stageScore
+                      ? `<span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span>`
+                      : ''
+                  }
+                </div>
               </div>
               <div class="checks-list">
-                ${items
-                  .map((r) => {
-                    const metaLabel = r.hardFail ? 'Hard-fail' : '';
-                    return `
+                ${
+                  items.length === 0
+                    ? filter === 'all'
+                      ? ''
+                      : `<div class="empty-checks">No checks in this result state.</div>`
+                    : items
+                        .map((r) => {
+                          const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                          return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
                     <div class="check-body">
@@ -3855,14 +4849,32 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
                     <div class="check-weight">${metaLabel}</div>
                   </div>
                 `;
-                  })
-                  .join('')}
+                        })
+                        .join('')
+                }
               </div>
+              ${documentChecklistHtml(claim, stage.id, {
+                readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
+              })}
+              ${
+                stage.id === 'assessment' && surveyorCanWork
+                  ? `
+                <div class="surveyor-submit">
+                  <p>${
+                    hasStageDocsComplete(claim, 'assessment')
+                      ? 'Required Surveyor documents are on file. Submit to run further scoring and move this claim to the next stage.'
+                      : 'Upload every required Surveyor document, then submit for further scoring.'
+                  }</p>
+                  <button type="button" class="btn btn-primary" data-action="submit-surveyor" ${
+                    hasStageDocsComplete(claim, 'assessment') ? '' : 'disabled'
+                  }>Submit for further scoring</button>
+                </div>`
+                  : ''
+              }
             </section>
           `;
               })
-              .join('')
-      }
+              .join('')}
     </div>
 
     ${drawerOpen ? claimInfoDrawer(claim) : ''}
@@ -3882,6 +4894,17 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
   });
   root.querySelectorAll('[data-action="close-drawer"]').forEach((btn) => {
     btn.addEventListener('click', () => onFilter(filter, { drawerOpen: false }));
+  });
+  root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mockUploadClaimDocument(claim.id, btn.dataset.docId);
+      onFilter(filter, { drawerOpen });
+    });
+  });
+  root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
+    const result = submitSurveyorAssessment(claim.id);
+    onFilter(filter, { drawerOpen, surveyorMessage: result.message });
   });
 }
 
@@ -5143,6 +6166,7 @@ function renderReport(root, session, claims) {
 
 
 
+
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline' }} */
@@ -5157,8 +6181,12 @@ let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
 
-function getClaims() {
-  return scoreAllClaims(weights);
+function presentClaimForSession(session, claim) {
+  if (!claim || session.role !== 'surveyor') return claim;
+  if (claim.surveyorSubmitted) {
+    return withVisibleStages(claim, ['fnol', 'intimation', 'assessment']);
+  }
+  return withVisibleStages(claim, ['fnol', 'intimation']);
 }
 
 function parseRoute() {
@@ -5200,18 +6228,25 @@ function render() {
     return;
   }
 
-  const claims = getClaims();
+  const claims = scoreAllClaims(weights);
 
   if (route === 'queue') {
     destroyChart();
-    renderQueue(root, session, claims, queueState, (next) => {
+    const queueClaims =
+      session.role === 'surveyor'
+        ? claims.filter(isReadyForSurveyor).map((c) => presentClaimForSession(session, c))
+        : claims;
+    renderQueue(root, session, queueClaims, queueState, (next) => {
       queueState = next;
       render();
     });
   } else if (route === 'claim') {
     destroyChart();
     const id = parts.slice(1).join('/');
-    const claim = claims.find((c) => c.id === id);
+    const claim = presentClaimForSession(
+      session,
+      claims.find((c) => c.id === id)
+    );
     renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
       claimFilter = f;
       claimDrawerOpen = !!opts.drawerOpen;

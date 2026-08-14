@@ -1,11 +1,13 @@
 import { renderShell } from '../components.js';
-import { ROLE_LABELS } from '../data.js';
+import { ROLE_LABELS, isReadyForSurveyor } from '../data.js';
 import { formatAED, tierLabel } from '../scoring.js';
 
 export function renderQueue(root, session, claims, state, onChange) {
+  const isSurveyor = session.role === 'surveyor';
   const { scope, sort } = state;
-  const mine = claims.filter((c) => c.assignedTo === session.userId);
-  const list = scope === 'mine' ? mine : claims;
+  const pool = isSurveyor ? claims.filter(isReadyForSurveyor) : claims;
+  const mine = pool.filter((c) => c.assignedTo === session.userId);
+  const list = isSurveyor ? pool : scope === 'mine' ? mine : pool;
 
   const sorted = [...list].sort((a, b) => {
     if (sort === 'deadline') {
@@ -25,11 +27,12 @@ export function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = scope === 'mine' ? 'My claims' : 'All claims';
-  const subtitle =
-    scope === 'mine'
+  const title = isSurveyor ? 'Surveyor queue' : scope === 'mine' ? 'My claims' : 'All claims';
+  const subtitle = isSurveyor
+    ? `${list.length} claim${list.length === 1 ? '' : 's'} that passed FNOL and Intimation · awaiting your documents`
+    : scope === 'mine'
       ? `${mine.length} assigned to you · already scored`
-      : `${claims.length} claims in portfolio · already scored`;
+      : `${pool.length} claims in portfolio · already scored`;
 
   const content = `
     <div class="page-header">
@@ -37,10 +40,14 @@ export function renderQueue(root, session, claims, state, onChange) {
         <h1>${title} <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
         <p class="page-subtitle">${subtitle}</p>
       </div>
-      <div class="segmented" role="group" aria-label="Claim scope">
+      ${
+        isSurveyor
+          ? ''
+          : `<div class="segmented" role="group" aria-label="Claim scope">
         <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
         <button type="button" data-scope="all" class="${scope === 'all' ? 'active' : ''}">All claims</button>
-      </div>
+      </div>`
+      }
     </div>
 
     <div class="tier-strip">

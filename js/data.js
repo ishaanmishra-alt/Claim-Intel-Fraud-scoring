@@ -1,6 +1,6 @@
 /** @typedef {'pass'|'fail'|'cant_evaluate'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
-/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'} Role */
+/** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'|'surveyor'} Role */
 /** @typedef {'fnol'|'intimation'|'assessment'|'settlement'} ClaimStage */
 
 export const CLAIM_STAGES = [
@@ -252,6 +252,14 @@ export const USERS = [
     initials: 'NQ',
     id: 'u-noura',
   },
+  {
+    username: 'surveyor',
+    password: 'demo123',
+    role: /** @type {Role} */ ('surveyor'),
+    name: 'Hassan Al-Falasi',
+    initials: 'HF',
+    id: 'u-hassan',
+  },
 ];
 
 export const ROLE_LABELS = {
@@ -259,9 +267,415 @@ export const ROLE_LABELS = {
   claim_head: 'Claim Head',
   admin: 'Admin',
   fiu: 'FIU',
+  surveyor: 'Surveyor',
 };
 
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
+
+/** Display label for claim-detail stage blocks (id stays assessment). */
+export function stageDisplayName(stageId) {
+  if (stageId === 'assessment') return 'Surveyor';
+  return CLAIM_STAGES.find((s) => s.id === stageId)?.name || stageId;
+}
+
+/**
+ * Stage document catalog (GCC motor). Conditionals use claimType / towed.
+ * required: required | optional | conditional
+ */
+export const DOCUMENT_CATALOG = [
+  {
+    id: 'fnol-licence',
+    stage: 'fnol',
+    name: 'Driver licence',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [4, 22],
+    minCount: 1,
+    why: 'Confirms the reported driver is licensed and matches the claimant or an endorsed driver.',
+  },
+  {
+    id: 'fnol-mulkiya',
+    stage: 'fnol',
+    name: 'Mulkiya / vehicle registration',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [1, 2, 5],
+    minCount: 1,
+    why: 'Matches plate, VIN and vehicle description to the policy schedule.',
+  },
+  {
+    id: 'fnol-nid',
+    stage: 'fnol',
+    name: 'National ID / Emirates ID',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [4],
+    minCount: 1,
+    why: 'Verifies claimant identity against the policyholder record.',
+  },
+  {
+    id: 'fnol-scene-photos',
+    stage: 'fnol',
+    name: 'Accident-scene photo set',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [1, 5, 20],
+    minCount: 5,
+    why: 'Needs at least 5 photos with the plate in frame to corroborate location, damage and vehicle identity.',
+  },
+  {
+    id: 'fnol-police',
+    stage: 'fnol',
+    name: 'Police report',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'police',
+    linkedCheckIds: [21],
+    minCount: 1,
+    why: 'Required when the loss type needs a police reference (third-party or theft).',
+  },
+  {
+    id: 'fnol-dashcam',
+    stage: 'fnol',
+    name: 'Dashcam / telematics clip',
+    kind: 'either',
+    required: 'optional',
+    condition: null,
+    linkedCheckIds: [29],
+    minCount: 1,
+    why: 'Optional corroboration of loss timing and severity when a clip is available.',
+  },
+  {
+    id: 'int-estimate',
+    stage: 'intimation',
+    name: 'Garage estimate',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10, 12],
+    minCount: 1,
+    why: 'Lets us benchmark repair cost and confirm the nominated workshop’s scope.',
+  },
+  {
+    id: 'int-nomination',
+    stage: 'intimation',
+    name: 'Garage nomination',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10],
+    minCount: 1,
+    why: 'Shows whether the repairer is network / auto-assigned or claimant-selected.',
+  },
+  {
+    id: 'int-tp-pack',
+    stage: 'intimation',
+    name: 'Third-party pack',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'tp',
+    linkedCheckIds: [23],
+    minCount: 1,
+    why: 'Counterparty name, contact and vehicle identifiers for third-party claims.',
+  },
+  {
+    id: 'int-towing',
+    stage: 'intimation',
+    name: 'Towing receipt',
+    kind: 'either',
+    required: 'conditional',
+    condition: 'towed',
+    linkedCheckIds: [10],
+    minCount: 1,
+    why: 'Supports recovery cost and the workshop that received the vehicle.',
+  },
+  {
+    id: 'ass-surveyor',
+    stage: 'assessment',
+    name: 'Surveyor report',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [10, 12, 13],
+    minCount: 1,
+    why: 'Independent assessment of damage, liability and repair versus total loss.',
+  },
+  {
+    id: 'ass-prerepair',
+    stage: 'assessment',
+    name: 'Pre-repair photos',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [13, 28],
+    minCount: 3,
+    carryFrom: 'fnol-scene-photos',
+    why: 'Records damage before repair. Scene photos already on file can satisfy this.',
+  },
+  {
+    id: 'ass-parts',
+    stage: 'assessment',
+    name: 'Parts list',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [13],
+    minCount: 1,
+    why: 'Checks claimed parts against reported damage and the surveyor scope.',
+  },
+  {
+    id: 'ass-salvage-photos',
+    stage: 'assessment',
+    name: 'Salvage / total-loss photos',
+    kind: 'image',
+    required: 'conditional',
+    condition: 'total_loss',
+    linkedCheckIds: [17],
+    minCount: 3,
+    why: 'Evidences residual value when the vehicle is declared total loss.',
+  },
+  {
+    id: 'set-invoice',
+    stage: 'settlement',
+    name: 'Final invoice',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [14, 15, 30],
+    minCount: 1,
+    why: 'Settlement amount must match the approved repair or total-loss figure.',
+  },
+  {
+    id: 'set-completion',
+    stage: 'settlement',
+    name: 'Completion photos',
+    kind: 'image',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [28],
+    minCount: 3,
+    why: 'Confirms repairs were completed as approved before discharge.',
+  },
+  {
+    id: 'set-discharge',
+    stage: 'settlement',
+    name: 'Discharge voucher',
+    kind: 'pdf',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [14],
+    minCount: 1,
+    why: 'Claimant acknowledgement required before funds are released.',
+  },
+  {
+    id: 'set-iban',
+    stage: 'settlement',
+    name: 'IBAN / payee proof',
+    kind: 'either',
+    required: 'required',
+    condition: null,
+    linkedCheckIds: [26],
+    minCount: 1,
+    why: 'Payee account must match the claimant or nominated payee on file.',
+  },
+  {
+    id: 'set-salvage-papers',
+    stage: 'settlement',
+    name: 'Salvage handover papers',
+    kind: 'pdf',
+    required: 'conditional',
+    condition: 'total_loss',
+    linkedCheckIds: [17],
+    minCount: 1,
+    why: 'Transfers salvage title when a total-loss settlement is paid.',
+  },
+];
+
+export function documentApplies(claim, def) {
+  if (!def) return false;
+  const type = claim.claimType || 'own_damage';
+  if (!def.condition) return true;
+  if (def.condition === 'tp') return type === 'tp';
+  if (def.condition === 'theft') return type === 'theft';
+  if (def.condition === 'total_loss') return type === 'total_loss';
+  if (def.condition === 'towed') return !!claim.towed;
+  if (def.condition === 'police') return type === 'tp' || type === 'theft';
+  return true;
+}
+
+function emptyDocRecord() {
+  return { status: 'missing', filename: null, thumb: null, note: '', count: 0 };
+}
+
+export function getDocRecord(claim, docId) {
+  return claim.documents?.[docId] || emptyDocRecord();
+}
+
+function countMeetsMin(def, rec) {
+  return (rec.count || 0) >= (def.minCount || 1);
+}
+
+export function isDocumentSatisfied(claim, def) {
+  if (!def) return false;
+  const rec = getDocRecord(claim, def.id);
+  if (rec.status === 'waived') return true;
+  if (rec.status === 'uploaded' && countMeetsMin(def, rec)) return true;
+  if (def.carryFrom) {
+    const prior = DOCUMENT_CATALOG.find((d) => d.id === def.carryFrom);
+    if (prior && isDocumentSatisfied(claim, prior) && rec.status !== 'rejected') return true;
+  }
+  return false;
+}
+
+/** Required or applicable-conditional docs still outstanding for a check. */
+export function missingRequiredDocsForCheck(claim, checkId) {
+  return DOCUMENT_CATALOG.filter((def) => {
+    if (!def.linkedCheckIds?.includes(checkId)) return false;
+    if (def.required === 'optional') return false;
+    if (!documentApplies(claim, def)) return false;
+    return !isDocumentSatisfied(claim, def);
+  });
+}
+
+export function uploadedDocsForCheck(claim, checkId) {
+  return DOCUMENT_CATALOG.filter((def) => {
+    if (!def.linkedCheckIds?.includes(checkId)) return false;
+    if (!documentApplies(claim, def)) return false;
+    const rec = getDocRecord(claim, def.id);
+    return rec.status === 'uploaded' && countMeetsMin(def, rec);
+  });
+}
+
+export function getStageDocumentRows(claim, stageId) {
+  return DOCUMENT_CATALOG.filter((def) => def.stage === stageId && documentApplies(claim, def)).map((def) => {
+    const rec = getDocRecord(claim, def.id);
+    const prior = def.carryFrom ? DOCUMENT_CATALOG.find((d) => d.id === def.carryFrom) : null;
+    const carried =
+      prior &&
+      isDocumentSatisfied(claim, prior) &&
+      rec.status !== 'uploaded' &&
+      rec.status !== 'rejected' &&
+      rec.status !== 'waived';
+    return {
+      def,
+      rec,
+      displayStatus: carried ? 'already_on_file' : rec.status,
+      alreadyOnFile: !!carried,
+    };
+  });
+}
+
+export function getStageDocCompleteness(claim, stageId) {
+  const rows = getStageDocumentRows(claim, stageId).filter((row) => row.def.required !== 'optional');
+  const done = rows.filter((row) => isDocumentSatisfied(claim, row.def)).length;
+  return { done, total: rows.length };
+}
+
+export function hasStageDocsComplete(claim, stageId) {
+  const { done, total } = getStageDocCompleteness(claim, stageId);
+  return total === 0 || done === total;
+}
+
+export function hasPassedPriorStages(claim, stageIds) {
+  return stageIds.every((id) => hasStageDocsComplete(claim, id));
+}
+
+/** Claims that cleared FNOL + Intimation and are waiting on surveyor submit. */
+export function isReadyForSurveyor(claim) {
+  return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+}
+
+export function submitSurveyorAssessment(claimId) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  if (!hasStageDocsComplete(claim, 'assessment')) {
+    return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
+  }
+  claim.surveyorSubmitted = true;
+  return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
+}
+
+const AWAITING_SURVEYOR_IDS = new Set([
+  'CLM-2026-08428',
+  'CLM-2026-08448',
+  'CLM-2026-08419',
+  'CLM-2026-08358',
+  'CLM-2026-08401',
+]);
+
+const MISSING_SURVEYOR_DOCS = {
+  'ass-surveyor': {
+    status: 'missing',
+    filename: null,
+    thumb: null,
+    note: 'Awaiting surveyor report.',
+    count: 0,
+  },
+  'ass-parts': {
+    status: 'missing',
+    filename: null,
+    thumb: null,
+    note: 'Parts list not uploaded by surveyor.',
+    count: 0,
+  },
+};
+
+function defaultUploadedRecord(def) {
+  const pdf = def.kind === 'pdf';
+  const count = def.minCount || 1;
+  return {
+    status: 'uploaded',
+    filename: pdf ? `${def.id}.pdf` : `${def.id}-01.jpg`,
+    thumb: pdf ? 'PDF' : count > 1 ? `${count} photos` : 'Photo',
+    note: 'On file from intake.',
+    count,
+  };
+}
+
+function seedDocuments(claim, overrides = {}) {
+  const docs = {};
+  DOCUMENT_CATALOG.forEach((def) => {
+    if (!documentApplies(claim, def)) return;
+    if (overrides[def.id]) {
+      docs[def.id] = { ...emptyDocRecord(), ...overrides[def.id] };
+      return;
+    }
+    if (def.required === 'optional') {
+      docs[def.id] = {
+        ...emptyDocRecord(),
+        note: 'Not provided.',
+      };
+      return;
+    }
+    if (def.carryFrom) {
+      docs[def.id] = emptyDocRecord();
+      return;
+    }
+    docs[def.id] = defaultUploadedRecord(def);
+  });
+  return docs;
+}
+
+export function mockUploadClaimDocument(claimId, docId) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  const def = DOCUMENT_CATALOG.find((d) => d.id === docId);
+  if (!claim || !def) return null;
+  const pdf = def.kind === 'pdf';
+  const count = def.minCount || 1;
+  claim.documents = claim.documents || {};
+  claim.documents[docId] = {
+    status: 'uploaded',
+    filename: pdf ? `${def.id}-uploaded.pdf` : `${def.id}-upload-01.jpg`,
+    thumb: pdf ? 'PDF' : count > 1 ? `${count} photos` : 'Photo',
+    note: 'Uploaded in Claim Intel (demo).',
+    count,
+  };
+  return claim.documents[docId];
+}
 
 function buildChecks(overrides = {}) {
   return USE_CASE_LIBRARY.map((def) => {
@@ -611,14 +1025,164 @@ const RAW_CLAIMS_BASE = [
   },
 ];
 
-export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => ({
-  ...c,
-  policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
-  lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
-  sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
-  garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
-  lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
-}));
+const CLAIM_META = {
+  'CLM-2026-08412': { claimType: 'own_damage', towed: true },
+  'CLM-2026-08391': { claimType: 'tp', towed: false },
+  'CLM-2026-08455': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08344': { claimType: 'own_damage', towed: true },
+  'CLM-2026-08298': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08401': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08372': { claimType: 'tp', towed: false },
+  'CLM-2026-08428': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08255': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08460': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08315': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08419': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08280': { claimType: 'theft', towed: true },
+  'CLM-2026-08433': { claimType: 'tp', towed: false },
+  'CLM-2026-08358': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08448': { claimType: 'own_damage', towed: false },
+  'CLM-2026-08305': { claimType: 'total_loss', towed: true },
+  'CLM-2026-08470': { claimType: 'own_damage', towed: false },
+};
+
+const DOCUMENT_SEEDS = {
+  'CLM-2026-08412': {
+    'fnol-licence': {
+      status: 'rejected',
+      filename: 'licence-omar-blur.jpg',
+      thumb: 'Photo',
+      note: 'Image too blurry — licence number not readable.',
+      count: 1,
+    },
+  },
+  'CLM-2026-08455': {
+    'fnol-scene-photos': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Scene photos not attached at FNOL (need 5, plate in frame).',
+      count: 0,
+    },
+    'set-iban': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Payee IBAN letter not on file.',
+      count: 0,
+    },
+    'set-invoice': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Final invoice not received.',
+      count: 0,
+    },
+    'set-completion': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Completion photos pending repair close.',
+      count: 0,
+    },
+    'set-discharge': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Discharge voucher not signed.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08344': {
+    'ass-surveyor': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Surveyor report not uploaded.',
+      count: 0,
+    },
+    'ass-prerepair': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Pre-repair photos pending surveyor visit.',
+      count: 0,
+    },
+    'ass-parts': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Parts schedule missing from claim record.',
+      count: 0,
+    },
+    'fnol-scene-photos': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Only 2 scene photos on file — below the 5-photo minimum.',
+      count: 2,
+    },
+  },
+  'CLM-2026-08460': {
+    'int-estimate': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Garage estimate not received — cannot benchmark repair cost.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08470': {
+    'int-nomination': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Garage assignment channel blank — network vs self-select unknown.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08298': {
+    'set-salvage-papers': {
+      status: 'missing',
+      filename: null,
+      thumb: null,
+      note: 'Salvage handover papers outstanding.',
+      count: 0,
+    },
+  },
+  'CLM-2026-08428': {
+    'fnol-dashcam': {
+      status: 'waived',
+      filename: null,
+      thumb: null,
+      note: 'No dashcam fitted — waived at FNOL.',
+      count: 0,
+    },
+    ...MISSING_SURVEYOR_DOCS,
+  },
+  'CLM-2026-08448': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08419': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08358': { ...MISSING_SURVEYOR_DOCS },
+  'CLM-2026-08401': { ...MISSING_SURVEYOR_DOCS },
+};
+
+export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
+  const meta = CLAIM_META[c.id] || { claimType: 'own_damage', towed: false };
+  const claim = {
+    ...c,
+    claimType: meta.claimType,
+    towed: !!meta.towed,
+    policyNumber: `POL-${BRANCH_PREFIX[c.branch] || 'MEA'}-${784100 + i * 17}`,
+    lossDate: shiftDate(c.filedAt, -(1 + (i % 3))),
+    sumInsured: Math.round(c.amount * (1.15 + (i % 5) * 0.08)),
+    garage: i % 4 === 0 ? 'Al Noor Body Shop' : 'Network panel garage',
+    lossLocation: c.branch === 'Dubai' ? 'Sheikh Zayed Road, Dubai' : `${c.branch} metro area`,
+  };
+  claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
+  const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
+  claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
+  return claim;
+});
 
 export const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },

@@ -1,4 +1,12 @@
-import { USE_CASE_LIBRARY, DEFAULT_WEIGHTS, RAW_CLAIMS, CLAIM_STAGES, checkCode } from './data.js';
+import {
+  USE_CASE_LIBRARY,
+  DEFAULT_WEIGHTS,
+  RAW_CLAIMS,
+  CLAIM_STAGES,
+  checkCode,
+  missingRequiredDocsForCheck,
+  uploadedDocsForCheck,
+} from './data.js';
 import { getActiveUseCases, getWeights as getStoreWeights } from './state.js';
 
 function scoreBand(score) {
@@ -41,8 +49,22 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
       const def = defById[c.checkId];
       const meta = metaById[c.checkId];
       const hardFail = meta?.hardFail ?? def.hardFail;
+      let state = c.state;
+      let evidence = c.evidence;
+      const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
+      if (missingDocs.length && state !== 'fail') {
+        state = 'cant_evaluate';
+        evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+      } else {
+        const onFile = uploadedDocsForCheck(claim, c.checkId);
+        if (onFile.length && !/Document on file:/i.test(evidence)) {
+          evidence = `${evidence} · Document on file: ${onFile.map((d) => d.name).join(', ')}.`;
+        }
+      }
       return {
         ...c,
+        state,
+        evidence,
         name: meta?.name || def.name,
         code: meta?.code || checkCode(def.id),
         description: meta?.description || def.description,
@@ -76,13 +98,15 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
     };
   }).filter((s) => s.checkCount > 0);
 
-  const evaluableStages = stageScores.filter((s) => s.activeWeight > 0);
+  // Keep stages with only can't-evaluate soft checks in the average (score 6)
+  // so missing documents cannot hide a stage and make the claim look like Pass.
+  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
   let contextScore;
-  if (evaluableStages.length === 0) {
+  if (stagesForAverage.length === 0) {
     contextScore = 6;
   } else {
     contextScore = Math.round(
-      evaluableStages.reduce((sum, s) => sum + s.score, 0) / evaluableStages.length
+      stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length
     );
   }
 
@@ -197,8 +221,8 @@ export function sortChecksForDisplay(results) {
 
 export function canAccess(role, feature) {
   const matrix = {
-    queue: ['claim_user', 'claim_head', 'admin', 'fiu'],
-    claim: ['claim_user', 'claim_head', 'admin', 'fiu'],
+    queue: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
+    claim: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
     dashboard: ['claim_head', 'admin', 'fiu'],
     report: ['claim_head', 'admin', 'fiu'],
     config: ['admin', 'fiu'],
@@ -209,6 +233,37 @@ export function canAccess(role, feature) {
 export function homeRouteForRole(role) {
   if (role === 'admin' || role === 'fiu') return '#/dashboard';
   return '#/queue';
+}
+
+/** Restrict a scored claim to selected stages (surveyor sees prior-stage scores until submit). */
+export function withVisibleStages(scored, stageIds) {
+  const idSet = new Set(stageIds);
+  const results = (scored.results || []).filter((r) => idSet.has(r.stage));
+  const stageScores = (scored.stageScores || []).filter((s) => idSet.has(s.stageId));
+  const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
+  const soft = results.filter((r) => !r.hardFail);
+  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
+  let contextScore = 6;
+  if (stagesForAverage.length) {
+    contextScore = Math.round(stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length);
+  }
+  const forcedRed = hardFails.length > 0;
+  return {
+    ...scored,
+    results,
+    stageScores,
+    hardFails,
+    score: contextScore,
+    tier: forcedRed ? 'red' : scoreBand(contextScore),
+    forcedRed,
+    summary: {
+      hardFailCount: hardFails.length,
+      softFailCount: soft.filter((r) => r.state === 'fail').length,
+      softPassCount: soft.filter((r) => r.state === 'pass').length,
+      softTotal: soft.length,
+      cantEvaluateCount: soft.filter((r) => r.state === 'cant_evaluate').length,
+    },
+  };
 }
 
 export { checkCode };

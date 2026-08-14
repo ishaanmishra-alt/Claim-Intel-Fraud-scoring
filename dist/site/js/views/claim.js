@@ -1,11 +1,93 @@
 import { renderShell, iconCheck, iconX, iconAlert, iconBack, iconClose } from '../components.js';
-import { ROLE_LABELS, CLAIM_STAGES, checkCode } from '../data.js';
+import {
+  ROLE_LABELS,
+  CLAIM_STAGES,
+  checkCode,
+  stageDisplayName,
+  getStageDocumentRows,
+  getStageDocCompleteness,
+  mockUploadClaimDocument,
+  hasPassedPriorStages,
+  hasStageDocsComplete,
+  submitSurveyorAssessment,
+} from '../data.js';
 import { formatAED, formatDate, tierLabel, sortChecksForDisplay } from '../scoring.js';
 
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
   return iconAlert();
+}
+
+function requiredTag(def) {
+  if (def.required === 'optional') return `<span class="tag doc-optional">Optional</span>`;
+  if (def.required === 'conditional') return `<span class="tag doc-conditional">Conditional</span>`;
+  return `<span class="tag doc-required">Required</span>`;
+}
+
+function docStatusLabel(status) {
+  if (status === 'uploaded') return 'Uploaded';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'waived') return 'Waived';
+  if (status === 'already_on_file') return 'Already on file';
+  return 'Missing';
+}
+
+function docThumb(row) {
+  const { def, rec, displayStatus } = row;
+  if (displayStatus === 'already_on_file') {
+    return `<div class="doc-chip on-file" title="Already on file">On file</div>`;
+  }
+  if (displayStatus === 'waived') {
+    return `<div class="doc-chip waived">Waived</div>`;
+  }
+  if (displayStatus === 'missing') {
+    return `<div class="doc-chip missing">${def.kind === 'pdf' ? 'PDF' : 'IMG'}</div>`;
+  }
+  const isPdf = def.kind === 'pdf' || (rec.filename && rec.filename.toLowerCase().endsWith('.pdf'));
+  if (isPdf) {
+    return `<div class="doc-chip pdf" title="${rec.filename || ''}"><span>PDF</span><span class="doc-chip-name">${rec.filename || 'Document.pdf'}</span></div>`;
+  }
+  return `<div class="doc-thumb" title="${rec.filename || rec.thumb || ''}"><span>${rec.thumb || 'Photo'}</span></div>`;
+}
+
+function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
+  const rows = getStageDocumentRows(claim, stageId);
+  if (!rows.length) return '';
+  return `
+    <div class="doc-checklist">
+      <div class="doc-checklist-label">Documents</div>
+      ${rows
+        .map((row) => {
+          const clickable =
+            !readOnly && (row.displayStatus === 'missing' || row.displayStatus === 'rejected');
+          const statusNote =
+            row.displayStatus === 'already_on_file'
+              ? 'Captured at an earlier stage — not requested again.'
+              : row.rec.note || '';
+          return `
+            <${clickable ? 'button type="button"' : 'div'}
+              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}"
+              ${clickable ? `data-action="upload-doc" data-doc-id="${row.def.id}"` : ''}
+            >
+              <div class="doc-row-main">
+                <div class="doc-row-title">
+                  <span class="doc-name">${row.def.name}${
+                    row.def.minCount > 1 ? ` <span class="doc-min">(min ${row.def.minCount})</span>` : ''
+                  }</span>
+                  ${requiredTag(row.def)}
+                  <span class="doc-status ${row.displayStatus}">${docStatusLabel(row.displayStatus)}</span>
+                </div>
+                ${statusNote ? `<p class="doc-note">${statusNote}</p>` : ''}
+                <p class="doc-why">Why we need this: ${row.def.why}</p>
+              </div>
+              ${docThumb(row)}
+            </${clickable ? 'button' : 'div'}>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
 }
 
 function claimInfoDrawer(claim) {
@@ -31,6 +113,11 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Branch</label><div class="value">${claim.branch}</div></div>
             <div class="meta-item"><label>Plate</label><div class="value">${claim.plate}</div></div>
             <div class="meta-item"><label>Vehicle</label><div class="value">${claim.vehicle}</div></div>
+            <div class="meta-item"><label>Claim type</label><div class="value">${
+              { own_damage: 'Own damage', tp: 'Third party', theft: 'Theft', total_loss: 'Total loss' }[
+                claim.claimType
+              ] || 'Own damage'
+            }</div></div>
             <div class="meta-item"><label>Loss location</label><div class="value">${claim.lossLocation}</div></div>
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
@@ -67,7 +154,25 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
     return;
   }
 
-  const isClaimUser = session.role === 'claim_user';
+  const isSurveyor = session.role === 'surveyor';
+  const isClaimUser = session.role === 'claim_user' || isSurveyor;
+  const surveyorCanWork =
+    isSurveyor && hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+  const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
+
+  if (isSurveyor && !hasPassedPriorStages(claim, ['fnol', 'intimation'])) {
+    root.innerHTML = renderShell(
+      session,
+      '#/queue',
+      `<div class="empty-state">This claim has not passed FNOL and Intimation yet. <a href="#/queue">Back to surveyor queue</a></div>`
+    );
+    root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+    return;
+  }
+
+  const displayStages = isSurveyor
+    ? CLAIM_STAGES.filter((s) => s.id !== 'settlement')
+    : CLAIM_STAGES;
   const sorted = sortChecksForDisplay(claim.results);
   const counts = {
     all: claim.results.length,
@@ -92,10 +197,10 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
 
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
-  const checksByStage = CLAIM_STAGES.map((stage) => {
+  const checksByStage = displayStages.map((stage) => {
     const items = filtered.filter((r) => r.stage === stage.id);
     return { stage, items };
-  }).filter((g) => g.items.length > 0);
+  });
 
   const content = `
     <button type="button" class="back-link" data-action="back">${iconBack()} Back to claims</button>
@@ -136,9 +241,33 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
           <label>Vehicle</label>
           <div class="value">${claim.vehicle}</div>
         </div>
+        <div class="meta-item">
+          <label>Claim type</label>
+          <div class="value">${
+            { own_damage: 'Own damage', tp: 'Third party', theft: 'Theft', total_loss: 'Total loss' }[
+              claim.claimType
+            ] || claim.claimType || 'Own damage'
+          }</div>
+        </div>
       </div>
     </div>
 
+    ${
+      surveyorCanWork
+        ? `<div class="surveyor-banner">
+        <strong>Prior-stage scoring</strong>
+        <p>This claim has passed FNOL and Intimation. Upload your Surveyor documents and submit to run the next-stage score.</p>
+      </div>`
+        : ''
+    }
+    ${
+      surveyorSubmitted
+        ? `<div class="surveyor-banner is-done">
+        <strong>Submitted for further scoring</strong>
+        <p>Surveyor documents are on file. Assessment scoring is now included and the claim has moved to the next stage.</p>
+      </div>`
+        : ''
+    }
     ${
       claim.forcedRed
         ? `
@@ -158,20 +287,26 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
-        <p class="summary-line">${summaryLine}</p>
+        <p class="summary-line">${summaryLine}${
+          isSurveyor && !surveyorSubmitted
+            ? ' · Score reflects FNOL and Intimation only'
+            : ''
+        }</p>
       </div>
     </div>
 
     <div class="stage-chips">
       ${(claim.stageScores || [])
-        .map(
-          (st) => `
+        .map((st) => {
+          const docs = getStageDocCompleteness(claim, st.stageId);
+          return `
         <div class="stage-chip">
-          <span class="stage-chip-name">${st.stageName}</span>
+          <span class="stage-chip-name">${stageDisplayName(st.stageId)}</span>
           <span class="score-circle xs ${st.tier}">${st.score}</span>
+          ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         </div>
-      `
-        )
+      `;
+        })
         .join('')}
     </div>
 
@@ -191,30 +326,36 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
     </div>
 
     <div class="checks-by-stage">
-      ${
-        checksByStage.length === 0
-          ? `<div class="empty-state">No checks in this result state.</div>`
-          : checksByStage
+      ${checksByStage
               .map(({ stage, items }) => {
                 const stageScore = (claim.stageScores || []).find((x) => x.stageId === stage.id);
+                const docs = getStageDocCompleteness(claim, stage.id);
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
                 <div>
-                  <h3>${stage.name}</h3>
-                  <p>${stage.description}</p>
+                  <h3>${stageDisplayName(stage.id)}</h3>
+                  <p>${stage.id === 'assessment' ? 'Surveyor inspection, repair photos & damage assessment' : stage.description}</p>
                 </div>
-                ${
-                  stageScore
-                    ? `<div class="stage-block-score"><span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span></div>`
-                    : ''
-                }
+                <div class="stage-block-score">
+                  ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
+                  ${
+                    stageScore
+                      ? `<span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span>`
+                      : ''
+                  }
+                </div>
               </div>
               <div class="checks-list">
-                ${items
-                  .map((r) => {
-                    const metaLabel = r.hardFail ? 'Hard-fail' : '';
-                    return `
+                ${
+                  items.length === 0
+                    ? filter === 'all'
+                      ? ''
+                      : `<div class="empty-checks">No checks in this result state.</div>`
+                    : items
+                        .map((r) => {
+                          const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                          return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
                     <div class="check-body">
@@ -229,14 +370,32 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
                     <div class="check-weight">${metaLabel}</div>
                   </div>
                 `;
-                  })
-                  .join('')}
+                        })
+                        .join('')
+                }
               </div>
+              ${documentChecklistHtml(claim, stage.id, {
+                readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
+              })}
+              ${
+                stage.id === 'assessment' && surveyorCanWork
+                  ? `
+                <div class="surveyor-submit">
+                  <p>${
+                    hasStageDocsComplete(claim, 'assessment')
+                      ? 'Required Surveyor documents are on file. Submit to run further scoring and move this claim to the next stage.'
+                      : 'Upload every required Surveyor document, then submit for further scoring.'
+                  }</p>
+                  <button type="button" class="btn btn-primary" data-action="submit-surveyor" ${
+                    hasStageDocsComplete(claim, 'assessment') ? '' : 'disabled'
+                  }>Submit for further scoring</button>
+                </div>`
+                  : ''
+              }
             </section>
           `;
               })
-              .join('')
-      }
+              .join('')}
     </div>
 
     ${drawerOpen ? claimInfoDrawer(claim) : ''}
@@ -256,5 +415,16 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
   });
   root.querySelectorAll('[data-action="close-drawer"]').forEach((btn) => {
     btn.addEventListener('click', () => onFilter(filter, { drawerOpen: false }));
+  });
+  root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mockUploadClaimDocument(claim.id, btn.dataset.docId);
+      onFilter(filter, { drawerOpen });
+    });
+  });
+  root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
+    const result = submitSurveyorAssessment(claim.id);
+    onFilter(filter, { drawerOpen, surveyorMessage: result.message });
   });
 }

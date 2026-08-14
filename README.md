@@ -32,10 +32,16 @@ After drop, Netlify gives a public URL you can share (e.g. `https://….netlify.
 | Claim User | `claim.user` | `demo123` | Claims queue |
 | Claim Head | `claim.head` | `demo123` | Claims queue (Dashboard + Report available) |
 | Admin | `admin` | `demo123` | Dashboard |
+| FIU | `fiu` | `demo123` | Dashboard (same access as Admin) |
+| Surveyor | `surveyor` | `demo123` | Surveyor queue (same screens as Claim User) |
 
 ## What to try
 
 1. **Queue** — defaults to My claims; toggle All claims; switch Highest risk ↔ Deadline (Yusuf Al-Qahtani’s low-risk claim due in 1d rises under Deadline).
 2. **Hard fail** — open `CLM-2026-08391` (Layla Hassan): red banner above score, tier forced Red.
-3. **Can't evaluate** — open `CLM-2026-08344` or `CLM-2026-08460`: amber state distinct from fail.
-4. **Config** (Admin) — edit soft-signal weights; live total; Save blocked with gap nudge unless exactly 100%.
+3. **Can't evaluate** — open `CLM-2026-08344` or `CLM-2026-08460`: amber state distinct from fail. Missing documents also force linked checks to can't-evaluate without dropping the stage from the score average.
+4. **Config** (Admin / FIU) — edit category / weightage; add or delete a use-case; set start and end dates to save as a new version.
+5. **FNOL photos** — open `CLM-2026-08455` (Yusuf Al-Qahtani): FNOL shows 3/4 docs and a missing accident-scene photo set. Click the missing row to mock-upload (5 photos). Related checks pick up “Document on file” evidence; Surveyor pre-repair then shows **Already on file**.
+6. **Surveyor set** — open `CLM-2026-08344` (Noura Al-Mazrouei): under Surveyor, upload the missing surveyor report, pre-repair photos, and parts list.
+7. **Settlement IBAN** — still on `CLM-2026-08455`, scroll to Settlement and click the missing IBAN / payee proof row to mock-upload.
+8. **Surveyor login** — `surveyor` / `demo123`. Queue shows only claims that passed FNOL and Intimation (e.g. `CLM-2026-08428` Hessa Al-Dhaheri). Open one: score is prior-stage only. Upload the surveyor report and parts list, then **Submit for further scoring** — Assessment scoring appears and the claim leaves the surveyor queue.

@@ -70,7 +70,7 @@ export function renderShell(session, active, content, { showMobileNav = true } =
         return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
       if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';
-      return true;
+      return l.feature === 'queue';
     })
     .map(
       (l) =>
