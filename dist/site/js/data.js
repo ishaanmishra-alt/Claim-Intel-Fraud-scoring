@@ -1496,6 +1496,126 @@ RAW_CLAIMS.forEach((claim) => {
   claim.auditLog = buildSeedAudit(claim);
 });
 
+const EXTRA_LEDGER_EVENTS = [
+  {
+    id: 'CLM-2026-08460',
+    date: '2026-08-10',
+    time: '16:22',
+    user: 'Fatima Al-Najjar',
+    action: 'Uploaded',
+    changeType: 'Upload',
+    entity: 'Document',
+    field: 'Accident scene photos',
+    oldValue: 'Missing',
+    newValue: 'Uploaded',
+    comments: 'Five scene photos captured after desk review.',
+  },
+  {
+    id: 'CLM-2026-08470',
+    date: '2026-08-10',
+    time: '17:08',
+    user: 'Fatima Al-Najjar',
+    action: 'Exception resolve',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: '#08',
+    oldValue: 'Reported 18 days after loss',
+    newValue: 'Pending waive',
+    comments: 'Customer was overseas; delay explained.',
+  },
+  {
+    id: 'CLM-2026-08455',
+    date: '2026-08-10',
+    time: '09:41',
+    user: 'Fatima Al-Najjar',
+    action: 'Uploaded',
+    changeType: 'Upload',
+    entity: 'Document',
+    field: 'Accident scene photos',
+    oldValue: 'Missing',
+    newValue: 'Uploaded',
+    comments: 'Plate in frame on photo 2.',
+  },
+  {
+    id: 'CLM-2026-08344',
+    date: '2026-08-10',
+    time: '11:15',
+    user: 'Khalid Al-Mansouri',
+    action: 'Exception approved',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: '#10',
+    oldValue: 'Fail',
+    newValue: 'Waived',
+    comments: 'Network garage confirmed after the fact.',
+  },
+  {
+    id: 'CLM-2026-08433',
+    date: '2026-08-08',
+    time: '14:05',
+    user: 'Hassan Al-Falasi',
+    action: 'Submitted',
+    changeType: 'Status',
+    entity: 'Stage',
+    field: 'Claim stage',
+    oldValue: 'Surveyor',
+    newValue: 'Settlement',
+    comments: 'Surveyor pack submitted for further scoring.',
+  },
+  {
+    id: 'CLM-2026-08419',
+    date: '2026-08-06',
+    time: '10:18',
+    user: 'Khalid Al-Mansouri',
+    action: 'Assigned',
+    changeType: 'Assignment',
+    entity: 'Stage',
+    field: 'Surveyor',
+    oldValue: '—',
+    newValue: 'Hassan Al-Falasi',
+    comments: 'Surveyor assigned after Intimation.',
+  },
+  {
+    id: 'CLM-2026-08412',
+    date: '2026-08-05',
+    time: '13:40',
+    user: 'Noura Al-Qahtani',
+    action: 'Reviewed',
+    changeType: 'Review',
+    entity: 'Claim',
+    field: 'FIU flag',
+    oldValue: 'Clear',
+    newValue: 'Flagged',
+    comments: 'Repeat garage watchlist hits.',
+  },
+  {
+    id: 'CLM-2026-08401',
+    date: '2026-08-05',
+    time: '08:55',
+    user: 'Claim Intel',
+    action: 'Scored',
+    changeType: 'Score',
+    entity: 'Score',
+    field: 'Fraud risk score',
+    oldValue: '—',
+    newValue: 'Published',
+    comments: 'Rescore after FNOL documents landed.',
+  },
+];
+
+EXTRA_LEDGER_EVENTS.forEach((ev) => {
+  const claim = RAW_CLAIMS.find((c) => c.id === ev.id);
+  if (!claim) return;
+  claim.auditLog = claim.auditLog || [];
+  const { id, ...row } = ev;
+  void id;
+  claim.auditLog.push({
+    ...row,
+    status: row.status || 'Completed',
+    version: `v${claim.auditLog.length + 1}`,
+  });
+});
+
 export function getClaimAuditLog(claim) {
   const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
   return [...(raw?.auditLog || [])].sort((a, b) => {

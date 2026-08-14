@@ -1,6 +1,12 @@
 import { renderShell } from '../components.js';
 import { ROLE_LABELS, BRANCHES, TREND_HISTORY, CLAIM_STAGES } from '../data.js';
 import { formatAED, formatDate, canAccess, useCaseFailStats } from '../scoring.js';
+import {
+  PERIOD_PRESETS,
+  CLAIM_TYPE_OPTIONS,
+  filterClaimUniverse,
+  describeClaimScope,
+} from '../filters.js';
 
 let chartInstance = null;
 
@@ -9,22 +15,6 @@ function destroyChart() {
     chartInstance.destroy();
     chartInstance = null;
   }
-}
-
-function filterClaims(claims, period, branch) {
-  const today = new Date('2026-08-11T12:00:00');
-  let days = 30;
-  if (period === '7') days = 7;
-  if (period === 'quarter') days = 90;
-  const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() - days);
-
-  return claims.filter((c) => {
-    const filed = new Date(c.filedAt + 'T12:00:00');
-    if (filed < cutoff) return false;
-    if (branch !== 'All branches' && c.branch !== branch) return false;
-    return true;
-  });
 }
 
 function drawChart(canvas, mode) {
@@ -129,8 +119,10 @@ export function renderDashboard(root, session, claims, state, onChange) {
     return;
   }
 
-  const { period, branch, chartMode } = state;
-  const filtered = filterClaims(claims, period, branch);
+  const { period, branch, chartMode, claimType = 'all' } = state;
+  const dashFilters = { period, branch, claimType };
+  const filtered = filterClaimUniverse(claims, dashFilters);
+  const scopeLine = describeClaimScope(filtered, dashFilters);
 
   const totalCount = filtered.length;
   const totalValue = filtered.reduce((s, c) => s + c.amount, 0);
@@ -179,9 +171,9 @@ export function renderDashboard(root, session, claims, state, onChange) {
       <div class="filter-group">
         <label for="period">Time period</label>
         <select id="period">
-          <option value="7" ${period === '7' ? 'selected' : ''}>Last 7 days</option>
-          <option value="30" ${period === '30' ? 'selected' : ''}>Last 30 days</option>
-          <option value="quarter" ${period === 'quarter' ? 'selected' : ''}>This quarter</option>
+          ${PERIOD_PRESETS.filter((p) => p.id !== 'custom')
+            .map((p) => `<option value="${p.id}" ${period === p.id ? 'selected' : ''}>${p.label}</option>`)
+            .join('')}
         </select>
       </div>
       <div class="filter-group">
@@ -190,7 +182,16 @@ export function renderDashboard(root, session, claims, state, onChange) {
           ${BRANCHES.map((b) => `<option value="${b}" ${branch === b ? 'selected' : ''}>${b}</option>`).join('')}
         </select>
       </div>
+      <div class="filter-group">
+        <label for="dash-type">Claim type</label>
+        <select id="dash-type">
+          ${CLAIM_TYPE_OPTIONS.map(
+            (t) => `<option value="${t.id}" ${claimType === t.id ? 'selected' : ''}>${t.label}</option>`
+          ).join('')}
+        </select>
+      </div>
     </div>
+    <p class="scope-line">${scopeLine}</p>
 
     <div class="stat-tiles">
       <div class="stat-tile">
@@ -326,6 +327,9 @@ export function renderDashboard(root, session, claims, state, onChange) {
   });
   root.querySelector('#branch').addEventListener('change', (e) => {
     onChange({ ...state, branch: e.target.value });
+  });
+  root.querySelector('#dash-type').addEventListener('change', (e) => {
+    onChange({ ...state, claimType: e.target.value });
   });
   root.querySelectorAll('[data-chart]').forEach((btn) => {
     btn.addEventListener('click', () => onChange({ ...state, chartMode: btn.dataset.chart }));
