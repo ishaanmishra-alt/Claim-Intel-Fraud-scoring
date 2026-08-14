@@ -5,30 +5,23 @@ import { renderDashboard, destroyChart } from './views/dashboard.js';
 import { renderConfig } from './views/config.js';
 import { renderReport } from './views/report.js';
 import { getSession, clearSession, getWeights } from './state.js';
-import { scoreAllClaims, canAccess, homeRouteForRole, withVisibleStages } from './scoring.js';
-import { isReadyForSurveyor } from './data.js';
+import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
 
 const root = document.getElementById('app');
 
-/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline' }} */
-let queueState = { scope: 'mine', sort: 'risk' };
+/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all' };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume' }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 
 let claimFilter = 'all';
 let claimDrawerOpen = false;
+let claimStageTab = null;
+let lastClaimId = null;
 let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
-
-function presentClaimForSession(session, claim) {
-  if (!claim || session.role !== 'surveyor') return claim;
-  if (claim.surveyorSubmitted) {
-    return withVisibleStages(claim, ['fnol', 'intimation', 'assessment']);
-  }
-  return withVisibleStages(claim, ['fnol', 'intimation']);
-}
 
 function parseRoute() {
   const hash = location.hash || '#/login';
@@ -73,26 +66,33 @@ function render() {
 
   if (route === 'queue') {
     destroyChart();
-    const queueClaims =
-      session.role === 'surveyor'
-        ? claims.filter(isReadyForSurveyor).map((c) => presentClaimForSession(session, c))
-        : claims;
-    renderQueue(root, session, queueClaims, queueState, (next) => {
+    renderQueue(root, session, claims, queueState, (next) => {
       queueState = next;
       render();
     });
   } else if (route === 'claim') {
     destroyChart();
     const id = parts.slice(1).join('/');
-    const claim = presentClaimForSession(
+    if (id !== lastClaimId) {
+      lastClaimId = id;
+      claimFilter = 'all';
+      claimDrawerOpen = false;
+      claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+    }
+    const claim = claims.find((c) => c.id === id);
+    renderClaimDetail(
+      root,
       session,
-      claims.find((c) => c.id === id)
+      claim,
+      claimFilter,
+      (f, opts = {}) => {
+        claimFilter = f;
+        claimDrawerOpen = !!opts.drawerOpen;
+        if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
+        render();
+      },
+      { drawerOpen: claimDrawerOpen, selectedStage: claimStageTab }
     );
-    renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
-      claimFilter = f;
-      claimDrawerOpen = !!opts.drawerOpen;
-      render();
-    }, { drawerOpen: claimDrawerOpen });
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
       location.hash = '#/queue';
@@ -132,6 +132,8 @@ window.addEventListener('hashchange', () => {
   if (parts[0] !== 'claim') {
     claimFilter = 'all';
     claimDrawerOpen = false;
+    claimStageTab = null;
+    lastClaimId = null;
   }
   render();
 });

@@ -143,7 +143,14 @@ function claimInfoDrawer(claim) {
   `;
 }
 
-export function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen = false } = {}) {
+export function renderClaimDetail(
+  root,
+  session,
+  claim,
+  filter,
+  onFilter,
+  { drawerOpen = false, selectedStage = null } = {}
+) {
   if (!claim) {
     root.innerHTML = renderShell(
       session,
@@ -156,29 +163,26 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
 
   const isSurveyor = session.role === 'surveyor';
   const isClaimUser = session.role === 'claim_user' || isSurveyor;
+  const stageTab = isSurveyor ? selectedStage || 'assessment' : null;
   const surveyorCanWork =
-    isSurveyor && hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+    isSurveyor &&
+    stageTab === 'assessment' &&
+    hasPassedPriorStages(claim, ['fnol', 'intimation']) &&
+    !claim.surveyorSubmitted;
   const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
 
-  if (isSurveyor && !hasPassedPriorStages(claim, ['fnol', 'intimation'])) {
-    root.innerHTML = renderShell(
-      session,
-      '#/queue',
-      `<div class="empty-state">This claim has not passed FNOL and Intimation yet. <a href="#/queue">Back to surveyor queue</a></div>`
-    );
-    root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
-    return;
-  }
-
   const displayStages = isSurveyor
-    ? CLAIM_STAGES.filter((s) => s.id !== 'settlement')
+    ? CLAIM_STAGES.filter((s) => !stageTab || s.id === stageTab)
     : CLAIM_STAGES;
-  const sorted = sortChecksForDisplay(claim.results);
+  const stageResults = stageTab
+    ? claim.results.filter((r) => r.stage === stageTab)
+    : claim.results;
+  const sorted = sortChecksForDisplay(stageResults);
   const counts = {
-    all: claim.results.length,
-    pass: claim.results.filter((r) => r.state === 'pass').length,
-    fail: claim.results.filter((r) => r.state === 'fail').length,
-    cant_evaluate: claim.results.filter((r) => r.state === 'cant_evaluate').length,
+    all: stageResults.length,
+    pass: stageResults.filter((r) => r.state === 'pass').length,
+    fail: stageResults.filter((r) => r.state === 'fail').length,
+    cant_evaluate: stageResults.filter((r) => r.state === 'cant_evaluate').length,
   };
 
   const filtered =
@@ -255,10 +259,15 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
     ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
-        <strong>Prior-stage scoring</strong>
-        <p>This claim has passed FNOL and Intimation. Upload your Surveyor documents and submit to run the next-stage score.</p>
+        <strong>Surveyor stage</strong>
+        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Intimation, or Settlement to review earlier or later stages.</p>
       </div>`
-        : ''
+        : isSurveyor && stageTab === 'assessment' && !surveyorSubmitted
+          ? `<div class="surveyor-banner">
+        <strong>Surveyor stage</strong>
+        <p>This claim has not completed FNOL and Intimation yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Intimation, or Settlement.</p>
+      </div>`
+          : ''
     }
     ${
       surveyorSubmitted
@@ -287,25 +296,25 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
-        <p class="summary-line">${summaryLine}${
-          isSurveyor && !surveyorSubmitted
-            ? ' · Score reflects FNOL and Intimation only'
-            : ''
-        }</p>
+        <p class="summary-line">${summaryLine}</p>
       </div>
     </div>
 
-    <div class="stage-chips">
-      ${(claim.stageScores || [])
+    <div class="stage-chips ${isSurveyor ? 'is-tabs' : ''}">
+      ${(isSurveyor ? CLAIM_STAGES : claim.stageScores || [])
         .map((st) => {
-          const docs = getStageDocCompleteness(claim, st.stageId);
-          return `
-        <div class="stage-chip">
-          <span class="stage-chip-name">${stageDisplayName(st.stageId)}</span>
-          <span class="score-circle xs ${st.tier}">${st.score}</span>
+          const stageId = st.stageId || st.id;
+          const stageScore = (claim.stageScores || []).find((x) => x.stageId === stageId);
+          const docs = getStageDocCompleteness(claim, stageId);
+          const active = isSurveyor && stageTab === stageId;
+          const inner = `
+          <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${stageScore.score}</span>` : ''}
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
-        </div>
-      `;
+        `;
+          return isSurveyor
+            ? `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`
+            : `<div class="stage-chip">${inner}</div>`;
         })
         .join('')}
     </div>
@@ -407,24 +416,29 @@ export function renderClaimDetail(root, session, claim, filter, onFilter, { draw
   root.querySelector('[data-action="back"]').addEventListener('click', () => {
     location.hash = '#/queue';
   });
+  const persist = (nextFilter, extra = {}) =>
+    onFilter(nextFilter, { drawerOpen, selectedStage: stageTab, ...extra });
   root.querySelectorAll('[data-filter]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(btn.dataset.filter, { drawerOpen: false }));
+    btn.addEventListener('click', () => persist(btn.dataset.filter, { drawerOpen: false }));
+  });
+  root.querySelectorAll('[data-stage-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => persist('all', { selectedStage: btn.dataset.stageTab }));
   });
   root.querySelectorAll('[data-action="open-drawer"]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: true }));
+    btn.addEventListener('click', () => persist(filter, { drawerOpen: true }));
   });
   root.querySelectorAll('[data-action="close-drawer"]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: false }));
+    btn.addEventListener('click', () => persist(filter, { drawerOpen: false }));
   });
   root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       mockUploadClaimDocument(claim.id, btn.dataset.docId);
-      onFilter(filter, { drawerOpen });
+      persist(filter);
     });
   });
   root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
     const result = submitSurveyorAssessment(claim.id);
-    onFilter(filter, { drawerOpen, surveyorMessage: result.message });
+    persist(filter, { surveyorMessage: result.message });
   });
 }

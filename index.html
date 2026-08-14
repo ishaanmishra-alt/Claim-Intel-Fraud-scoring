@@ -555,6 +555,22 @@ a {
   margin-right: 8px;
 }
 
+.toolbar > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 160px;
+  color: var(--text);
+}
+
 /* ---------- Claims list ---------- */
 .claims-list {
   display: flex;
@@ -562,11 +578,37 @@ a {
   gap: 8px;
 }
 
+.claims-list-head,
 .claim-row {
   display: grid;
-  grid-template-columns: 56px 1fr auto auto auto;
+  grid-template-columns: 56px 1fr auto auto 110px auto;
   align-items: center;
   gap: 16px;
+}
+
+.claims-list-head {
+  padding: 0 16px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.claims-list-head span:nth-child(3) {
+  text-align: right;
+}
+
+.claims-list-head span:nth-child(4),
+.claims-list-head span:nth-child(5) {
+  text-align: center;
+}
+
+.claims-list-head span:nth-child(6) {
+  text-align: right;
+}
+
+.claim-row {
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -693,6 +735,14 @@ a {
 .claim-tier.red { color: var(--red); }
 .claim-tier.yellow { color: var(--amber); }
 .claim-tier.green { color: var(--green); }
+
+.claim-stage-cell {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  min-width: 96px;
+}
 
 .due-badge {
   font-size: 0.8rem;
@@ -1239,6 +1289,10 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .claims-list-head {
+    display: none;
+  }
+
   .claim-row {
     grid-template-columns: 48px 1fr;
     gap: 12px;
@@ -1246,6 +1300,7 @@ a {
 
   .claim-amount,
   .claim-tier,
+  .claim-stage-cell,
   .due-badge {
     grid-column: 2;
     text-align: left;
@@ -1531,6 +1586,21 @@ a {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+button.stage-chip {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.stage-chip:hover {
+  border-color: var(--border-strong);
+}
+
+button.stage-chip.is-active {
+  border-color: var(--accent);
+  background: var(--mint-soft);
+  color: var(--navy-deep);
 }
 
 .stage-block {
@@ -3030,6 +3100,21 @@ function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
 
+/** Current workflow stage for queue column / filters. */
+function getClaimWorkflowStage(claim) {
+  if (!hasStageDocsComplete(claim, 'fnol')) return 'fnol';
+  if (!hasStageDocsComplete(claim, 'intimation')) return 'intimation';
+  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment')) return 'assessment';
+  return 'settlement';
+}
+
+const WORKFLOW_STAGES = [
+  { id: 'fnol', name: 'FNOL' },
+  { id: 'intimation', name: 'Intimation' },
+  { id: 'assessment', name: 'Surveyor' },
+  { id: 'settlement', name: 'Settlement' },
+];
+
 function submitSurveyorAssessment(claimId) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return { ok: false, message: 'Claim not found.' };
@@ -3636,7 +3721,6 @@ const TREND_HISTORY = [
 
 
 /* ==== js/state.js ==== */
-
 const SESSION_KEY = 'claim-intel-session';
 const WEIGHTS_KEY = 'claim-intel-weights-v3';
 const CONFIG_KEY = 'claim-intel-config-v4';
@@ -3883,8 +3967,6 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
 
 
 /* ==== js/scoring.js ==== */
-
-
 function scoreBand(score) {
   if (score >= 8) return 'green';
   if (score >= 5) return 'yellow';
@@ -4008,7 +4090,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
 }
 
 function scoreAllClaims(weights, activeUseCases) {
-  const w = weights || getStoreWeights();
+  const w = weights || getWeights();
   const active = activeUseCases || getActiveUseCases();
   return RAW_CLAIMS.map((claim) => {
     const scored = scoreClaim(claim, w, active);
@@ -4143,7 +4225,6 @@ function withVisibleStages(scored, stageIds) {
 }
 
 
-
 /* ==== js/components.js ==== */
 function brandIcon(size = 22) {
   return `
@@ -4251,10 +4332,6 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
 
 
 /* ==== js/views/login.js ==== */
-
-
-
-
 function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
     <div class="login-page">
@@ -4370,22 +4447,19 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
 
 
 /* ==== js/views/queue.js ==== */
-
-
-
 function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
-  const { scope, sort } = state;
-  const pool = isSurveyor ? claims.filter(isReadyForSurveyor) : claims;
+  const { scope, sort, stage = 'all' } = state;
+  const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
-  const list = isSurveyor ? pool : scope === 'mine' ? mine : pool;
+  const scoped = isSurveyor || scope === 'all' ? pool : mine;
+  const list = stage === 'all' ? scoped : scoped.filter((c) => getClaimWorkflowStage(c) === stage);
 
   const sorted = [...list].sort((a, b) => {
     if (sort === 'deadline') {
       if (a.dueInDays !== b.dueInDays) return a.dueInDays - b.dueInDays;
       return a.score - b.score;
     }
-    // Highest risk: red first, then yellow, then green; within tier lower score first
     const tierRank = { red: 0, yellow: 1, green: 2 };
     if (tierRank[a.tier] !== tierRank[b.tier]) return tierRank[a.tier] - tierRank[b.tier];
     if (a.score !== b.score) return a.score - b.score;
@@ -4398,12 +4472,12 @@ function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = isSurveyor ? 'Surveyor queue' : scope === 'mine' ? 'My claims' : 'All claims';
+  const title = isSurveyor ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
   const subtitle = isSurveyor
-    ? `${list.length} claim${list.length === 1 ? '' : 's'} that passed FNOL and Intimation · awaiting your documents`
+    ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
     : scope === 'mine'
-      ? `${mine.length} assigned to you · already scored`
-      : `${pool.length} claims in portfolio · already scored`;
+      ? `${list.length} assigned to you · already scored`
+      : `${list.length} claims in portfolio · already scored`;
 
   const content = `
     <div class="page-header">
@@ -4435,9 +4509,27 @@ function renderQueue(root, session, claims, state, onChange) {
           <button type="button" data-sort="deadline" class="${sort === 'deadline' ? 'active' : ''}">Deadline</button>
         </div>
       </div>
+      <div>
+        <span class="toolbar-label">Claim stage</span>
+        <select id="queue-stage-filter" aria-label="Filter by claim stage">
+          <option value="all" ${stage === 'all' ? 'selected' : ''}>All stages</option>
+          ${WORKFLOW_STAGES.map(
+            (s) =>
+              `<option value="${s.id}" ${stage === s.id ? 'selected' : ''}>${s.name}</option>`
+          ).join('')}
+        </select>
+      </div>
     </div>
 
     <div class="claims-list">
+      <div class="claims-list-head" aria-hidden="true">
+        <span></span>
+        <span>Claim</span>
+        <span>Amount</span>
+        <span>Risk</span>
+        <span>Claim Stage</span>
+        <span>Deadline</span>
+      </div>
       ${
         sorted.length === 0
           ? `<div class="empty-state">No claims in this view.</div>`
@@ -4450,6 +4542,7 @@ function renderQueue(root, session, claims, state, onChange) {
                     : c.dueInDays === 0
                       ? 'due today'
                       : `due in ${c.dueInDays}d`;
+                const workflow = getClaimWorkflowStage(c);
                 return `
             <button type="button" class="claim-row" data-claim-id="${c.id}">
               <div class="score-circle sm ${c.tier}">${c.score}</div>
@@ -4462,6 +4555,7 @@ function renderQueue(root, session, claims, state, onChange) {
               </div>
               <div class="claim-amount">${formatAED(c.amount)}</div>
               <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
+              <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
             </button>
           `;
@@ -4480,6 +4574,9 @@ function renderQueue(root, session, claims, state, onChange) {
   root.querySelectorAll('[data-sort]').forEach((btn) => {
     btn.addEventListener('click', () => onChange({ ...state, sort: btn.dataset.sort }));
   });
+  root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
+    onChange({ ...state, stage: e.target.value });
+  });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       location.hash = `#/claim/${btn.dataset.claimId}`;
@@ -4489,9 +4586,6 @@ function renderQueue(root, session, claims, state, onChange) {
 
 
 /* ==== js/views/claim.js ==== */
-
-
-
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
@@ -4622,7 +4716,14 @@ function claimInfoDrawer(claim) {
   `;
 }
 
-function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen = false } = {}) {
+function renderClaimDetail(
+  root,
+  session,
+  claim,
+  filter,
+  onFilter,
+  { drawerOpen = false, selectedStage = null } = {}
+) {
   if (!claim) {
     root.innerHTML = renderShell(
       session,
@@ -4635,29 +4736,26 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
 
   const isSurveyor = session.role === 'surveyor';
   const isClaimUser = session.role === 'claim_user' || isSurveyor;
+  const stageTab = isSurveyor ? selectedStage || 'assessment' : null;
   const surveyorCanWork =
-    isSurveyor && hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
+    isSurveyor &&
+    stageTab === 'assessment' &&
+    hasPassedPriorStages(claim, ['fnol', 'intimation']) &&
+    !claim.surveyorSubmitted;
   const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
 
-  if (isSurveyor && !hasPassedPriorStages(claim, ['fnol', 'intimation'])) {
-    root.innerHTML = renderShell(
-      session,
-      '#/queue',
-      `<div class="empty-state">This claim has not passed FNOL and Intimation yet. <a href="#/queue">Back to surveyor queue</a></div>`
-    );
-    root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
-    return;
-  }
-
   const displayStages = isSurveyor
-    ? CLAIM_STAGES.filter((s) => s.id !== 'settlement')
+    ? CLAIM_STAGES.filter((s) => !stageTab || s.id === stageTab)
     : CLAIM_STAGES;
-  const sorted = sortChecksForDisplay(claim.results);
+  const stageResults = stageTab
+    ? claim.results.filter((r) => r.stage === stageTab)
+    : claim.results;
+  const sorted = sortChecksForDisplay(stageResults);
   const counts = {
-    all: claim.results.length,
-    pass: claim.results.filter((r) => r.state === 'pass').length,
-    fail: claim.results.filter((r) => r.state === 'fail').length,
-    cant_evaluate: claim.results.filter((r) => r.state === 'cant_evaluate').length,
+    all: stageResults.length,
+    pass: stageResults.filter((r) => r.state === 'pass').length,
+    fail: stageResults.filter((r) => r.state === 'fail').length,
+    cant_evaluate: stageResults.filter((r) => r.state === 'cant_evaluate').length,
   };
 
   const filtered =
@@ -4734,10 +4832,15 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
     ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
-        <strong>Prior-stage scoring</strong>
-        <p>This claim has passed FNOL and Intimation. Upload your Surveyor documents and submit to run the next-stage score.</p>
+        <strong>Surveyor stage</strong>
+        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Intimation, or Settlement to review earlier or later stages.</p>
       </div>`
-        : ''
+        : isSurveyor && stageTab === 'assessment' && !surveyorSubmitted
+          ? `<div class="surveyor-banner">
+        <strong>Surveyor stage</strong>
+        <p>This claim has not completed FNOL and Intimation yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Intimation, or Settlement.</p>
+      </div>`
+          : ''
     }
     ${
       surveyorSubmitted
@@ -4766,25 +4869,25 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
       <div class="score-panel-text">
         <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}</div>
-        <p class="summary-line">${summaryLine}${
-          isSurveyor && !surveyorSubmitted
-            ? ' · Score reflects FNOL and Intimation only'
-            : ''
-        }</p>
+        <p class="summary-line">${summaryLine}</p>
       </div>
     </div>
 
-    <div class="stage-chips">
-      ${(claim.stageScores || [])
+    <div class="stage-chips ${isSurveyor ? 'is-tabs' : ''}">
+      ${(isSurveyor ? CLAIM_STAGES : claim.stageScores || [])
         .map((st) => {
-          const docs = getStageDocCompleteness(claim, st.stageId);
-          return `
-        <div class="stage-chip">
-          <span class="stage-chip-name">${stageDisplayName(st.stageId)}</span>
-          <span class="score-circle xs ${st.tier}">${st.score}</span>
+          const stageId = st.stageId || st.id;
+          const stageScore = (claim.stageScores || []).find((x) => x.stageId === stageId);
+          const docs = getStageDocCompleteness(claim, stageId);
+          const active = isSurveyor && stageTab === stageId;
+          const inner = `
+          <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${stageScore.score}</span>` : ''}
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
-        </div>
-      `;
+        `;
+          return isSurveyor
+            ? `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`
+            : `<div class="stage-chip">${inner}</div>`;
         })
         .join('')}
     </div>
@@ -4886,33 +4989,35 @@ function renderClaimDetail(root, session, claim, filter, onFilter, { drawerOpen 
   root.querySelector('[data-action="back"]').addEventListener('click', () => {
     location.hash = '#/queue';
   });
+  const persist = (nextFilter, extra = {}) =>
+    onFilter(nextFilter, { drawerOpen, selectedStage: stageTab, ...extra });
   root.querySelectorAll('[data-filter]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(btn.dataset.filter, { drawerOpen: false }));
+    btn.addEventListener('click', () => persist(btn.dataset.filter, { drawerOpen: false }));
+  });
+  root.querySelectorAll('[data-stage-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => persist('all', { selectedStage: btn.dataset.stageTab }));
   });
   root.querySelectorAll('[data-action="open-drawer"]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: true }));
+    btn.addEventListener('click', () => persist(filter, { drawerOpen: true }));
   });
   root.querySelectorAll('[data-action="close-drawer"]').forEach((btn) => {
-    btn.addEventListener('click', () => onFilter(filter, { drawerOpen: false }));
+    btn.addEventListener('click', () => persist(filter, { drawerOpen: false }));
   });
   root.querySelectorAll('[data-action="upload-doc"]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       mockUploadClaimDocument(claim.id, btn.dataset.docId);
-      onFilter(filter, { drawerOpen });
+      persist(filter);
     });
   });
   root.querySelector('[data-action="submit-surveyor"]')?.addEventListener('click', () => {
     const result = submitSurveyorAssessment(claim.id);
-    onFilter(filter, { drawerOpen, surveyorMessage: result.message });
+    persist(filter, { surveyorMessage: result.message });
   });
 }
 
 
 /* ==== js/views/dashboard.js ==== */
-
-
-
 let chartInstance = null;
 
 function destroyChart() {
@@ -5253,12 +5358,7 @@ function renderDashboard(root, session, claims, state, onChange) {
 }
 
 
-
 /* ==== js/views/config.js ==== */
-
-
-
-
 function stageName(id) {
   return CLAIM_STAGES.find((s) => s.id === id)?.name || id;
 }
@@ -6043,9 +6143,6 @@ function bindConfigEvents(root, session, currentUseCases) {
 
 
 /* ==== js/views/report.js ==== */
-
-
-
 function renderReport(root, session, claims) {
   if (!canAccess(session.role, 'report')) {
     location.hash = '#/queue';
@@ -6158,36 +6255,21 @@ function renderReport(root, session, claims) {
 
 
 /* ==== js/app.js ==== */
-
-
-
-
-
-
-
-
-
 const root = document.getElementById('app');
 
-/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline' }} */
-let queueState = { scope: 'mine', sort: 'risk' };
+/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all' };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume' }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share' };
 
 let claimFilter = 'all';
 let claimDrawerOpen = false;
+let claimStageTab = null;
+let lastClaimId = null;
 let weights = getWeights();
 let weightDraft = { ...weights };
 let configFeedback = null;
-
-function presentClaimForSession(session, claim) {
-  if (!claim || session.role !== 'surveyor') return claim;
-  if (claim.surveyorSubmitted) {
-    return withVisibleStages(claim, ['fnol', 'intimation', 'assessment']);
-  }
-  return withVisibleStages(claim, ['fnol', 'intimation']);
-}
 
 function parseRoute() {
   const hash = location.hash || '#/login';
@@ -6232,26 +6314,33 @@ function render() {
 
   if (route === 'queue') {
     destroyChart();
-    const queueClaims =
-      session.role === 'surveyor'
-        ? claims.filter(isReadyForSurveyor).map((c) => presentClaimForSession(session, c))
-        : claims;
-    renderQueue(root, session, queueClaims, queueState, (next) => {
+    renderQueue(root, session, claims, queueState, (next) => {
       queueState = next;
       render();
     });
   } else if (route === 'claim') {
     destroyChart();
     const id = parts.slice(1).join('/');
-    const claim = presentClaimForSession(
+    if (id !== lastClaimId) {
+      lastClaimId = id;
+      claimFilter = 'all';
+      claimDrawerOpen = false;
+      claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+    }
+    const claim = claims.find((c) => c.id === id);
+    renderClaimDetail(
+      root,
       session,
-      claims.find((c) => c.id === id)
+      claim,
+      claimFilter,
+      (f, opts = {}) => {
+        claimFilter = f;
+        claimDrawerOpen = !!opts.drawerOpen;
+        if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
+        render();
+      },
+      { drawerOpen: claimDrawerOpen, selectedStage: claimStageTab }
     );
-    renderClaimDetail(root, session, claim, claimFilter, (f, opts = {}) => {
-      claimFilter = f;
-      claimDrawerOpen = !!opts.drawerOpen;
-      render();
-    }, { drawerOpen: claimDrawerOpen });
   } else if (route === 'dashboard') {
     if (!canAccess(session.role, 'dashboard')) {
       location.hash = '#/queue';
@@ -6291,6 +6380,8 @@ window.addEventListener('hashchange', () => {
   if (parts[0] !== 'claim') {
     claimFilter = 'all';
     claimDrawerOpen = false;
+    claimStageTab = null;
+    lastClaimId = null;
   }
   render();
 });
@@ -6305,7 +6396,6 @@ if (!location.hash) {
 window.addEventListener('load', render);
 
 })();
-
   </script>
 </body>
 </html>

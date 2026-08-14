@@ -589,6 +589,21 @@ export function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
 
+/** Current workflow stage for queue column / filters. */
+export function getClaimWorkflowStage(claim) {
+  if (!hasStageDocsComplete(claim, 'fnol')) return 'fnol';
+  if (!hasStageDocsComplete(claim, 'intimation')) return 'intimation';
+  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment')) return 'assessment';
+  return 'settlement';
+}
+
+export const WORKFLOW_STAGES = [
+  { id: 'fnol', name: 'FNOL' },
+  { id: 'intimation', name: 'Intimation' },
+  { id: 'assessment', name: 'Surveyor' },
+  { id: 'settlement', name: 'Settlement' },
+];
+
 export function submitSurveyorAssessment(claimId) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return { ok: false, message: 'Claim not found.' };

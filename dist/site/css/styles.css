@@ -543,6 +543,22 @@ a {
   margin-right: 8px;
 }
 
+.toolbar > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 160px;
+  color: var(--text);
+}
+
 /* ---------- Claims list ---------- */
 .claims-list {
   display: flex;
@@ -550,11 +566,37 @@ a {
   gap: 8px;
 }
 
+.claims-list-head,
 .claim-row {
   display: grid;
-  grid-template-columns: 56px 1fr auto auto auto;
+  grid-template-columns: 56px 1fr auto auto 110px auto;
   align-items: center;
   gap: 16px;
+}
+
+.claims-list-head {
+  padding: 0 16px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.claims-list-head span:nth-child(3) {
+  text-align: right;
+}
+
+.claims-list-head span:nth-child(4),
+.claims-list-head span:nth-child(5) {
+  text-align: center;
+}
+
+.claims-list-head span:nth-child(6) {
+  text-align: right;
+}
+
+.claim-row {
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -681,6 +723,14 @@ a {
 .claim-tier.red { color: var(--red); }
 .claim-tier.yellow { color: var(--amber); }
 .claim-tier.green { color: var(--green); }
+
+.claim-stage-cell {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  min-width: 96px;
+}
 
 .due-badge {
   font-size: 0.8rem;
@@ -1227,6 +1277,10 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .claims-list-head {
+    display: none;
+  }
+
   .claim-row {
     grid-template-columns: 48px 1fr;
     gap: 12px;
@@ -1234,6 +1288,7 @@ a {
 
   .claim-amount,
   .claim-tier,
+  .claim-stage-cell,
   .due-badge {
     grid-column: 2;
     text-align: left;
@@ -1519,6 +1574,21 @@ a {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+button.stage-chip {
+  cursor: pointer;
+  font: inherit;
+}
+
+button.stage-chip:hover {
+  border-color: var(--border-strong);
+}
+
+button.stage-chip.is-active {
+  border-color: var(--accent);
+  background: var(--mint-soft);
+  color: var(--navy-deep);
 }
 
 .stage-block {
