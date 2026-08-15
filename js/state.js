@@ -1,8 +1,15 @@
-import { USERS, enabledSeedDefinitions, DEFAULT_WEIGHTS, checkCode } from './data.js';
+import {
+  USERS,
+  enabledSeedDefinitions,
+  DEFAULT_WEIGHTS,
+  DEFAULT_STAGE_PASS,
+  DEFAULT_STAGE_MIX,
+  checkCode,
+} from './data.js';
 
 const SESSION_KEY = 'claim-intel-session';
-const WEIGHTS_KEY = 'claim-intel-weights-v3';
-const CONFIG_KEY = 'claim-intel-config-v4';
+const WEIGHTS_KEY = 'claim-intel-weights-v4';
+const CONFIG_KEY = 'claim-intel-config-v5';
 
 /** Prototype "today" for version dating */
 export const CONFIG_TODAY = '2026-08-12';
@@ -45,11 +52,17 @@ function cloneUseCases(list) {
   return list.map((u) => ({ ...u }));
 }
 
+function cloneMix(mix) {
+  const src = mix || DEFAULT_STAGE_MIX;
+  return Object.fromEntries(
+    Object.entries(src).map(([stage, weights]) => [stage, { ...(weights || {}) }])
+  );
+}
+
 export function defaultUseCasesFromDefinitions() {
   return enabledSeedDefinitions().map((d) => {
-    let weight = d.hardFail ? null : d.weight;
-    // Stage soft totals after removing #11–#20 from the seeded table
-    if (d.id === 8 || d.id === 10) weight = 100;
+    let weight = d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
+    if (d.id === 10) weight = 100;
     return {
       id: d.id,
       code: checkCode(d.id),
@@ -63,8 +76,24 @@ export function defaultUseCasesFromDefinitions() {
   });
 }
 
+function withVersionExtras(version) {
+  return {
+    ...version,
+    useCases: (version.useCases || []).map((u) => ({
+      ...u,
+      weight: u.weight == null ? DEFAULT_WEIGHTS[u.id] ?? 0 : u.weight,
+    })),
+    stagePassPct: { ...DEFAULT_STAGE_PASS, ...(version.stagePassPct || {}) },
+    stageMix: cloneMix({ ...DEFAULT_STAGE_MIX, ...(version.stageMix || {}) }),
+  };
+}
+
 function seedConfigStore() {
   const base = defaultUseCasesFromDefinitions();
+  const extras = {
+    stagePassPct: { ...DEFAULT_STAGE_PASS },
+    stageMix: cloneMix(DEFAULT_STAGE_MIX),
+  };
   return {
     versions: [
       {
@@ -73,6 +102,7 @@ function seedConfigStore() {
         startDate: '2026-03-03',
         endDate: '2026-06-14',
         useCases: cloneUseCases(base),
+        ...extras,
       },
       {
         id: 2,
@@ -80,6 +110,7 @@ function seedConfigStore() {
         startDate: '2026-06-15',
         endDate: '2026-08-11',
         useCases: cloneUseCases(base),
+        ...extras,
       },
       {
         id: 3,
@@ -87,6 +118,7 @@ function seedConfigStore() {
         startDate: CONFIG_TODAY,
         endDate: null,
         useCases: cloneUseCases(base),
+        ...extras,
       },
     ],
     currentId: 3,
@@ -103,6 +135,7 @@ export function getConfigStore() {
     }
     const parsed = JSON.parse(raw);
     if (!parsed.versions?.length) return seedConfigStore();
+    parsed.versions = parsed.versions.map(withVersionExtras);
     return parsed;
   } catch {
     return seedConfigStore();
@@ -112,7 +145,7 @@ export function getConfigStore() {
 function syncWeightsFromVersion(version) {
   const weights = {};
   version.useCases.forEach((u) => {
-    if (!u.hardFail) weights[u.id] = Number(u.weight) || 0;
+    weights[u.id] = Number(u.weight) || 0;
   });
   localStorage.setItem(WEIGHTS_KEY, JSON.stringify(weights));
 }
@@ -161,10 +194,18 @@ export function getActiveUseCases(store = getConfigStore()) {
 
 export function getWeights() {
   const active = getActiveUseCases();
-  const fromConfig = Object.fromEntries(
-    active.filter((u) => !u.hardFail).map((u) => [u.id, u.weight ?? 0])
-  );
+  const fromConfig = Object.fromEntries(active.map((u) => [u.id, u.weight ?? 0]));
   return { ...DEFAULT_WEIGHTS, ...fromConfig };
+}
+
+export function getStagePassPct(store = getConfigStore()) {
+  const current = getCurrentConfigVersion(store);
+  return { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}) };
+}
+
+export function getStageMix(store = getConfigStore()) {
+  const current = getCurrentConfigVersion(store);
+  return cloneMix({ ...DEFAULT_STAGE_MIX, ...(current.stageMix || {}) });
 }
 
 export function dayBefore(iso) {
@@ -177,9 +218,11 @@ export function dayBefore(iso) {
  * Apply a mutation to current use-cases and open a new version.
  * @param {object[]} nextUseCases
  * @param {{ startDate?: string, endDate?: string|null }} [dates]
+ * @param {{ stagePassPct?: object, stageMix?: object }} [extras]
  */
-export function commitConfigChange(nextUseCases, dates = {}) {
+export function commitConfigChange(nextUseCases, dates = {}, extras = {}) {
   const store = getConfigStore();
+  const current = getCurrentConfigVersion(store);
   const startDate = dates.startDate || CONFIG_TODAY;
   const endDate = dates.endDate || null;
 
@@ -191,13 +234,15 @@ export function commitConfigChange(nextUseCases, dates = {}) {
   });
 
   const newNumber = Math.max(...store.versions.map((v) => v.number)) + 1;
-  const newVersion = {
+  const newVersion = withVersionExtras({
     id: Math.max(...store.versions.map((v) => v.id)) + 1,
     number: newNumber,
     startDate,
     endDate,
     useCases: cloneUseCases(nextUseCases),
-  };
+    stagePassPct: extras.stagePassPct || current.stagePassPct,
+    stageMix: extras.stageMix || current.stageMix,
+  });
 
   store.versions.push(newVersion);
   store.currentId = getVersionForDate(CONFIG_TODAY, store).id;
@@ -212,10 +257,10 @@ export function resetConfigStore() {
 
 export function saveWeights(weights) {
   const current = getCurrentConfigVersion();
-  const next = current.useCases.map((u) => {
-    if (u.hardFail) return { ...u };
-    return { ...u, weight: weights[u.id] ?? u.weight ?? 0 };
-  });
+  const next = current.useCases.map((u) => ({
+    ...u,
+    weight: weights[u.id] ?? u.weight ?? 0,
+  }));
   return commitConfigChange(next);
 }
 
@@ -225,11 +270,13 @@ export function resetWeights() {
 }
 
 export function formatLongDate(iso) {
-  const d = new Date(iso + 'T12:00:00');
+  if (!iso) return '—';
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
   const dd = String(d.getDate()).padStart(2, '0');
-  const month = d.toLocaleString('en-GB', { month: 'long' });
+  const mon = d.toLocaleString('en-GB', { month: 'short' });
   const yyyy = d.getFullYear();
-  return `${dd}-${month}-${yyyy}`;
+  return `${dd}-${mon}-${yyyy}`;
 }
 
 export function isFutureVersion(version, asOf = CONFIG_TODAY) {

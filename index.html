@@ -779,21 +779,21 @@ a {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   font-family: var(--mono);
   border: 2px solid;
 }
 
 .score-circle.sm {
-  width: 40px;
-  height: 40px;
-  font-size: 0.85rem;
+  width: 42px;
+  height: 42px;
+  font-size: 0.68rem;
 }
 
 .score-circle.lg {
   width: 96px;
   height: 96px;
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   border-width: 3px;
 }
 
@@ -829,7 +829,8 @@ a {
 
 .claim-id {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .claim-name {
@@ -1284,6 +1285,10 @@ a {
   margin: 0 0 8px;
   font-size: 0.8rem;
   color: var(--navy-deep);
+}
+
+.ledger-table {
+  min-width: 1100px;
 }
 
 .ledger-row {
@@ -1901,9 +1906,9 @@ a {
 }
 
 .score-circle.xs {
-  width: 28px;
-  height: 28px;
-  font-size: 0.7rem;
+  width: 34px;
+  height: 34px;
+  font-size: 0.55rem;
   border-width: 2px;
 }
 
@@ -2058,6 +2063,130 @@ button.stage-chip.is-active {
 }
 
 /* ---------- Config table ---------- */
+.config-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.config-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  top: 12px;
+}
+
+.config-subnav-item {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-subnav-item:hover,
+.config-subnav-item.is-active {
+  border-color: var(--accent);
+  background: var(--mint-soft);
+  color: var(--navy-deep);
+}
+
+.config-stage-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.config-criteria-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.config-criteria-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.config-criteria-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.config-pass-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.config-pass-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-pass-input input {
+  width: 72px;
+}
+
+.config-mix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.config-mix-card {
+  flex-direction: column;
+}
+
+.config-weight-footer {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  font-size: 0.85rem;
+}
+
+.config-weight-footer.is-ok strong {
+  color: var(--green);
+}
+
+.config-weight-footer.is-warn strong {
+  color: var(--amber);
+}
+
+.config-weight-footer small {
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .config-layout {
+    grid-template-columns: 1fr;
+  }
+  .config-subnav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
+}
+
 .config-page-header {
   align-items: flex-end;
 }
@@ -2937,8 +3066,9 @@ button.stage-chip.is-active {
   <div id="app"></div>
   <script>
 (function () {
+"use strict";
 
-/* ==== js/data.js ==== */
+/* ===== js/data.js ===== */
 /** @typedef {'pass'|'fail'|'cant_evaluate'|'waived'} CheckState */
 /** @typedef {'red'|'yellow'|'green'} RiskTier */
 /** @typedef {'claim_user'|'claim_head'|'admin'|'fiu'|'surveyor'} Role */
@@ -2946,10 +3076,26 @@ button.stage-chip.is-active {
 
 const CLAIM_STAGES = [
   { id: 'fnol', name: 'FNOL', description: 'First notice of loss & intake' },
-  { id: 'intimation', name: 'Intimation', description: 'Claim intimation & cover checks' },
+  { id: 'intimation', name: 'Registration', description: 'Claim registration & cover checks' },
   { id: 'assessment', name: 'Assessment', description: 'Repair, garage & damage assessment' },
   { id: 'settlement', name: 'Settlement', description: 'Financial & settlement signals' },
 ];
+
+/** Default % required to pass each stage. */
+const DEFAULT_STAGE_PASS = {
+  fnol: 70,
+  intimation: 70,
+  assessment: 70,
+  settlement: 70,
+};
+
+/** Cumulative mix at each checkpoint. Keys are stage ids; values must sum to 100. */
+const DEFAULT_STAGE_MIX = {
+  fnol: { fnol: 100 },
+  intimation: { fnol: 40, intimation: 60 },
+  assessment: { fnol: 25, intimation: 25, assessment: 50 },
+  settlement: { fnol: 20, intimation: 20, assessment: 30, settlement: 30 },
+};
 
 const RISK_CATEGORIES = [
   { id: 'critical', name: 'Critical' },
@@ -2967,24 +3113,25 @@ const CHECK_CATEGORIES = {
 
 /**
  * 20 use-cases grouped by claim stage.
- * Soft weights sum to 100% within each stage (hard fails have no weight).
+ * Weights sum to 100% within each stage. Critical checks also carry weight;
+ * a failed critical zeros that stage, a passed critical scores normally.
  * riskCategory: Critical / High / Low (config table).
  */
 const CHECK_DEFINITIONS = [
-  // FNOL — soft: 55 + 45 = 100
-  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 55 },
+  // FNOL — 15+15+20+15+35 = 100 (use-case #20 is catalog-only)
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 20 },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 35 },
   { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', description: 'Assesses whether loss location aligns with the vehicle’s usual operating area.', category: 'behavioural', stage: 'fnol', hardFail: false, riskCategory: 'low', weight: 45 },
 
-  // Intimation — soft: 25+30+20+25 = 100
+  // Registration — 25+30+20+25 = 100 (#16 is catalog-only)
   { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', description: 'Matches claimed vehicle attributes to the policy schedule.', category: 'identity', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
   { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', description: 'Detects losses occurring too soon after policy inception.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 7, code: '07', name: 'Loss not immediately before policy expiry', description: 'Flags losses clustered just before policy expiry/renewal.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', description: 'Checks if loss coincides with a newly added cover endorsement.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
-  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 15 },
 
   // Assessment — soft: 25+30+25+20 = 100
   { id: 10, code: '10', name: 'Garage is network / auto-assigned', description: 'Prefers network or auto-assigned garages over self-selected workshops.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -2993,7 +3140,7 @@ const CHECK_DEFINITIONS = [
   { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', description: 'Validates that claimed parts align with reported damage evidence.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'low', weight: 20 },
 
   // Settlement — soft: 30+20+25+25 = 100
-  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 20 },
   { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', description: 'Compares claim amount to the claimant’s historical average claim size.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', description: 'Checks salvage or total-loss values for consistency with the claim.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', description: 'Reviews claim frequency for the claimant/vehicle over 12 months.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -3146,15 +3293,17 @@ function enabledSeedDefinitions() {
 }
 
 const DEFAULT_WEIGHTS = Object.fromEntries(
-  enabledSeedDefinitions()
-    .filter((c) => !c.hardFail)
-    .map((c) => {
-      // Sole soft checks in their stage after #11–#20 are removed from seed
-      let weight = c.weight;
-      if (c.id === 8 || c.id === 10) weight = 100;
-      return [c.id, weight];
-    })
+  enabledSeedDefinitions().map((c) => {
+    let weight = c.weight ?? 0;
+    if (c.id === 10) weight = 100;
+    return [c.id, weight];
+  })
 );
+
+function formatClaimRef(claim) {
+  if (!claim) return '—';
+  return claim.fnolNumber ? `${claim.id} · ${claim.fnolNumber}` : claim.id;
+}
 
 function checkCode(id) {
   return `#${String(id).padStart(2, '0')}`;
@@ -3211,6 +3360,9 @@ const ROLE_LABELS = {
   surveyor: 'Surveyor',
 };
 
+/** Demo accounts shown on the login page (surveyor is kept in USERS for existing sessions). */
+const LOGIN_USERS = USERS.filter((u) => u.role !== 'surveyor');
+
 const CLAIM_AUDIT_ROLES = new Set(['claim_head', 'admin', 'fiu']);
 
 function canViewClaimAudit(role) {
@@ -3219,9 +3371,8 @@ function canViewClaimAudit(role) {
 
 const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
-/** Display label for claim-detail stage blocks (id stays assessment). */
+/** Display label for claim-detail stage blocks (id stays assessment / intimation). */
 function stageDisplayName(stageId) {
-  if (stageId === 'assessment') return 'Surveyor';
   return CLAIM_STAGES.find((s) => s.id === stageId)?.name || stageId;
 }
 
@@ -3531,7 +3682,7 @@ function hasPassedPriorStages(claim, stageIds) {
   return stageIds.every((id) => hasStageDocsComplete(claim, id));
 }
 
-/** Claims that cleared FNOL + Intimation and are waiting on surveyor submit. */
+/** Claims that cleared FNOL + Registration and are waiting on assessment submit. */
 function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
@@ -3546,8 +3697,8 @@ function getClaimWorkflowStage(claim) {
 
 const WORKFLOW_STAGES = [
   { id: 'fnol', name: 'FNOL' },
-  { id: 'intimation', name: 'Intimation' },
-  { id: 'assessment', name: 'Surveyor' },
+  { id: 'intimation', name: 'Registration' },
+  { id: 'assessment', name: 'Assessment' },
   { id: 'settlement', name: 'Settlement' },
 ];
 
@@ -3555,7 +3706,7 @@ function submitSurveyorAssessment(claimId) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return { ok: false, message: 'Claim not found.' };
   if (!hasStageDocsComplete(claim, 'assessment')) {
-    return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
+    return { ok: false, message: 'Upload all required Assessment documents before submitting.' };
   }
   claim.surveyorSubmitted = true;
   appendClaimAudit(claimId, {
@@ -3564,9 +3715,9 @@ function submitSurveyorAssessment(claimId) {
     changeType: 'Status',
     entity: 'Stage',
     field: 'Claim stage',
-    oldValue: 'Surveyor',
+    oldValue: 'Assessment',
     newValue: 'Settlement',
-    comments: 'Surveyor documents submitted for further scoring.',
+    comments: 'Assessment documents submitted for further scoring.',
   });
   return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
 }
@@ -4206,6 +4357,7 @@ const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.exceptions = [];
   claim.waivedCheckIds = [];
   claim.dispositions = {};
+  claim.fnolNumber = c.fnolNumber || c.id.replace(/^CLM-/, 'FNOL-');
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
   const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
@@ -4337,8 +4489,8 @@ function buildSeedAudit(claim) {
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'FNOL',
-      newValue: 'Intimation',
-      comments: 'FNOL documents complete — moved to Intimation.',
+      newValue: 'Registration',
+      comments: 'FNOL documents complete — moved to Registration.',
     });
   }
 
@@ -4350,10 +4502,10 @@ function buildSeedAudit(claim) {
       action: 'Assigned',
       changeType: 'Assignment',
       entity: 'Stage',
-      field: 'Surveyor',
+      field: 'Assessment',
       oldValue: '—',
       newValue: 'Hassan Al-Falasi',
-      comments: 'Surveyor assigned after Intimation.',
+      comments: 'Assessor assigned after Registration.',
     });
     rows.push({
       date: shiftDate(filed, 2),
@@ -4363,9 +4515,9 @@ function buildSeedAudit(claim) {
       changeType: 'Status',
       entity: 'Stage',
       field: 'Claim stage',
-      oldValue: 'Intimation',
-      newValue: 'Surveyor',
-      comments: 'Claim released to surveyor.',
+      oldValue: 'Registration',
+      newValue: 'Assessment',
+      comments: 'Claim released to assessment.',
     });
   }
 
@@ -4378,14 +4530,13 @@ function buildSeedAudit(claim) {
       changeType: 'Status',
       entity: 'Stage',
       field: 'Claim stage',
-      oldValue: 'Surveyor',
+      oldValue: 'Assessment',
       newValue: 'Settlement',
-      comments: 'Surveyor pack submitted for further scoring.',
+      comments: 'Assessment pack submitted for further scoring.',
     });
   }
 
-  const failed = (claim.checks || []).filter((c) => c.state === 'fail').length;
-  const cant = (claim.checks || []).filter((c) => c.state === 'cant_evaluate').length;
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
   rows.push({
     date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
     time: `${pad2(hour + 3)}:02`,
@@ -4396,7 +4547,7 @@ function buildSeedAudit(claim) {
     field: 'Fraud risk score',
     oldValue: '—',
     newValue: 'Published',
-    comments: `${failed} failed check${failed === 1 ? '' : 's'}${cant ? ` · ${cant} could not be evaluated` : ''}.`,
+    comments: `${failed} failed check${failed === 1 ? '' : 's'}.`,
   });
 
   if (failed >= 3) {
@@ -4499,9 +4650,9 @@ const EXTRA_LEDGER_EVENTS = [
     changeType: 'Status',
     entity: 'Stage',
     field: 'Claim stage',
-    oldValue: 'Surveyor',
+    oldValue: 'Assessment',
     newValue: 'Settlement',
-    comments: 'Surveyor pack submitted for further scoring.',
+    comments: 'Assessment pack submitted for further scoring.',
   },
   {
     id: 'CLM-2026-08419',
@@ -4511,10 +4662,10 @@ const EXTRA_LEDGER_EVENTS = [
     action: 'Assigned',
     changeType: 'Assignment',
     entity: 'Stage',
-    field: 'Surveyor',
+    field: 'Assessment',
     oldValue: '—',
     newValue: 'Hassan Al-Falasi',
-    comments: 'Surveyor assigned after Intimation.',
+    comments: 'Assessor assigned after Registration.',
   },
   {
     id: 'CLM-2026-08412',
@@ -4933,10 +5084,12 @@ const TREND_HISTORY = [
 ];
 
 
-/* ==== js/state.js ==== */
+
+/* ===== js/state.js ===== */
+
 const SESSION_KEY = 'claim-intel-session';
-const WEIGHTS_KEY = 'claim-intel-weights-v3';
-const CONFIG_KEY = 'claim-intel-config-v4';
+const WEIGHTS_KEY = 'claim-intel-weights-v4';
+const CONFIG_KEY = 'claim-intel-config-v5';
 
 /** Prototype "today" for version dating */
 const CONFIG_TODAY = '2026-08-12';
@@ -4979,11 +5132,17 @@ function cloneUseCases(list) {
   return list.map((u) => ({ ...u }));
 }
 
+function cloneMix(mix) {
+  const src = mix || DEFAULT_STAGE_MIX;
+  return Object.fromEntries(
+    Object.entries(src).map(([stage, weights]) => [stage, { ...(weights || {}) }])
+  );
+}
+
 function defaultUseCasesFromDefinitions() {
   return enabledSeedDefinitions().map((d) => {
-    let weight = d.hardFail ? null : d.weight;
-    // Stage soft totals after removing #11–#20 from the seeded table
-    if (d.id === 8 || d.id === 10) weight = 100;
+    let weight = d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
+    if (d.id === 10) weight = 100;
     return {
       id: d.id,
       code: checkCode(d.id),
@@ -4997,8 +5156,24 @@ function defaultUseCasesFromDefinitions() {
   });
 }
 
+function withVersionExtras(version) {
+  return {
+    ...version,
+    useCases: (version.useCases || []).map((u) => ({
+      ...u,
+      weight: u.weight == null ? DEFAULT_WEIGHTS[u.id] ?? 0 : u.weight,
+    })),
+    stagePassPct: { ...DEFAULT_STAGE_PASS, ...(version.stagePassPct || {}) },
+    stageMix: cloneMix({ ...DEFAULT_STAGE_MIX, ...(version.stageMix || {}) }),
+  };
+}
+
 function seedConfigStore() {
   const base = defaultUseCasesFromDefinitions();
+  const extras = {
+    stagePassPct: { ...DEFAULT_STAGE_PASS },
+    stageMix: cloneMix(DEFAULT_STAGE_MIX),
+  };
   return {
     versions: [
       {
@@ -5007,6 +5182,7 @@ function seedConfigStore() {
         startDate: '2026-03-03',
         endDate: '2026-06-14',
         useCases: cloneUseCases(base),
+        ...extras,
       },
       {
         id: 2,
@@ -5014,6 +5190,7 @@ function seedConfigStore() {
         startDate: '2026-06-15',
         endDate: '2026-08-11',
         useCases: cloneUseCases(base),
+        ...extras,
       },
       {
         id: 3,
@@ -5021,6 +5198,7 @@ function seedConfigStore() {
         startDate: CONFIG_TODAY,
         endDate: null,
         useCases: cloneUseCases(base),
+        ...extras,
       },
     ],
     currentId: 3,
@@ -5037,6 +5215,7 @@ function getConfigStore() {
     }
     const parsed = JSON.parse(raw);
     if (!parsed.versions?.length) return seedConfigStore();
+    parsed.versions = parsed.versions.map(withVersionExtras);
     return parsed;
   } catch {
     return seedConfigStore();
@@ -5046,7 +5225,7 @@ function getConfigStore() {
 function syncWeightsFromVersion(version) {
   const weights = {};
   version.useCases.forEach((u) => {
-    if (!u.hardFail) weights[u.id] = Number(u.weight) || 0;
+    weights[u.id] = Number(u.weight) || 0;
   });
   localStorage.setItem(WEIGHTS_KEY, JSON.stringify(weights));
 }
@@ -5095,10 +5274,18 @@ function getActiveUseCases(store = getConfigStore()) {
 
 function getWeights() {
   const active = getActiveUseCases();
-  const fromConfig = Object.fromEntries(
-    active.filter((u) => !u.hardFail).map((u) => [u.id, u.weight ?? 0])
-  );
+  const fromConfig = Object.fromEntries(active.map((u) => [u.id, u.weight ?? 0]));
   return { ...DEFAULT_WEIGHTS, ...fromConfig };
+}
+
+function getStagePassPct(store = getConfigStore()) {
+  const current = getCurrentConfigVersion(store);
+  return { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}) };
+}
+
+function getStageMix(store = getConfigStore()) {
+  const current = getCurrentConfigVersion(store);
+  return cloneMix({ ...DEFAULT_STAGE_MIX, ...(current.stageMix || {}) });
 }
 
 function dayBefore(iso) {
@@ -5111,9 +5298,11 @@ function dayBefore(iso) {
  * Apply a mutation to current use-cases and open a new version.
  * @param {object[]} nextUseCases
  * @param {{ startDate?: string, endDate?: string|null }} [dates]
+ * @param {{ stagePassPct?: object, stageMix?: object }} [extras]
  */
-function commitConfigChange(nextUseCases, dates = {}) {
+function commitConfigChange(nextUseCases, dates = {}, extras = {}) {
   const store = getConfigStore();
+  const current = getCurrentConfigVersion(store);
   const startDate = dates.startDate || CONFIG_TODAY;
   const endDate = dates.endDate || null;
 
@@ -5125,13 +5314,15 @@ function commitConfigChange(nextUseCases, dates = {}) {
   });
 
   const newNumber = Math.max(...store.versions.map((v) => v.number)) + 1;
-  const newVersion = {
+  const newVersion = withVersionExtras({
     id: Math.max(...store.versions.map((v) => v.id)) + 1,
     number: newNumber,
     startDate,
     endDate,
     useCases: cloneUseCases(nextUseCases),
-  };
+    stagePassPct: extras.stagePassPct || current.stagePassPct,
+    stageMix: extras.stageMix || current.stageMix,
+  });
 
   store.versions.push(newVersion);
   store.currentId = getVersionForDate(CONFIG_TODAY, store).id;
@@ -5146,10 +5337,10 @@ function resetConfigStore() {
 
 function saveWeights(weights) {
   const current = getCurrentConfigVersion();
-  const next = current.useCases.map((u) => {
-    if (u.hardFail) return { ...u };
-    return { ...u, weight: weights[u.id] ?? u.weight ?? 0 };
-  });
+  const next = current.useCases.map((u) => ({
+    ...u,
+    weight: weights[u.id] ?? u.weight ?? 0,
+  }));
   return commitConfigChange(next);
 }
 
@@ -5159,11 +5350,13 @@ function resetWeights() {
 }
 
 function formatLongDate(iso) {
-  const d = new Date(iso + 'T12:00:00');
+  if (!iso) return '—';
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
   const dd = String(d.getDate()).padStart(2, '0');
-  const month = d.toLocaleString('en-GB', { month: 'long' });
+  const mon = d.toLocaleString('en-GB', { month: 'short' });
   const yyyy = d.getFullYear();
-  return `${dd}-${month}-${yyyy}`;
+  return `${dd}-${mon}-${yyyy}`;
 }
 
 function isFutureVersion(version, asOf = CONFIG_TODAY) {
@@ -5179,7 +5372,10 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
 }
 
 
-/* ==== js/scoring.js ==== */
+
+/* ===== js/scoring.js ===== */
+
+
 function daysBetween(fromIso, toIso) {
   const a = new Date(`${fromIso}T12:00:00`);
   const b = new Date(`${toIso}T12:00:00`);
@@ -5270,23 +5466,29 @@ function evaluateCheckFromFields(claim, checkId, seeded) {
 }
 
 function scoreBand(score) {
-  if (score >= 8) return 'green';
-  if (score >= 5) return 'yellow';
+  if (score >= 80) return 'green';
+  if (score >= 50) return 'yellow';
   return 'red';
 }
 
-function scoreSoftGroup(softResults) {
-  const evaluable = softResults.filter((r) => r.state !== 'cant_evaluate' && r.state !== 'waived');
+function reachedStageIds(workflowStage) {
+  const order = CLAIM_STAGES.map((s) => s.id);
+  const idx = order.indexOf(workflowStage);
+  return order.slice(0, idx < 0 ? 0 : idx + 1);
+}
+
+function scoreWeightedGroup(results) {
+  const evaluable = results.filter((r) => r.state !== 'waived');
   const passed = evaluable.filter((r) => r.state === 'pass');
-  const activeWeight = evaluable.reduce((sum, r) => sum + (r.weight || 0), 0);
-  const earnedWeight = passed.reduce((sum, r) => sum + (r.weight || 0), 0);
+  const activeWeight = evaluable.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
+  const earnedWeight = passed.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
 
   if (activeWeight === 0) {
-    return { score: 6, tier: 'yellow', activeWeight: 0, earnedWeight: 0, evaluable: 0 };
+    return { score: 0, tier: 'red', activeWeight: 0, earnedWeight: 0, evaluable: 0 };
   }
-  const score = Math.round((earnedWeight / activeWeight) * 10);
+  const score = Math.round((earnedWeight / activeWeight) * 100);
   return {
-    score: Math.min(10, Math.max(0, score)),
+    score: Math.min(100, Math.max(0, score)),
     tier: scoreBand(score),
     activeWeight,
     earnedWeight,
@@ -5294,14 +5496,37 @@ function scoreSoftGroup(softResults) {
   };
 }
 
+function cumulativeAtCheckpoint(stageScores, mix, checkpointId) {
+  const mixFor = mix?.[checkpointId] || { [checkpointId]: 100 };
+  const reached = new Set(reachedStageIds(checkpointId));
+  let total = 0;
+  let weightUsed = 0;
+  Object.entries(mixFor).forEach(([sid, w]) => {
+    const weight = Number(w) || 0;
+    if (!weight || !reached.has(sid)) return;
+    const row = stageScores.find((s) => s.stageId === sid);
+    if (!row) return;
+    total += (row.score * weight) / 100;
+    weightUsed += weight;
+  });
+  if (weightUsed === 0) {
+    const row = stageScores.find((s) => s.stageId === checkpointId);
+    return row ? row.score : 0;
+  }
+  return Math.round((total * 100) / weightUsed);
+}
+
 /**
  * Stage-based scoring using the active config use-case set.
+ * Scores are percentages (0–100). A failed critical zeros that stage.
  */
-function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
+function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, options = {}) {
   const active = activeUseCases || getActiveUseCases();
   const activeIds = new Set(active.map((u) => u.id));
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
+  const passPct = options.stagePassPct || getStagePassPct();
+  const stageMix = options.stageMix || getStageMix();
 
   const waivedIds = new Set(claim.waivedCheckIds || []);
   const dispositions = claim.dispositions || {};
@@ -5313,7 +5538,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
       const meta = metaById[c.checkId];
       const hardFail = meta?.hardFail ?? def.hardFail;
       const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
-      let state = evaluated.state;
+      let state = evaluated.state === 'cant_evaluate' ? 'fail' : evaluated.state;
       let evidence = evaluated.evidence;
       if (waivedIds.has(c.checkId)) {
         state = 'waived';
@@ -5321,8 +5546,8 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
       } else {
         const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
         if (missingDocs.length && state !== 'fail') {
-          state = 'cant_evaluate';
-          evidence = `Cannot evaluate — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
+          state = 'fail';
+          evidence = `Failed — required document missing: ${missingDocs.map((d) => d.name).join(', ')}.`;
         } else {
           const onFile = uploadedDocsForCheck(claim, c.checkId);
           if (onFile.length && !/Document on file:/i.test(evidence)) {
@@ -5331,6 +5556,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
         }
       }
       const disposition = dispositions[c.checkId] || null;
+      const weight = Number(weights[c.checkId] ?? meta?.weight ?? def.weight ?? 0);
       return {
         ...c,
         state,
@@ -5342,48 +5568,49 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
         stage: meta?.stage || def.stage,
         riskCategory: meta?.riskCategory || def.riskCategory,
         hardFail,
-        weight: hardFail ? null : weights[c.checkId] ?? meta?.weight ?? def.weight,
+        weight,
         waived: state === 'waived',
         disposition,
       };
     });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const soft = results.filter((r) => !r.hardFail && r.state !== 'waived');
-  const failedSoft = soft.filter((r) => r.state === 'fail');
-  const passedSoft = soft.filter((r) => r.state === 'pass');
-  const cantEval = soft.filter((r) => r.state === 'cant_evaluate');
+  const scored = results.filter((r) => r.state !== 'waived');
+  const failed = scored.filter((r) => r.state === 'fail');
+  const passed = scored.filter((r) => r.state === 'pass');
 
   const stageScores = CLAIM_STAGES.map((stage) => {
     const stageResults = results.filter((r) => r.stage === stage.id);
-    const stageSoft = stageResults.filter((r) => !r.hardFail && r.state !== 'waived');
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
-    const scored = scoreSoftGroup(stageSoft);
+    const weighted = scoreWeightedGroup(stageResults);
+    const criticalFailed = stageHardFails.length > 0;
+    const score = criticalFailed ? 0 : weighted.score;
+    const mark = Number(passPct[stage.id] ?? DEFAULT_STAGE_PASS[stage.id] ?? 70);
+    const passedStage = !criticalFailed && score >= mark;
     return {
       stageId: stage.id,
       stageName: stage.name,
-      ...scored,
+      score,
+      tier: criticalFailed || !passedStage ? 'red' : scoreBand(score),
+      activeWeight: weighted.activeWeight,
+      earnedWeight: weighted.earnedWeight,
+      evaluable: weighted.evaluable,
       hardFailCount: stageHardFails.length,
-      softFailCount: stageSoft.filter((r) => r.state === 'fail').length,
-      cantEvaluateCount: stageSoft.filter((r) => r.state === 'cant_evaluate').length,
+      softFailCount: stageResults.filter((r) => !r.hardFail && r.state === 'fail').length,
+      failCount: stageResults.filter((r) => r.state === 'fail').length,
+      cantEvaluateCount: 0,
       checkCount: stageResults.length,
+      passMark: mark,
+      passed: passedStage,
+      criticalFailed,
     };
   }).filter((s) => s.checkCount > 0);
 
-  // Keep stages with only can't-evaluate soft checks in the average (score 6)
-  // so missing documents cannot hide a stage and make the claim look like Pass.
-  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
-  let contextScore;
-  if (stagesForAverage.length === 0) {
-    contextScore = 6;
-  } else {
-    contextScore = Math.round(
-      stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length
-    );
-  }
-
-  const softTier = scoreBand(contextScore);
+  const workflowStage = getClaimWorkflowStage(claim);
+  const contextScore = cumulativeAtCheckpoint(stageScores, stageMix, workflowStage);
+  const currentMark = Number(passPct[workflowStage] ?? DEFAULT_STAGE_PASS[workflowStage] ?? 70);
   const forcedRed = hardFails.length > 0;
+  const softTier = scoreBand(contextScore);
   const tier = forcedRed ? 'red' : softTier;
 
   return {
@@ -5394,21 +5621,28 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null) {
     hardFails,
     results,
     stageScores,
+    workflowStage,
+    passMark: currentMark,
+    stageMix: stageMix[workflowStage] || DEFAULT_STAGE_MIX[workflowStage],
     summary: {
       hardFailCount: hardFails.length,
-      softFailCount: failedSoft.length,
-      softPassCount: passedSoft.length,
-      softTotal: soft.length,
-      cantEvaluateCount: cantEval.length,
+      softFailCount: failed.filter((r) => !r.hardFail).length,
+      softPassCount: passed.filter((r) => !r.hardFail).length,
+      failCount: failed.length,
+      passCount: passed.length,
+      softTotal: scored.filter((r) => !r.hardFail).length,
+      cantEvaluateCount: 0,
     },
   };
 }
 
 function scoreAllClaims(weights, activeUseCases) {
-  const w = weights || getWeights();
+  const w = weights || getStoreWeights();
   const active = activeUseCases || getActiveUseCases();
+  const stagePassPct = getStagePassPct();
+  const stageMix = getStageMix();
   return RAW_CLAIMS.map((claim) => {
-    const scored = scoreClaim(claim, w, active);
+    const scored = scoreClaim(claim, w, active, { stagePassPct, stageMix });
     return { ...claim, ...scored };
   });
 }
@@ -5436,7 +5670,8 @@ function useCaseFailStats(claims) {
       if (!row) return;
       if (r.state === 'waived') return;
       row.total += 1;
-      if (row[r.state] != null) row[r.state] += 1;
+      if (r.state === 'fail' || r.state === 'cant_evaluate') row.fail += 1;
+      else if (r.state === 'pass') row.pass += 1;
     });
   });
 
@@ -5466,21 +5701,34 @@ function formatAED(amount) {
 }
 
 function formatDate(iso) {
-  const d = new Date(iso + 'T12:00:00');
+  if (!iso) return '—';
+  const raw = String(iso).slice(0, 10);
+  const d = new Date(`${raw}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(iso);
   const dd = String(d.getDate()).padStart(2, '0');
   const mon = d.toLocaleString('en-GB', { month: 'short' });
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}-${mon}-${yy}`;
+  const yyyy = d.getFullYear();
+  return `${dd}-${mon}-${yyyy}`;
+}
+
+function formatScore(score) {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return '—';
+  return `${Math.round(n)}%`;
+}
+
+function formatClaimAmount(claim) {
+  if (!claim || getClaimWorkflowStage(claim) !== 'settlement') return '—';
+  return formatAED(claim.amount);
 }
 
 function sortChecksForDisplay(results) {
   const stageOrder = Object.fromEntries(CLAIM_STAGES.map((s, i) => [s.id, i]));
   const rank = (r) => {
     if (r.state === 'fail' && r.hardFail) return 0;
-    if (r.state === 'fail') return 1;
-    if (r.state === 'cant_evaluate') return 2;
-    if (r.state === 'waived') return 4;
-    return 3;
+    if (r.state === 'fail' || r.state === 'cant_evaluate') return 1;
+    if (r.state === 'waived') return 3;
+    return 2;
   };
   return [...results].sort((a, b) => {
     const sa = stageOrder[a.stage] ?? 99;
@@ -5516,13 +5764,11 @@ function withVisibleStages(scored, stageIds) {
   const results = (scored.results || []).filter((r) => idSet.has(r.stage));
   const stageScores = (scored.stageScores || []).filter((s) => idSet.has(s.stageId));
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const soft = results.filter((r) => !r.hardFail);
-  const stagesForAverage = stageScores.filter((s) => s.activeWeight > 0 || s.cantEvaluateCount > 0);
-  let contextScore = 6;
-  if (stagesForAverage.length) {
-    contextScore = Math.round(stagesForAverage.reduce((sum, s) => sum + s.score, 0) / stagesForAverage.length);
-  }
-  const forcedRed = hardFails.length > 0;
+  const scoredRows = results.filter((r) => r.state !== 'waived');
+  const last = stageIds[stageIds.length - 1] || scored.workflowStage;
+  const mix = scored.stageMix || getStageMix();
+  const contextScore = cumulativeAtCheckpoint(stageScores, { [last]: mix[last] || { [last]: 100 } }, last);
+  const forcedRed = hardFails.length > 0 || stageScores.some((s) => !s.passed);
   return {
     ...scored,
     results,
@@ -5533,16 +5779,22 @@ function withVisibleStages(scored, stageIds) {
     forcedRed,
     summary: {
       hardFailCount: hardFails.length,
-      softFailCount: soft.filter((r) => r.state === 'fail').length,
-      softPassCount: soft.filter((r) => r.state === 'pass').length,
-      softTotal: soft.length,
-      cantEvaluateCount: soft.filter((r) => r.state === 'cant_evaluate').length,
+      softFailCount: scoredRows.filter((r) => !r.hardFail && r.state === 'fail').length,
+      softPassCount: scoredRows.filter((r) => !r.hardFail && r.state === 'pass').length,
+      failCount: scoredRows.filter((r) => r.state === 'fail').length,
+      passCount: scoredRows.filter((r) => r.state === 'pass').length,
+      softTotal: scoredRows.filter((r) => !r.hardFail).length,
+      cantEvaluateCount: 0,
     },
   };
 }
 
 
-/* ==== js/filters.js ==== */
+
+
+/* ===== js/filters.js ===== */
+
+
 /** Prototype “today” for Dashboard and Report (not the config version date). */
 const PROTOTYPE_TODAY = '2026-08-11';
 
@@ -5615,14 +5867,8 @@ function resolvePeriodRange(period, { from, to, today = PROTOTYPE_TODAY } = {}) 
 
 function formatRangeLabel(range) {
   if (!range?.from || !range?.to) return '';
-  const from = new Date(`${range.from}T12:00:00`);
-  const to = new Date(`${range.to}T12:00:00`);
-  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
-  const day = (d) => String(d.getDate()).padStart(2, '0');
-  const mon = (d) => d.toLocaleString('en-GB', { month: 'short' });
-  if (range.from === range.to) return `${day(from)} ${mon(from)}`;
-  if (sameMonth) return `${day(from)}–${day(to)} ${mon(to)}`;
-  return `${day(from)} ${mon(from)} – ${day(to)} ${mon(to)}`;
+  if (range.from === range.to) return formatDate(range.from);
+  return `${formatDate(range.from)} – ${formatDate(range.to)}`;
 }
 
 function filterClaimUniverse(claims, filters = {}) {
@@ -5670,7 +5916,7 @@ function snapshotMetrics(claims) {
   const count = claims.length;
   const value = claims.reduce((sum, c) => sum + (c.amount || 0), 0);
   const red = claims.filter((c) => c.tier === 'red');
-  const cantEval = claims.filter((c) => (c.summary?.cantEvaluateCount || 0) > 0);
+  const failed = claims.filter((c) => (c.summary?.failCount || c.summary?.softFailCount || 0) > 0);
   const hardFails = claims.reduce((n, c) => n + (c.hardFails?.length || 0), 0);
   const waived = claims.reduce((n, c) => n + (c.waivedCheckIds?.length || 0), 0);
   const pending = claims.reduce((n, c) => n + getPendingExceptions(c).length, 0);
@@ -5680,8 +5926,10 @@ function snapshotMetrics(claims) {
     redCount: red.length,
     redValue: red.reduce((sum, c) => sum + (c.amount || 0), 0),
     highRiskRate: count ? Math.round((red.length / count) * 100) : 0,
-    cantEvalCount: cantEval.length,
-    cantEvalRate: count ? Math.round((cantEval.length / count) * 100) : 0,
+    failCount: failed.length,
+    failRate: count ? Math.round((failed.length / count) * 100) : 0,
+    cantEvalCount: 0,
+    cantEvalRate: 0,
     hardFails,
     waived,
     pending,
@@ -5715,6 +5963,11 @@ function flattenClaimLedger(claims) {
       rows.push({
         ...entry,
         claimId: claim.id,
+        fnolNumber: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+        policyNumber: claim.policyNumber || '—',
+        score: claim.score,
+        workflowStage: getClaimWorkflowStage(claim),
+        workflowStageName: WORKFLOW_STAGES.find((s) => s.id === getClaimWorkflowStage(claim))?.name || getClaimWorkflowStage(claim),
         ledgerType: ledgerChangeType(entry),
         delta: formatLedgerDelta(entry),
       });
@@ -5754,7 +6007,9 @@ function capLedgerRows(rows, cap = TX_LIST_CAP) {
 }
 
 
-/* ==== js/components.js ==== */
+
+
+/* ===== js/components.js ===== */
 function brandIcon(size = 22) {
   return `
     <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -5864,7 +6119,12 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
 }
 
 
-/* ==== js/views/login.js ==== */
+
+/* ===== js/views/login.js ===== */
+
+
+
+
 function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
     <div class="login-page">
@@ -5900,7 +6160,7 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
         <div class="demo-accounts">
           <h3>Demo accounts</h3>
           <div class="demo-list">
-            ${USERS.map(
+            ${LOGIN_USERS.map(
               (u) => `
               <button type="button" class="demo-chip" data-user="${u.username}" data-pass="${u.password}">
                 <span class="role">${ROLE_LABELS[u.role]}</span>
@@ -5920,7 +6180,7 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
             <h2 id="sso-title">Sign in with SSO</h2>
             <p class="modal-copy">Select your organisation identity to continue. Demo mode maps each persona to an SSO profile.</p>
             <div class="sso-persona-list">
-              ${USERS.map(
+              ${LOGIN_USERS.map(
                 (u) => `
                 <button type="button" class="sso-persona" data-sso-user="${u.username}">
                   <span class="persona-avatar">${u.initials}</span>
@@ -5979,7 +6239,11 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
 }
 
 
-/* ==== js/views/queue.js ==== */
+
+/* ===== js/views/queue.js ===== */
+
+
+
 function esc(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -5989,9 +6253,7 @@ function esc(value) {
 }
 
 function formatAuditDate(iso) {
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(iso);
 }
 
 function auditTableHtml(claim) {
@@ -6148,16 +6410,16 @@ function renderQueue(root, session, claims, state, onChange) {
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
                 const row = `
-              <div class="score-circle sm ${c.tier}">${c.score}</div>
+              <div class="score-circle sm ${c.tier}">${formatScore(c.score)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
-                  <span class="claim-id">${c.id}</span>
+                  <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
                   ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
-              <div class="claim-amount">${formatAED(c.amount)}</div>
+              <div class="claim-amount">${formatClaimAmount(c)}</div>
               <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
@@ -6218,7 +6480,11 @@ function renderQueue(root, session, claims, state, onChange) {
 }
 
 
-/* ==== js/views/claim.js ==== */
+
+/* ===== js/views/claim.js ===== */
+
+
+
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
@@ -6286,7 +6552,7 @@ function exceptionPanelHtml(result, mode, claim, pending) {
         <strong>Approve ${checkCode(result.checkId)}</strong>
         <p class="exception-lead">${
           refer
-            ? 'The hard-fail is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
+            ? 'The critical check is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
             : 'The fail is correct. Accept the risk — the flag remains and the claim can continue after Claim Head approval.'
         }</p>
         <label>Comment
@@ -6323,7 +6589,7 @@ function exceptionBlockHtml(result, session, panel, claim) {
   const latest = latestExceptionForCheck(claim, result.checkId);
   const pending = latest?.status === 'pending' ? latest : null;
   const sentBack = latest?.status === 'sent_back' ? latest : null;
-  const eligibleState = result.state === 'fail' || result.state === 'cant_evaluate';
+  const eligibleState = result.state === 'fail';
   const canPropose = session.role === 'claim_user' && eligibleState && !pending;
   const canWaiveHard = isCheckerRole(session.role) && result.hardFail && result.state === 'fail' && !pending;
   const canDecide = isCheckerRole(session.role) && !!pending;
@@ -6461,16 +6727,16 @@ function claimInfoDrawer(claim) {
         <div class="drawer-header">
           <div>
             <h2>Claim details</h2>
-            <p class="drawer-sub">${claim.id}</p>
+            <p class="drawer-sub">${formatClaimRef(claim)}</p>
           </div>
           <button type="button" class="btn btn-ghost icon-btn" data-action="close-drawer" aria-label="Close">${iconClose()}</button>
         </div>
         <div class="drawer-body">
           <div class="drawer-grid">
-            <div class="meta-item"><label>Claim number</label><div class="value">${claim.id}</div></div>
+            <div class="meta-item"><label>Claim number</label><div class="value">${formatClaimRef(claim)}</div></div>
             <div class="meta-item"><label>Policy number</label><div class="value">${claim.policyNumber}</div></div>
             <div class="meta-item"><label>Claimant</label><div class="value">${claim.claimant}</div></div>
-            <div class="meta-item"><label>Claim amount</label><div class="value">${formatAED(claim.amount)}</div></div>
+            <div class="meta-item"><label>Claim amount</label><div class="value">${formatClaimAmount(claim)}</div></div>
             <div class="meta-item"><label>Sum insured / IDV</label><div class="value">${formatAED(claim.sumInsured)}</div></div>
             <div class="meta-item"><label>Loss date</label><div class="value">${formatDate(claim.lossDate)}</div></div>
             <div class="meta-item"><label>Reported</label><div class="value">${formatDate(claim.filedAt)}</div></div>
@@ -6486,7 +6752,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>Risk score</label><div class="value">${claim.score} / 10 · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>Risk score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -6495,7 +6761,7 @@ function claimInfoDrawer(claim) {
                 (s) => `
               <div class="stage-score-row">
                 <span>${s.stageName}</span>
-                <strong class="claim-tier ${s.tier}">${s.score}/10</strong>
+                <strong class="claim-tier ${s.tier}">${formatScore(s.score)}</strong>
               </div>
             `
               )
@@ -6545,20 +6811,22 @@ function renderClaimDetail(
   const counts = {
     all: stageResults.length,
     pass: stageResults.filter((r) => r.state === 'pass').length,
-    fail: stageResults.filter((r) => r.state === 'fail').length,
-    cant_evaluate: stageResults.filter((r) => r.state === 'cant_evaluate').length,
+    fail: stageResults.filter((r) => r.state === 'fail' || r.state === 'cant_evaluate').length,
   };
 
   const filtered =
-    filter === 'all' ? sorted : sorted.filter((r) => r.state === filter);
+    filter === 'all'
+      ? sorted
+      : filter === 'fail'
+        ? sorted.filter((r) => r.state === 'fail' || r.state === 'cant_evaluate')
+        : sorted.filter((r) => r.state === filter);
 
   const s = claim.summary;
   const summaryLine = [
     s.hardFailCount
       ? `${s.hardFailCount} critical fail${s.hardFailCount > 1 ? 's' : ''}`
       : null,
-    `${s.softFailCount} of ${s.softTotal} soft checks failed`,
-    s.cantEvaluateCount ? `${s.cantEvaluateCount} could not be evaluated` : null,
+    `${s.failCount ?? s.softFailCount} of ${s.softTotal + (s.hardFailCount || 0)} checks failed`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -6579,7 +6847,7 @@ function renderClaimDetail(
         <div class="meta-item">
           <label>Claim number</label>
           <div class="value">
-            <button type="button" class="claim-link" data-action="open-drawer">${claim.id}</button>
+            <button type="button" class="claim-link" data-action="open-drawer">${formatClaimRef(claim)}</button>
           </div>
         </div>
         <div class="meta-item">
@@ -6592,7 +6860,7 @@ function renderClaimDetail(
         </div>
         <div class="meta-item">
           <label>Claim amount</label>
-          <div class="value">${formatAED(claim.amount)}</div>
+          <div class="value">${formatClaimAmount(claim)}</div>
         </div>
         ${
           isClaimUser
@@ -6637,13 +6905,13 @@ function renderClaimDetail(
     ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
-        <strong>Surveyor stage</strong>
-        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Intimation, or Settlement to review earlier or later stages.</p>
+        <strong>Assessment stage</strong>
+        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Registration, or Settlement to review earlier or later stages.</p>
       </div>`
         : isSurveyor && stageTab === 'assessment' && !surveyorSubmitted
           ? `<div class="surveyor-banner">
-        <strong>Surveyor stage</strong>
-        <p>This claim has not completed FNOL and Intimation yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Intimation, or Settlement.</p>
+        <strong>Assessment stage</strong>
+        <p>This claim has not completed FNOL and Registration yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Registration, or Settlement.</p>
       </div>`
           : ''
     }
@@ -6662,7 +6930,7 @@ function renderClaimDetail(
         <div class="banner-icon">${iconAlert()}</div>
         <div>
           <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The score below is a context score only; the hard fail overrides the tier.</p>
+          <p>${hardFailNames}. The failed critical use-case zeros that stage. The claim score is the cumulative checkpoint score.</p>
         </div>
       </div>
     `
@@ -6670,9 +6938,9 @@ function renderClaimDetail(
     }
 
     <div class="score-panel">
-      <div class="score-circle lg ${claim.tier}">${claim.score}</div>
+      <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
       <div class="score-panel-text">
-        <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
+        <h2>Fraud risk score</h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
@@ -6689,7 +6957,8 @@ function renderClaimDetail(
           const active = isSurveyor && stageTab === stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
-          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${stageScore.score}</span>` : ''}
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${formatScore(stageScore.score)}</span>` : ''}
+          ${stageScore ? `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>` : ''}
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
           return isSurveyor
@@ -6709,9 +6978,6 @@ function renderClaimDetail(
       <button type="button" class="result-filter ${filter === 'fail' ? 'active' : ''}" data-filter="fail">
         Failed <span class="count">${counts.fail}</span>
       </button>
-      <button type="button" class="result-filter ${filter === 'cant_evaluate' ? 'active' : ''}" data-filter="cant_evaluate">
-        Can't evaluate <span class="count">${counts.cant_evaluate}</span>
-      </button>
     </div>
 
     <div class="checks-by-stage">
@@ -6724,13 +6990,13 @@ function renderClaimDetail(
               <div class="stage-block-header">
                 <div>
                   <h3>${stageDisplayName(stage.id)}</h3>
-                  <p>${stage.id === 'assessment' ? 'Surveyor inspection, repair photos & damage assessment' : stage.description}</p>
+                  <p>${stage.description}</p>
                 </div>
                 <div class="stage-block-score">
                   ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
                   ${
                     stageScore
-                      ? `<span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span>`
+                      ? `<span class="score-circle sm ${stageScore.tier}">${formatScore(stageScore.score)}</span>`
                       : ''
                   }
                 </div>
@@ -6743,7 +7009,7 @@ function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                          const metaLabel = r.hardFail ? 'Critical' : `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -6752,7 +7018,7 @@ function renderClaimDetail(
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
                         ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Critical</span>` : ''}
                         ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
@@ -6774,8 +7040,8 @@ function renderClaimDetail(
                 <div class="surveyor-submit">
                   <p>${
                     hasStageDocsComplete(claim, 'assessment')
-                      ? 'Required Surveyor documents are on file. Submit to run further scoring and move this claim to the next stage.'
-                      : 'Upload every required Surveyor document, then submit for further scoring.'
+                      ? 'Required Assessment documents are on file. Submit to run further scoring and move this claim to the next stage.'
+                      : 'Upload every required Assessment document, then submit for further scoring.'
                   }</p>
                   <button type="button" class="btn btn-primary" data-action="submit-surveyor" ${
                     hasStageDocsComplete(claim, 'assessment') ? '' : 'disabled'
@@ -6893,7 +7159,12 @@ function renderClaimDetail(
 }
 
 
-/* ==== js/views/dashboard.js ==== */
+
+/* ===== js/views/dashboard.js ===== */
+
+
+
+
 let chartInstance = null;
 
 function destroyChart() {
@@ -7015,14 +7286,14 @@ function renderDashboard(root, session, claims, state, onChange) {
   const red = filtered.filter((c) => c.tier === 'red');
   const yellow = filtered.filter((c) => c.tier === 'yellow');
   const green = filtered.filter((c) => c.tier === 'green');
-  const cantEvalClaims = filtered.filter((c) => c.summary.cantEvaluateCount > 0);
+  const criticalClaims = filtered.filter((c) => (c.hardFails?.length || 0) > 0);
 
   const redValue = red.reduce((s, c) => s + c.amount, 0);
   const yellowValue = yellow.reduce((s, c) => s + c.amount, 0);
   const greenValue = green.reduce((s, c) => s + c.amount, 0);
 
   const flaggedPct = totalCount ? Math.round((red.length / totalCount) * 100) : 0;
-  const cantEvalPct = totalCount ? Math.round((cantEvalClaims.length / totalCount) * 100) : 0;
+  const criticalPct = totalCount ? Math.round((criticalClaims.length / totalCount) * 100) : 0;
 
   const maxCount = Math.max(red.length, yellow.length, green.length, 1);
   const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
@@ -7096,9 +7367,9 @@ function renderDashboard(root, session, claims, state, onChange) {
         <div class="sub">${formatAED(redValue)} exposed</div>
       </div>
       <div class="stat-tile">
-        <div class="label">Couldn't evaluate</div>
-        <div class="value">${cantEvalPct}%</div>
-        <div class="sub">Data-quality indicator</div>
+        <div class="label">Critical fails</div>
+        <div class="value">${criticalPct}%</div>
+        <div class="sub">${criticalClaims.length} claims with a failed critical</div>
       </div>
     </div>
 
@@ -7232,7 +7503,18 @@ function renderDashboard(root, session, claims, state, onChange) {
 }
 
 
-/* ==== js/views/config.js ==== */
+
+
+/* ===== js/views/config.js ===== */
+
+
+
+
+const SCORING_TABS = CLAIM_STAGES.map((s) => ({
+  id: s.id,
+  label: `${s.name} scoring`,
+}));
+
 function stageName(id) {
   return CLAIM_STAGES.find((s) => s.id === id)?.name || id;
 }
@@ -7253,12 +7535,21 @@ function iconFilter() {
   return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
-/** @type {{ stage: string, riskCategory: string, query: string }} */
-let filters = { stage: 'all', riskCategory: 'all', query: '' };
+function cloneUseCases(list) {
+  return list.map((u) => ({ ...u }));
+}
+
+function cloneMix(mix) {
+  return Object.fromEntries(Object.entries(mix || {}).map(([k, v]) => [k, { ...(v || {}) }]));
+}
+
+/** @type {{ riskCategory: string, query: string }} */
+let filters = { riskCategory: 'all', query: '' };
+let scoringTab = 'fnol';
 /** @type {number|null} viewing historical version id */
 let viewingVersionId = null;
 let openMenuId = null;
-let modal = null; // { type: 'add'|'edit'|'delete', useCaseId?, draft? }
+let modal = null;
 let prevVersionsOpen = false;
 let feedback = null;
 let ucPickerOpen = false;
@@ -7278,7 +7569,7 @@ function isReadOnly() {
 
 function filteredRows(useCases) {
   return useCases.filter((u) => {
-    if (filters.stage !== 'all' && u.stage !== filters.stage) return false;
+    if (u.stage !== scoringTab) return false;
     if (filters.riskCategory !== 'all' && u.riskCategory !== filters.riskCategory) return false;
     if (filters.query) {
       const q = filters.query.toLowerCase();
@@ -7315,11 +7606,11 @@ function hasCompleteVersionDates(draft = {}) {
   return !!(draft.startDate && draft.endDate && draft.endDate >= draft.startDate);
 }
 
-function applyMutation(mutator, dates) {
+function applyMutation(mutator, dates, extras = {}) {
   const store = getConfigStore();
   const current = getCurrentConfigVersion(store);
   const next = mutator(cloneUseCases(current.useCases));
-  const result = commitConfigChange(next, dates);
+  const result = commitConfigChange(next, dates, extras);
   const created = result.versions[result.versions.length - 1];
   viewingVersionId = null;
   const endLabel = created.endDate ? formatLongDate(created.endDate) : 'Present';
@@ -7328,10 +7619,6 @@ function applyMutation(mutator, dates) {
     type: 'success',
     message: `Version ${created.number} ${when} (${formatLongDate(created.startDate)} – ${endLabel}).`,
   };
-}
-
-function cloneUseCases(list) {
-  return list.map((u) => ({ ...u }));
 }
 
 function versionNoticeHtml() {
@@ -7345,9 +7632,7 @@ function versionNoticeHtml() {
 function versionDateFieldsHtml(draft = {}) {
   const start = draft.startDate || '';
   const end = draft.endDate || '';
-  const err = draft.dateError
-    ? `<p class="version-dates-error">${draft.dateError}</p>`
-    : '';
+  const err = draft.dateError ? `<p class="version-dates-error">${draft.dateError}</p>` : '';
   return `
     <div class="version-dates-block">
       <div class="version-dates-title">Select version dates</div>
@@ -7391,9 +7676,7 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
     `;
   };
 
-  const triggerLabel = selected
-    ? `${checkCode(selected.id)} — ${selected.name}`
-    : 'Select use-case…';
+  const triggerLabel = selected ? `${checkCode(selected.id)} — ${selected.name}` : 'Select use-case…';
 
   return `
     <div class="field">
@@ -7432,6 +7715,24 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
   `;
 }
 
+function mixStagesFor(tabId) {
+  const idx = CLAIM_STAGES.findIndex((s) => s.id === tabId);
+  return CLAIM_STAGES.slice(0, idx + 1);
+}
+
+function mixTotal(mix, tabId) {
+  const row = mix[tabId] || {};
+  return mixStagesFor(tabId).reduce((sum, s) => sum + (Number(row[s.id]) || 0), 0);
+}
+
+function formulaHtml(mix, tabId) {
+  const parts = mixStagesFor(tabId).map((s) => {
+    const w = Number((mix[tabId] || {})[s.id]) || 0;
+    return `(${s.name} × ${w}%)`;
+  });
+  return `Overall score (this checkpoint) = ${parts.join(' + ')}`;
+}
+
 function renderConfig(root, session) {
   if (!canAccess(session.role, 'config')) {
     location.hash = '#/queue';
@@ -7446,12 +7747,18 @@ function renderConfig(root, session) {
     .filter((v) => v.id !== store.currentId)
     .sort((a, b) => b.number - a.number);
   const rows = filteredRows(view.useCases);
+  const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
+  const mix = view.stageMix || DEFAULT_STAGE_MIX;
+  const showMix = scoringTab !== 'fnol';
+  const mixSum = mixTotal(mix, scoringTab);
+  const tabLabel = stageName(scoringTab);
 
   const content = `
     <div class="page-header config-page-header">
       <div>
         <h1>Configuration</h1>
-        <p class="page-subtitle">Manage use-cases, categories, and stage weightage</p>
+        <p class="page-subtitle">Stage scoring, use-case weightage, and pass / fail criteria</p>
       </div>
       ${
         readOnly
@@ -7498,84 +7805,149 @@ function renderConfig(root, session) {
       ${feedback ? `<span class="save-feedback ${feedback.type}">${feedback.message}</span>` : ''}
     </div>
 
-    <div class="config-table-card">
-      <div class="config-table-filters">
-        <div class="filter-group">
-          <label>Search</label>
-          <input type="search" id="uc-search" placeholder="Search use-cases…" value="${filters.query.replace(/"/g, '&quot;')}" />
-        </div>
-        <div class="filter-group">
-          <label>Stage ${iconFilter()}</label>
-          <select id="filter-stage">
-            <option value="all">All stages</option>
-            ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${filters.stage === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Category ${iconFilter()}</label>
-          <select id="filter-category">
-            <option value="all">All categories</option>
-            ${RISK_CATEGORIES.map((c) => `<option value="${c.id}" ${filters.riskCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-          </select>
-        </div>
-      </div>
+    <div class="config-layout">
+      <nav class="config-subnav" aria-label="Scoring stages">
+        ${SCORING_TABS.map(
+          (tab) => `
+          <button type="button" class="config-subnav-item ${scoringTab === tab.id ? 'is-active' : ''}" data-scoring-tab="${tab.id}">
+            ${tab.label}
+          </button>`
+        ).join('')}
+      </nav>
 
-      <div class="config-table-wrap">
-        <table class="config-table">
-          <thead>
-            <tr>
-              <th class="col-menu"></th>
-              <th>Use-case no.</th>
-              <th>Use-case name</th>
-              <th>Use-case description</th>
-              <th>Stage</th>
-              <th>Category</th>
-              <th>Weightage</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div class="config-stage-pane">
+        <div class="config-criteria-card">
+          <div>
+            <h2>${tabLabel} pass / fail</h2>
+            <p>A stage passes when its score is at or above this mark. A failed critical use-case zeros the stage.</p>
+          </div>
+          <div class="config-pass-field">
+            <label for="stage-pass-pct">Pass mark</label>
+            <div class="config-pass-input">
+              <input type="number" id="stage-pass-pct" min="0" max="100" step="1" value="${passPct}" ${readOnly ? 'disabled' : ''} />
+              <span>%</span>
+            </div>
             ${
-              rows.length === 0
-                ? `<tr><td colspan="7" class="empty-cell">No use-cases match the current filters.</td></tr>`
-                : rows
-                    .map((u) => {
-                      const catClass = `cat-${u.riskCategory}`;
-                      return `
+              readOnly
+                ? ''
+                : `<button type="button" class="btn btn-secondary" data-action="save-pass">Save pass mark</button>`
+            }
+          </div>
+        </div>
+
+        <div class="config-table-card">
+          <div class="config-table-filters">
+            <div class="filter-group">
+              <label>Search</label>
+              <input type="search" id="uc-search" placeholder="Search ${tabLabel} use-cases…" value="${filters.query.replace(/"/g, '&quot;')}" />
+            </div>
+            <div class="filter-group">
+              <label>Category ${iconFilter()}</label>
+              <select id="filter-category">
+                <option value="all">All categories</option>
+                ${RISK_CATEGORIES.map((c) => `<option value="${c.id}" ${filters.riskCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
                 <tr>
-                  <td class="col-menu">
-                    ${
-                      readOnly
-                        ? ''
-                        : `
-                      <div class="row-menu-wrap">
-                        <button type="button" class="row-menu-btn" data-menu="${u.id}" aria-label="Actions">${iconDots()}</button>
+                  <th class="col-menu"></th>
+                  <th>Use-case no.</th>
+                  <th>Use-case name</th>
+                  <th>Use-case description</th>
+                  <th>Category</th>
+                  <th>Weightage</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  rows.length === 0
+                    ? `<tr><td colspan="6" class="empty-cell">No use-cases in ${tabLabel} yet. Add one to start scoring this stage.</td></tr>`
+                    : rows
+                        .map((u) => {
+                          const catClass = `cat-${u.riskCategory}`;
+                          return `
+                    <tr>
+                      <td class="col-menu">
                         ${
-                          openMenuId === u.id
-                            ? `
-                          <div class="row-menu">
-                            <button type="button" data-edit="${u.id}">Edit category / weightage</button>
-                            <button type="button" class="danger" data-delete="${u.id}">Delete use-case</button>
+                          readOnly
+                            ? ''
+                            : `
+                          <div class="row-menu-wrap">
+                            <button type="button" class="row-menu-btn" data-menu="${u.id}" aria-label="Actions">${iconDots()}</button>
+                            ${
+                              openMenuId === u.id
+                                ? `
+                              <div class="row-menu">
+                                <button type="button" data-edit="${u.id}">Edit category / weightage</button>
+                                <button type="button" class="danger" data-delete="${u.id}">Delete use-case</button>
+                              </div>
+                            `
+                                : ''
+                            }
                           </div>
                         `
-                            : ''
                         }
-                      </div>
-                    `
-                    }
-                  </td>
-                  <td><span class="check-code">${u.code}</span></td>
-                  <td class="uc-name">${u.name}</td>
-                  <td class="uc-desc">${u.description || '—'}</td>
-                  <td>${stageName(u.stage)}</td>
-                  <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
-                  <td class="uc-weight">${u.hardFail ? '—' : `${u.weight ?? 0}%`}</td>
-                </tr>
-              `;
-                    })
-                    .join('')
+                      </td>
+                      <td><span class="check-code">${u.code}</span></td>
+                      <td class="uc-name">${u.name}${u.hardFail ? ' <span class="tag critical">Critical</span>' : ''}</td>
+                      <td class="uc-desc">${u.description || '—'}</td>
+                      <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
+                      <td class="uc-weight">${u.weight ?? 0}%</td>
+                    </tr>
+                  `;
+                        })
+                        .join('')
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="config-weight-footer ${weightTotal === 100 ? 'is-ok' : 'is-warn'}">
+            <span>Stage weightage</span>
+            <strong>${weightTotal}% / 100%</strong>
+            <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
+          </div>
+        </div>
+
+        ${
+          showMix
+            ? `
+          <div class="config-criteria-card config-mix-card">
+            <div>
+              <h2>Cumulative scoring</h2>
+              <p>${formulaHtml(mix, scoringTab)}</p>
+            </div>
+            <div class="config-mix-grid">
+              ${mixStagesFor(scoringTab)
+                .map((s) => {
+                  const val = Number((mix[scoringTab] || {})[s.id]) || 0;
+                  return `
+                  <div class="field">
+                    <label for="mix-${s.id}">${s.name} weight</label>
+                    <div class="config-pass-input">
+                      <input type="number" id="mix-${s.id}" data-mix-stage="${s.id}" min="0" max="100" step="1" value="${val}" ${readOnly ? 'disabled' : ''} />
+                      <span>%</span>
+                    </div>
+                  </div>`;
+                })
+                .join('')}
+            </div>
+            <div class="config-weight-footer ${mixSum === 100 ? 'is-ok' : 'is-warn'}">
+              <span>Checkpoint mix</span>
+              <strong>${mixSum}% / 100%</strong>
+              <small>${mixSum === 100 ? 'Cumulative weights add up to 100%.' : 'Cumulative weights for this checkpoint should be 100%.'}</small>
+            </div>
+            ${
+              readOnly
+                ? ''
+                : `<button type="button" class="btn btn-secondary" data-action="save-mix">Save cumulative scoring</button>`
             }
-          </tbody>
-        </table>
+          </div>`
+            : ''
+        }
       </div>
     </div>
 
@@ -7593,14 +7965,17 @@ function renderModalHtml(currentUseCases) {
   const draft = modal.draft || defaultVersionDates();
   const step = modal.step || 'form';
 
-  // Step 2: require start/end dates before creating the version
   if (step === 'version-dates') {
     const summary =
       modal.type === 'delete'
         ? `Delete use-case from configuration`
         : modal.type === 'add'
           ? `Add ${draft.code || ''} ${draft.name || 'use-case'}`
-          : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
+          : modal.type === 'pass'
+            ? `Set ${stageName(scoringTab)} pass mark to ${draft.passPct}%`
+            : modal.type === 'mix'
+              ? `Update ${stageName(scoringTab)} cumulative scoring`
+              : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
     return `
       <div class="modal-backdrop" data-action="close-modal">
         <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
@@ -7636,9 +8011,28 @@ function renderModalHtml(currentUseCases) {
     `;
   }
 
+  if (modal.type === 'pass' || modal.type === 'mix') {
+    return `
+      <div class="modal-backdrop" data-action="close-modal">
+        <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
+          <h2>${modal.type === 'pass' ? 'Save pass mark' : 'Save cumulative scoring'}</h2>
+          <div class="version-notice" role="status">Your changes will be saved as a new version.</div>
+          <p class="modal-copy">${
+            modal.type === 'pass'
+              ? `${stageName(scoringTab)} will pass at ${draft.passPct}%.`
+              : formulaHtml(draft.stageMix || DEFAULT_STAGE_MIX, scoringTab)
+          }</p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
+            <button type="button" class="btn btn-primary" data-action="continue-version-dates">Continue</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   const isAdd = modal.type === 'add';
   const selectedDef = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
-  const isCriticalHard = selectedDef?.hardFail || draft.hardFail;
   const selectedEnabled = selectedDef ? isTenantEnabledUseCase(selectedDef) : false;
   const isLockedSelection = isAdd && selectedDef && !selectedEnabled;
 
@@ -7651,16 +8045,12 @@ function renderModalHtml(currentUseCases) {
     if (!selectedDef) {
       primaryLabel = 'Add Use-Case';
       primaryDisabled = true;
-      primaryAction = 'continue-version-dates';
     } else if (isLockedSelection) {
       primaryLabel = 'Raise a Request';
       primaryAction = 'raise-request';
       primaryClass = 'btn btn-primary btn-request';
-      primaryDisabled = false;
     } else {
       primaryLabel = 'Add Use-Case';
-      primaryDisabled = false;
-      primaryAction = 'continue-version-dates';
     }
   }
 
@@ -7675,11 +8065,15 @@ function renderModalHtml(currentUseCases) {
                <p class="modal-copy">${isAdd ? 'Select an available (green) use-case and set category / weightage.' : 'Update category or weightage.'}</p>`
         }
 
-        ${isAdd ? useCasePickerHtml(currentUseCases, draft) : `
+        ${
+          isAdd
+            ? useCasePickerHtml(currentUseCases, draft)
+            : `
         <div class="field">
           <label>Use-case</label>
-          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>
-        </div>`}
+          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}${draft.hardFail ? ' · Critical' : ''}</div>
+        </div>`
+        }
 
         <div class="field">
           <label>Description</label>
@@ -7694,7 +8088,7 @@ function renderModalHtml(currentUseCases) {
           <div class="field">
             <label>Stage</label>
             <select id="modal-stage" ${isAdd && !selectedDef ? 'disabled' : ''}>
-              ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${(draft.stage || selectedDef?.stage) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+              ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${(draft.stage || selectedDef?.stage || scoringTab) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
           </div>
           <div class="field">
@@ -7706,8 +8100,8 @@ function renderModalHtml(currentUseCases) {
           <div class="field">
             <label>Weightage %</label>
             <input type="number" id="modal-weight" min="0" max="100" step="1"
-              value="${isCriticalHard ? '' : draft.weight ?? selectedDef?.weight ?? 0}"
-              ${isCriticalHard || (isAdd && !selectedDef) ? 'disabled placeholder="N/A"' : ''} />
+              value="${draft.weight ?? selectedDef?.weight ?? 0}"
+              ${isAdd && !selectedDef ? 'disabled' : ''} />
           </div>
         </div>
         `
@@ -7725,12 +8119,17 @@ function renderModalHtml(currentUseCases) {
 function bindConfigEvents(root, session, currentUseCases) {
   const rerender = () => renderConfig(root, session);
 
+  root.querySelectorAll('[data-scoring-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      scoringTab = btn.dataset.scoringTab;
+      openMenuId = null;
+      filters.query = '';
+      rerender();
+    });
+  });
+
   root.querySelector('#uc-search')?.addEventListener('input', (e) => {
     filters.query = e.target.value;
-    rerender();
-  });
-  root.querySelector('#filter-stage')?.addEventListener('change', (e) => {
-    filters.stage = e.target.value;
     rerender();
   });
   root.querySelector('#filter-category')?.addEventListener('change', (e) => {
@@ -7766,7 +8165,44 @@ function bindConfigEvents(root, session, currentUseCases) {
     modal = {
       type: 'add',
       step: 'form',
-      draft: { riskCategory: 'high', weight: 0, stage: 'fnol', ...defaultVersionDates() },
+      draft: { riskCategory: 'high', weight: 0, stage: scoringTab, ...defaultVersionDates() },
+    };
+    rerender();
+  });
+
+  root.querySelector('[data-action="save-pass"]')?.addEventListener('click', () => {
+    const raw = Number(root.querySelector('#stage-pass-pct')?.value);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 100) {
+      feedback = { type: 'error', message: 'Enter a pass mark between 0 and 100.' };
+      rerender();
+      return;
+    }
+    modal = {
+      type: 'pass',
+      step: 'form',
+      draft: { passPct: Math.round(raw), ...defaultVersionDates() },
+    };
+    rerender();
+  });
+
+  root.querySelector('[data-action="save-mix"]')?.addEventListener('click', () => {
+    const current = getCurrentConfigVersion();
+    const nextMix = cloneMix(current.stageMix || DEFAULT_STAGE_MIX);
+    nextMix[scoringTab] = nextMix[scoringTab] || {};
+    mixStagesFor(scoringTab).forEach((s) => {
+      const raw = Number(root.querySelector(`[data-mix-stage="${s.id}"]`)?.value);
+      nextMix[scoringTab][s.id] = Number.isFinite(raw) ? Math.round(raw) : 0;
+    });
+    const total = mixTotal(nextMix, scoringTab);
+    if (total !== 100) {
+      feedback = { type: 'error', message: `Cumulative weights must add up to 100% (currently ${total}%).` };
+      rerender();
+      return;
+    }
+    modal = {
+      type: 'mix',
+      step: 'form',
+      draft: { stageMix: nextMix, ...defaultVersionDates() },
     };
     rerender();
   });
@@ -7832,10 +8268,10 @@ function bindConfigEvents(root, session, currentUseCases) {
         code: checkCode(def.id),
         name: def.name,
         description: def.description,
-        stage: def.stage,
+        stage: scoringTab,
         riskCategory: def.riskCategory,
         hardFail: def.hardFail,
-        weight: def.hardFail ? null : def.weight,
+        weight: def.weight ?? 0,
         startDate: '',
         endDate: '',
         dateError: null,
@@ -7849,12 +8285,12 @@ function bindConfigEvents(root, session, currentUseCases) {
     const stage = root.querySelector('#modal-stage')?.value;
     const riskCategory = root.querySelector('#modal-category')?.value;
     const weightRaw = root.querySelector('#modal-weight')?.value;
-    const weight = weightRaw === '' || weightRaw == null ? null : parseInt(weightRaw, 10);
+    const weight = weightRaw === '' || weightRaw == null ? 0 : parseInt(weightRaw, 10);
     modal.draft = {
       ...(modal.draft || {}),
-      stage: stage || modal.draft?.stage,
+      stage: stage || modal.draft?.stage || scoringTab,
       riskCategory: riskCategory || modal.draft?.riskCategory,
-      weight: modal.draft?.hardFail ? null : Number.isFinite(weight) ? weight : modal.draft?.weight,
+      weight: Number.isFinite(weight) ? weight : modal.draft?.weight ?? 0,
       dateError: null,
     };
   }
@@ -7869,13 +8305,11 @@ function bindConfigEvents(root, session, currentUseCases) {
         return;
       }
       captureFormDraft();
-      if (!def.hardFail) {
-        const w = modal.draft.weight;
-        if (!Number.isFinite(w) || w < 0) {
-          feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
-          rerender();
-          return;
-        }
+      const w = modal.draft.weight;
+      if (!Number.isFinite(w) || w < 0) {
+        feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
+        rerender();
+        return;
       }
     } else if (modal.type === 'edit') {
       captureFormDraft();
@@ -7944,22 +8378,19 @@ function bindConfigEvents(root, session, currentUseCases) {
         rerender();
         return;
       }
-      applyMutation(
-        (list) => [
-          ...list,
-          {
-            id: def.id,
-            code: checkCode(def.id),
-            name: def.name,
-            description: def.description,
-            stage: modal.draft.stage || def.stage,
-            riskCategory: modal.draft.riskCategory || def.riskCategory,
-            hardFail: def.hardFail,
-            weight: def.hardFail ? null : modal.draft.weight,
-          },
-        ],
-        dates
-      );
+      applyMutation((list) => [
+        ...list,
+        {
+          id: def.id,
+          code: checkCode(def.id),
+          name: def.name,
+          description: def.description,
+          stage: modal.draft.stage || scoringTab || def.stage,
+          riskCategory: modal.draft.riskCategory || def.riskCategory,
+          hardFail: def.hardFail,
+          weight: modal.draft.weight ?? def.weight ?? 0,
+        },
+      ], dates);
     } else if (modal.type === 'edit') {
       const id = modal.useCaseId;
       applyMutation(
@@ -7970,7 +8401,7 @@ function bindConfigEvents(root, session, currentUseCases) {
               ...u,
               stage: modal.draft.stage || u.stage,
               riskCategory: modal.draft.riskCategory || u.riskCategory,
-              weight: u.hardFail ? null : modal.draft.weight,
+              weight: modal.draft.weight ?? u.weight ?? 0,
             };
           }),
         dates
@@ -7978,6 +8409,12 @@ function bindConfigEvents(root, session, currentUseCases) {
     } else if (modal.type === 'delete') {
       const id = modal.useCaseId;
       applyMutation((list) => list.filter((u) => u.id !== id), dates);
+    } else if (modal.type === 'pass') {
+      const current = getCurrentConfigVersion();
+      const nextPass = { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}), [scoringTab]: modal.draft.passPct };
+      applyMutation((list) => list, dates, { stagePassPct: nextPass });
+    } else if (modal.type === 'mix') {
+      applyMutation((list) => list, dates, { stageMix: modal.draft.stageMix });
     }
 
     modal = null;
@@ -7998,7 +8435,6 @@ function bindConfigEvents(root, session, currentUseCases) {
     rerender();
   });
 
-  // Keep picker open clicks from bubbling; close menus on outside click
   root.querySelector('.uc-picker-menu')?.addEventListener('click', (e) => e.stopPropagation());
 
   root.querySelector('.main')?.addEventListener(
@@ -8016,7 +8452,12 @@ function bindConfigEvents(root, session, currentUseCases) {
 }
 
 
-/* ==== js/views/report.js ==== */
+
+/* ===== js/views/report.js ===== */
+
+
+
+
 function esc(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -8030,8 +8471,24 @@ function sampleNote(claim) {
   if (pending) return `${pending} pending exception${pending === 1 ? '' : 's'}`;
   if (claim.forcedRed) return 'Critical fail override';
   if (claim.hasOverride) return 'Override (waived)';
-  if (claim.summary?.cantEvaluateCount) return `${claim.summary.cantEvaluateCount} can't evaluate`;
+  if (claim.summary?.failCount) return `${claim.summary.failCount} failed check${claim.summary.failCount === 1 ? '' : 's'}`;
   return '—';
+}
+
+function csvEscape(value) {
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(filename, rows) {
+  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exceptionSample(universe, state) {
@@ -8132,9 +8589,11 @@ function renderReport(root, session, claims, state, onChange) {
 
   const reportRange = range;
   const txRange =
-    state.txPeriod === 'yesterday' || state.txPeriod === '7'
-      ? resolvePeriodRange(state.txPeriod)
-      : reportRange;
+    state.txPeriod === 'custom' && state.txFrom && state.txTo
+      ? resolvePeriodRange('custom', { from: state.txFrom, to: state.txTo })
+      : state.txPeriod === 'yesterday' || state.txPeriod === '7'
+        ? resolvePeriodRange(state.txPeriod)
+        : reportRange;
   const txGate = ledgerRangeState(txRange);
   const allLedger = flattenClaimLedger(claims);
   const ledgerInRange = txGate.ok ? filterLedgerRows(allLedger, { range: txRange }) : [];
@@ -8160,8 +8619,9 @@ function renderReport(root, session, claims, state, onChange) {
     <div class="page-header">
       <div>
         <h1>Report</h1>
-        <p class="page-subtitle">Filtered management snapshot · prototype today ${formatRangeLabel({ from: '2026-08-11', to: '2026-08-11' })}</p>
+        <p class="page-subtitle">Filtered management snapshot · prototype today ${formatDate('2026-08-11')}</p>
       </div>
+      <button type="button" class="btn btn-secondary" data-action="export-report">Export report</button>
     </div>
 
     <div class="report-sticky-bar">
@@ -8174,18 +8634,14 @@ function renderReport(root, session, claims, state, onChange) {
             ).join('')}
           </select>
         </div>
-        ${
-          state.period === 'custom'
-            ? `<div class="filter-group">
-          <label for="report-from">From</label>
+        <div class="filter-group">
+          <label for="report-from">Start date</label>
           <input id="report-from" type="date" value="${esc(state.from || range.from)}" />
         </div>
         <div class="filter-group">
-          <label for="report-to">To</label>
+          <label for="report-to">End date</label>
           <input id="report-to" type="date" value="${esc(state.to || range.to)}" />
-        </div>`
-            : ''
-        }
+        </div>
         <div class="filter-group">
           <label for="report-branch">Branch</label>
           <select id="report-branch">
@@ -8237,14 +8693,14 @@ function renderReport(root, session, claims, state, onChange) {
         <div class="sub">${formatAED(metrics.redValue)} · ${metrics.redCount} claims</div>
       </div>
       <div class="stat-tile">
-        <div class="label">Can't evaluate</div>
-        <div class="value">${metrics.cantEvalRate}%</div>
-        <div class="sub">${metrics.cantEvalCount} incomplete-doc claims</div>
+        <div class="label">Failed checks</div>
+        <div class="value">${metrics.failRate}%</div>
+        <div class="sub">${metrics.failCount} claims with a fail</div>
       </div>
       <div class="stat-tile">
         <div class="label">Exceptions</div>
         <div class="value" style="font-size:1.05rem">${metrics.hardFails} · ${metrics.waived} · ${metrics.pending}</div>
-        <div class="sub">Hard-fail · waived · pending</div>
+        <div class="sub">Critical · waived · pending</div>
       </div>
     </div>
 
@@ -8312,7 +8768,7 @@ function renderReport(root, session, claims, state, onChange) {
           (s) =>
             `<button type="button" class="chip ${state.ucStage === s.id ? 'active' : ''}" data-uc-stage="${s.id}">${s.name}</button>`
         ).join('')}
-        <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Hard-fail only</button>
+        <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Critical only</button>
       </div>
       ${
         ranked.length === 0
@@ -8326,7 +8782,7 @@ function renderReport(root, session, claims, state, onChange) {
               <span class="check-code">${row.code}</span>
               <div>
                 <strong>${row.name}</strong>
-                <small>${row.stageName}${row.hardFail ? ' · Hard-fail' : ''} · ${row.failRate}% fail rate</small>
+                <small>${row.stageName}${row.hardFail ? ' · Critical' : ''} · ${row.failRate}% fail rate</small>
               </div>
             </div>
             <strong>${row.fail}</strong>
@@ -8372,11 +8828,11 @@ function renderReport(root, session, claims, state, onChange) {
               .map(
                 (c) => `
               <tr>
-                <td><a href="#/claim/${c.id}">${c.id}</a></td>
+                <td><a href="#/claim/${c.id}">${formatClaimRef(c)}</a></td>
                 <td>${esc(c.branch)}</td>
                 <td>${esc(claimTypeLabel(c.claimType))}</td>
-                <td>${formatAED(c.amount)}</td>
-                <td class="mono">${c.score}</td>
+                <td>${formatClaimAmount(c)}</td>
+                <td class="mono">${formatScore(c.score)}</td>
                 <td class="claim-tier ${c.tier}">${tierLabel(c.tier)}</td>
                 <td class="muted">${esc(sampleNote(c))}</td>
               </tr>`
@@ -8393,6 +8849,7 @@ function renderReport(root, session, claims, state, onChange) {
     <div class="panel">
       <div class="panel-header">
         <h2>Transactions</h2>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export transactions</button>
       </div>
       <p class="page-subtitle" style="margin:0 0 12px">Cross-claim ledger · does not change the scorecard</p>
       <div class="filters-bar">
@@ -8402,7 +8859,16 @@ function renderReport(root, session, claims, state, onChange) {
             <option value="inherit" ${state.txPeriod === 'inherit' ? 'selected' : ''}>Match report (${esc(formatRangeLabel(reportRange))})</option>
             <option value="yesterday" ${state.txPeriod === 'yesterday' ? 'selected' : ''}>Yesterday</option>
             <option value="7" ${state.txPeriod === '7' ? 'selected' : ''}>Last 7 days</option>
+            <option value="custom" ${state.txPeriod === 'custom' ? 'selected' : ''}>Custom</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label for="tx-from">Start date</label>
+          <input id="tx-from" type="date" value="${esc(txRange.from)}" />
+        </div>
+        <div class="filter-group">
+          <label for="tx-to">End date</label>
+          <input id="tx-to" type="date" value="${esc(txRange.to)}" />
         </div>
         ${
           txGate.ok
@@ -8445,28 +8911,51 @@ function renderReport(root, session, claims, state, onChange) {
       ${
         capped.shown.length === 0
           ? `<div class="chart-empty">No transactions in this range.</div>`
-          : dayGroups
-              .map(
-                (g) => `
-          <div class="ledger-day">
-            <h3 class="ledger-day-title">${esc(formatRangeLabel({ from: g.date, to: g.date }))}</h3>
-            ${g.rows
+          : `<div class="sample-table-wrap">
+        <table class="sample-table ledger-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Claim</th>
+              <th>FNOL</th>
+              <th>Policy</th>
+              <th>Score</th>
+              <th>Stage</th>
+              <th>User</th>
+              <th>Action</th>
+              <th>Change type</th>
+              <th>Field</th>
+              <th>Old value</th>
+              <th>New value</th>
+              <th>Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${capped.shown
               .map(
                 (r) => `
-              <div class="ledger-row">
-                <span class="ledger-time">${esc(r.time)}</span>
-                <a class="ledger-claim" href="#/claim/${r.claimId}">${r.claimId}</a>
-                <span class="ledger-user">${esc(r.user)}</span>
-                <span class="ledger-delta">${esc(r.delta)}</span>
-                <span class="ledger-chip">${esc(r.ledgerType)}</span>
-                <span class="audit-status">${esc(r.status || 'Completed')}</span>
-                ${r.comments ? `<span class="ledger-comment">${esc(r.comments)}</span>` : ''}
-              </div>`
+              <tr>
+                <td>${esc(formatDate(r.date))}</td>
+                <td class="mono">${esc(r.time)}</td>
+                <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
+                <td class="mono">${esc(r.fnolNumber)}</td>
+                <td class="mono">${esc(r.policyNumber)}</td>
+                <td class="mono">${formatScore(r.score)}</td>
+                <td>${esc(r.workflowStageName)}</td>
+                <td>${esc(r.user)}</td>
+                <td>${esc(r.action)}</td>
+                <td><span class="ledger-chip">${esc(r.ledgerType)}</span></td>
+                <td>${esc(r.field)}</td>
+                <td>${esc(r.oldValue)}</td>
+                <td>${esc(r.newValue)}</td>
+                <td class="ledger-comment">${esc(r.comments || '—')}</td>
+              </tr>`
               )
               .join('')}
-          </div>`
-              )
-              .join('')
+          </tbody>
+        </table>
+      </div>`
       }`
       }
     </div>
@@ -8505,13 +8994,96 @@ function renderReport(root, session, claims, state, onChange) {
   root.querySelector('[data-sample-pending]')?.addEventListener('click', () => {
     patch({ samplePendingOnly: !state.samplePendingOnly });
   });
-  root.querySelector('#tx-period')?.addEventListener('change', (e) => patch({ txPeriod: e.target.value }));
+  root.querySelector('#tx-period')?.addEventListener('change', (e) => {
+    const txPeriod = e.target.value;
+    if (txPeriod === 'inherit') {
+      patch({ txPeriod, txFrom: range.from, txTo: range.to });
+      return;
+    }
+    const next = resolvePeriodRange(txPeriod, { from: state.txFrom, to: state.txTo });
+    patch({ txPeriod, txFrom: next.from, txTo: next.to });
+  });
+  root.querySelector('#tx-from')?.addEventListener('change', (e) =>
+    patch({ txFrom: e.target.value, txPeriod: 'custom' })
+  );
+  root.querySelector('#tx-to')?.addEventListener('change', (e) =>
+    patch({ txTo: e.target.value, txPeriod: 'custom' })
+  );
   root.querySelector('#tx-type')?.addEventListener('change', (e) => patch({ txChangeType: e.target.value }));
   root.querySelector('#tx-user')?.addEventListener('change', (e) => patch({ txUser: e.target.value }));
+
+  root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
+    const rows = [
+      ['Section', 'Metric', 'Value'],
+      ['Scorecard', 'Claims scored', metrics.count],
+      ['Scorecard', 'Total value', formatAED(metrics.value)],
+      ['Scorecard', 'High-risk rate', `${metrics.highRiskRate}%`],
+      ['Scorecard', 'Failed-check claims', metrics.failCount],
+      ['Scorecard', 'Critical fails', metrics.hardFails],
+      ['Scorecard', 'Scope', scope],
+      ...byStage.map((st) => ['By stage', st.name, `${st.count} · ${st.highRiskPct}% high risk`]),
+      ...byType.map((t) => ['By type', t.label, `${t.count} · ${formatAED(t.value)}`]),
+      ...ranked.map((row) => ['Use-case fail', `${row.code} ${row.name}`, `${row.fail} · ${row.failRate}%`]),
+      ...sample.rows.map((c) => [
+        'Exception sample',
+        formatClaimRef(c),
+        `${formatScore(c.score)} · ${tierLabel(c.tier)} · ${formatClaimAmount(c)}`,
+      ]),
+    ];
+    downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
+  });
+
+  root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
+    const header = [
+      'Date',
+      'Time',
+      'Claim',
+      'FNOL',
+      'Policy',
+      'Score',
+      'Stage',
+      'User',
+      'Action',
+      'Change type',
+      'Field',
+      'Old value',
+      'New value',
+      'Comments',
+    ];
+    const rows = [
+      header,
+      ...ledgerFiltered.map((r) => [
+        formatDate(r.date),
+        r.time,
+        r.claimId,
+        r.fnolNumber,
+        r.policyNumber,
+        formatScore(r.score),
+        r.workflowStageName,
+        r.user,
+        r.action,
+        r.ledgerType,
+        r.field,
+        r.oldValue,
+        r.newValue,
+        r.comments || '',
+      ]),
+    ];
+    downloadCsv(`claim-intel-transactions-${txRange.from}-to-${txRange.to}.csv`, rows);
+  });
 }
 
 
-/* ==== js/app.js ==== */
+
+/* ===== js/app.js ===== */
+
+
+
+
+
+
+
+
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
@@ -8535,6 +9107,8 @@ let reportState = {
   sampleTier: 'red',
   samplePendingOnly: false,
   txPeriod: 'inherit',
+  txFrom: '2026-08-05',
+  txTo: '2026-08-11',
   txChangeType: 'all',
   txUser: 'all',
 };
@@ -8614,7 +9188,7 @@ function render() {
       claim,
       claimFilter,
       (f, opts = {}) => {
-        claimFilter = f;
+        claimFilter = f === 'cant_evaluate' ? 'fail' : f;
         claimDrawerOpen = !!opts.drawerOpen;
         if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
         if (opts.exceptionPanel !== undefined) claimExceptionPanel = opts.exceptionPanel;
@@ -8687,7 +9261,9 @@ if (!location.hash) {
 
 window.addEventListener('load', render);
 
+
 })();
+
   </script>
 </body>
 </html>

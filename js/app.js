@@ -30,6 +30,8 @@ let reportState = {
   sampleTier: 'red',
   samplePendingOnly: false,
   txPeriod: 'inherit',
+  txFrom: '2026-08-05',
+  txTo: '2026-08-11',
   txChangeType: 'all',
   txUser: 'all',
 };
@@ -109,7 +111,7 @@ function render() {
       claim,
       claimFilter,
       (f, opts = {}) => {
-        claimFilter = f;
+        claimFilter = f === 'cant_evaluate' ? 'fail' : f;
         claimDrawerOpen = !!opts.drawerOpen;
         if (opts.selectedStage !== undefined) claimStageTab = opts.selectedStage;
         if (opts.exceptionPanel !== undefined) claimExceptionPanel = opts.exceptionPanel;

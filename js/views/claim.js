@@ -16,8 +16,9 @@ import {
   isCheckerRole,
   proposeCheckException,
   decideCheckException,
+  formatClaimRef,
 } from '../data.js';
-import { formatAED, formatDate, tierLabel, sortChecksForDisplay } from '../scoring.js';
+import { formatAED, formatClaimAmount, formatDate, formatScore, tierLabel, sortChecksForDisplay } from '../scoring.js';
 
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
@@ -86,7 +87,7 @@ function exceptionPanelHtml(result, mode, claim, pending) {
         <strong>Approve ${checkCode(result.checkId)}</strong>
         <p class="exception-lead">${
           refer
-            ? 'The hard-fail is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
+            ? 'The critical check is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
             : 'The fail is correct. Accept the risk — the flag remains and the claim can continue after Claim Head approval.'
         }</p>
         <label>Comment
@@ -123,7 +124,7 @@ function exceptionBlockHtml(result, session, panel, claim) {
   const latest = latestExceptionForCheck(claim, result.checkId);
   const pending = latest?.status === 'pending' ? latest : null;
   const sentBack = latest?.status === 'sent_back' ? latest : null;
-  const eligibleState = result.state === 'fail' || result.state === 'cant_evaluate';
+  const eligibleState = result.state === 'fail';
   const canPropose = session.role === 'claim_user' && eligibleState && !pending;
   const canWaiveHard = isCheckerRole(session.role) && result.hardFail && result.state === 'fail' && !pending;
   const canDecide = isCheckerRole(session.role) && !!pending;
@@ -261,16 +262,16 @@ function claimInfoDrawer(claim) {
         <div class="drawer-header">
           <div>
             <h2>Claim details</h2>
-            <p class="drawer-sub">${claim.id}</p>
+            <p class="drawer-sub">${formatClaimRef(claim)}</p>
           </div>
           <button type="button" class="btn btn-ghost icon-btn" data-action="close-drawer" aria-label="Close">${iconClose()}</button>
         </div>
         <div class="drawer-body">
           <div class="drawer-grid">
-            <div class="meta-item"><label>Claim number</label><div class="value">${claim.id}</div></div>
+            <div class="meta-item"><label>Claim number</label><div class="value">${formatClaimRef(claim)}</div></div>
             <div class="meta-item"><label>Policy number</label><div class="value">${claim.policyNumber}</div></div>
             <div class="meta-item"><label>Claimant</label><div class="value">${claim.claimant}</div></div>
-            <div class="meta-item"><label>Claim amount</label><div class="value">${formatAED(claim.amount)}</div></div>
+            <div class="meta-item"><label>Claim amount</label><div class="value">${formatClaimAmount(claim)}</div></div>
             <div class="meta-item"><label>Sum insured / IDV</label><div class="value">${formatAED(claim.sumInsured)}</div></div>
             <div class="meta-item"><label>Loss date</label><div class="value">${formatDate(claim.lossDate)}</div></div>
             <div class="meta-item"><label>Reported</label><div class="value">${formatDate(claim.filedAt)}</div></div>
@@ -286,7 +287,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>Risk score</label><div class="value">${claim.score} / 10 · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>Risk score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -295,7 +296,7 @@ function claimInfoDrawer(claim) {
                 (s) => `
               <div class="stage-score-row">
                 <span>${s.stageName}</span>
-                <strong class="claim-tier ${s.tier}">${s.score}/10</strong>
+                <strong class="claim-tier ${s.tier}">${formatScore(s.score)}</strong>
               </div>
             `
               )
@@ -345,20 +346,22 @@ export function renderClaimDetail(
   const counts = {
     all: stageResults.length,
     pass: stageResults.filter((r) => r.state === 'pass').length,
-    fail: stageResults.filter((r) => r.state === 'fail').length,
-    cant_evaluate: stageResults.filter((r) => r.state === 'cant_evaluate').length,
+    fail: stageResults.filter((r) => r.state === 'fail' || r.state === 'cant_evaluate').length,
   };
 
   const filtered =
-    filter === 'all' ? sorted : sorted.filter((r) => r.state === filter);
+    filter === 'all'
+      ? sorted
+      : filter === 'fail'
+        ? sorted.filter((r) => r.state === 'fail' || r.state === 'cant_evaluate')
+        : sorted.filter((r) => r.state === filter);
 
   const s = claim.summary;
   const summaryLine = [
     s.hardFailCount
       ? `${s.hardFailCount} critical fail${s.hardFailCount > 1 ? 's' : ''}`
       : null,
-    `${s.softFailCount} of ${s.softTotal} soft checks failed`,
-    s.cantEvaluateCount ? `${s.cantEvaluateCount} could not be evaluated` : null,
+    `${s.failCount ?? s.softFailCount} of ${s.softTotal + (s.hardFailCount || 0)} checks failed`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -379,7 +382,7 @@ export function renderClaimDetail(
         <div class="meta-item">
           <label>Claim number</label>
           <div class="value">
-            <button type="button" class="claim-link" data-action="open-drawer">${claim.id}</button>
+            <button type="button" class="claim-link" data-action="open-drawer">${formatClaimRef(claim)}</button>
           </div>
         </div>
         <div class="meta-item">
@@ -392,7 +395,7 @@ export function renderClaimDetail(
         </div>
         <div class="meta-item">
           <label>Claim amount</label>
-          <div class="value">${formatAED(claim.amount)}</div>
+          <div class="value">${formatClaimAmount(claim)}</div>
         </div>
         ${
           isClaimUser
@@ -437,13 +440,13 @@ export function renderClaimDetail(
     ${
       surveyorCanWork
         ? `<div class="surveyor-banner">
-        <strong>Surveyor stage</strong>
-        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Intimation, or Settlement to review earlier or later stages.</p>
+        <strong>Assessment stage</strong>
+        <p>Upload your documents below and submit to run further scoring. Switch to FNOL, Registration, or Settlement to review earlier or later stages.</p>
       </div>`
         : isSurveyor && stageTab === 'assessment' && !surveyorSubmitted
           ? `<div class="surveyor-banner">
-        <strong>Surveyor stage</strong>
-        <p>This claim has not completed FNOL and Intimation yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Intimation, or Settlement.</p>
+        <strong>Assessment stage</strong>
+        <p>This claim has not completed FNOL and Registration yet. You can review this stage; submit is available after those stages pass. Switch tabs to inspect FNOL, Registration, or Settlement.</p>
       </div>`
           : ''
     }
@@ -462,7 +465,7 @@ export function renderClaimDetail(
         <div class="banner-icon">${iconAlert()}</div>
         <div>
           <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The score below is a context score only; the hard fail overrides the tier.</p>
+          <p>${hardFailNames}. The failed critical use-case zeros that stage. The claim score is the cumulative checkpoint score.</p>
         </div>
       </div>
     `
@@ -470,9 +473,9 @@ export function renderClaimDetail(
     }
 
     <div class="score-panel">
-      <div class="score-circle lg ${claim.tier}">${claim.score}</div>
+      <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
       <div class="score-panel-text">
-        <h2>Fraud risk score <span style="font-weight:500;color:var(--text-muted);font-size:0.9rem">/ 10</span></h2>
+        <h2>Fraud risk score</h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
@@ -489,7 +492,8 @@ export function renderClaimDetail(
           const active = isSurveyor && stageTab === stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
-          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${stageScore.score}</span>` : ''}
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${formatScore(stageScore.score)}</span>` : ''}
+          ${stageScore ? `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>` : ''}
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
           return isSurveyor
@@ -509,9 +513,6 @@ export function renderClaimDetail(
       <button type="button" class="result-filter ${filter === 'fail' ? 'active' : ''}" data-filter="fail">
         Failed <span class="count">${counts.fail}</span>
       </button>
-      <button type="button" class="result-filter ${filter === 'cant_evaluate' ? 'active' : ''}" data-filter="cant_evaluate">
-        Can't evaluate <span class="count">${counts.cant_evaluate}</span>
-      </button>
     </div>
 
     <div class="checks-by-stage">
@@ -524,13 +525,13 @@ export function renderClaimDetail(
               <div class="stage-block-header">
                 <div>
                   <h3>${stageDisplayName(stage.id)}</h3>
-                  <p>${stage.id === 'assessment' ? 'Surveyor inspection, repair photos & damage assessment' : stage.description}</p>
+                  <p>${stage.description}</p>
                 </div>
                 <div class="stage-block-score">
                   ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
                   ${
                     stageScore
-                      ? `<span class="score-circle sm ${stageScore.tier}">${stageScore.score}</span>`
+                      ? `<span class="score-circle sm ${stageScore.tier}">${formatScore(stageScore.score)}</span>`
                       : ''
                   }
                 </div>
@@ -543,7 +544,7 @@ export function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = r.hardFail ? 'Hard-fail' : '';
+                          const metaLabel = r.hardFail ? 'Critical' : `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -552,7 +553,7 @@ export function renderClaimDetail(
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
                         ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Hard-fail</span>` : ''}
+                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Critical</span>` : ''}
                         ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
@@ -574,8 +575,8 @@ export function renderClaimDetail(
                 <div class="surveyor-submit">
                   <p>${
                     hasStageDocsComplete(claim, 'assessment')
-                      ? 'Required Surveyor documents are on file. Submit to run further scoring and move this claim to the next stage.'
-                      : 'Upload every required Surveyor document, then submit for further scoring.'
+                      ? 'Required Assessment documents are on file. Submit to run further scoring and move this claim to the next stage.'
+                      : 'Upload every required Assessment document, then submit for further scoring.'
                   }</p>
                   <button type="button" class="btn btn-primary" data-action="submit-surveyor" ${
                     hasStageDocsComplete(claim, 'assessment') ? '' : 'disabled'

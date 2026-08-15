@@ -4,12 +4,13 @@ import {
   USE_CASE_LIBRARY,
   CLAIM_STAGES,
   RISK_CATEGORIES,
+  DEFAULT_STAGE_PASS,
+  DEFAULT_STAGE_MIX,
   checkCode,
   isTenantEnabledUseCase,
 } from '../data.js';
 import { canAccess } from '../scoring.js';
 import {
-  CONFIG_TODAY,
   getConfigStore,
   getCurrentConfigVersion,
   getConfigVersionById,
@@ -18,6 +19,11 @@ import {
   formatLongDate,
   isFutureVersion,
 } from '../state.js';
+
+const SCORING_TABS = CLAIM_STAGES.map((s) => ({
+  id: s.id,
+  label: `${s.name} scoring`,
+}));
 
 function stageName(id) {
   return CLAIM_STAGES.find((s) => s.id === id)?.name || id;
@@ -39,12 +45,21 @@ function iconFilter() {
   return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
-/** @type {{ stage: string, riskCategory: string, query: string }} */
-let filters = { stage: 'all', riskCategory: 'all', query: '' };
+function cloneUseCases(list) {
+  return list.map((u) => ({ ...u }));
+}
+
+function cloneMix(mix) {
+  return Object.fromEntries(Object.entries(mix || {}).map(([k, v]) => [k, { ...(v || {}) }]));
+}
+
+/** @type {{ riskCategory: string, query: string }} */
+let filters = { riskCategory: 'all', query: '' };
+let scoringTab = 'fnol';
 /** @type {number|null} viewing historical version id */
 let viewingVersionId = null;
 let openMenuId = null;
-let modal = null; // { type: 'add'|'edit'|'delete', useCaseId?, draft? }
+let modal = null;
 let prevVersionsOpen = false;
 let feedback = null;
 let ucPickerOpen = false;
@@ -64,7 +79,7 @@ function isReadOnly() {
 
 function filteredRows(useCases) {
   return useCases.filter((u) => {
-    if (filters.stage !== 'all' && u.stage !== filters.stage) return false;
+    if (u.stage !== scoringTab) return false;
     if (filters.riskCategory !== 'all' && u.riskCategory !== filters.riskCategory) return false;
     if (filters.query) {
       const q = filters.query.toLowerCase();
@@ -101,11 +116,11 @@ function hasCompleteVersionDates(draft = {}) {
   return !!(draft.startDate && draft.endDate && draft.endDate >= draft.startDate);
 }
 
-function applyMutation(mutator, dates) {
+function applyMutation(mutator, dates, extras = {}) {
   const store = getConfigStore();
   const current = getCurrentConfigVersion(store);
   const next = mutator(cloneUseCases(current.useCases));
-  const result = commitConfigChange(next, dates);
+  const result = commitConfigChange(next, dates, extras);
   const created = result.versions[result.versions.length - 1];
   viewingVersionId = null;
   const endLabel = created.endDate ? formatLongDate(created.endDate) : 'Present';
@@ -114,10 +129,6 @@ function applyMutation(mutator, dates) {
     type: 'success',
     message: `Version ${created.number} ${when} (${formatLongDate(created.startDate)} – ${endLabel}).`,
   };
-}
-
-function cloneUseCases(list) {
-  return list.map((u) => ({ ...u }));
 }
 
 function versionNoticeHtml() {
@@ -131,9 +142,7 @@ function versionNoticeHtml() {
 function versionDateFieldsHtml(draft = {}) {
   const start = draft.startDate || '';
   const end = draft.endDate || '';
-  const err = draft.dateError
-    ? `<p class="version-dates-error">${draft.dateError}</p>`
-    : '';
+  const err = draft.dateError ? `<p class="version-dates-error">${draft.dateError}</p>` : '';
   return `
     <div class="version-dates-block">
       <div class="version-dates-title">Select version dates</div>
@@ -177,9 +186,7 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
     `;
   };
 
-  const triggerLabel = selected
-    ? `${checkCode(selected.id)} — ${selected.name}`
-    : 'Select use-case…';
+  const triggerLabel = selected ? `${checkCode(selected.id)} — ${selected.name}` : 'Select use-case…';
 
   return `
     <div class="field">
@@ -218,6 +225,24 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
   `;
 }
 
+function mixStagesFor(tabId) {
+  const idx = CLAIM_STAGES.findIndex((s) => s.id === tabId);
+  return CLAIM_STAGES.slice(0, idx + 1);
+}
+
+function mixTotal(mix, tabId) {
+  const row = mix[tabId] || {};
+  return mixStagesFor(tabId).reduce((sum, s) => sum + (Number(row[s.id]) || 0), 0);
+}
+
+function formulaHtml(mix, tabId) {
+  const parts = mixStagesFor(tabId).map((s) => {
+    const w = Number((mix[tabId] || {})[s.id]) || 0;
+    return `(${s.name} × ${w}%)`;
+  });
+  return `Overall score (this checkpoint) = ${parts.join(' + ')}`;
+}
+
 export function renderConfig(root, session) {
   if (!canAccess(session.role, 'config')) {
     location.hash = '#/queue';
@@ -232,12 +257,18 @@ export function renderConfig(root, session) {
     .filter((v) => v.id !== store.currentId)
     .sort((a, b) => b.number - a.number);
   const rows = filteredRows(view.useCases);
+  const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
+  const mix = view.stageMix || DEFAULT_STAGE_MIX;
+  const showMix = scoringTab !== 'fnol';
+  const mixSum = mixTotal(mix, scoringTab);
+  const tabLabel = stageName(scoringTab);
 
   const content = `
     <div class="page-header config-page-header">
       <div>
         <h1>Configuration</h1>
-        <p class="page-subtitle">Manage use-cases, categories, and stage weightage</p>
+        <p class="page-subtitle">Stage scoring, use-case weightage, and pass / fail criteria</p>
       </div>
       ${
         readOnly
@@ -284,84 +315,149 @@ export function renderConfig(root, session) {
       ${feedback ? `<span class="save-feedback ${feedback.type}">${feedback.message}</span>` : ''}
     </div>
 
-    <div class="config-table-card">
-      <div class="config-table-filters">
-        <div class="filter-group">
-          <label>Search</label>
-          <input type="search" id="uc-search" placeholder="Search use-cases…" value="${filters.query.replace(/"/g, '&quot;')}" />
-        </div>
-        <div class="filter-group">
-          <label>Stage ${iconFilter()}</label>
-          <select id="filter-stage">
-            <option value="all">All stages</option>
-            ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${filters.stage === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Category ${iconFilter()}</label>
-          <select id="filter-category">
-            <option value="all">All categories</option>
-            ${RISK_CATEGORIES.map((c) => `<option value="${c.id}" ${filters.riskCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-          </select>
-        </div>
-      </div>
+    <div class="config-layout">
+      <nav class="config-subnav" aria-label="Scoring stages">
+        ${SCORING_TABS.map(
+          (tab) => `
+          <button type="button" class="config-subnav-item ${scoringTab === tab.id ? 'is-active' : ''}" data-scoring-tab="${tab.id}">
+            ${tab.label}
+          </button>`
+        ).join('')}
+      </nav>
 
-      <div class="config-table-wrap">
-        <table class="config-table">
-          <thead>
-            <tr>
-              <th class="col-menu"></th>
-              <th>Use-case no.</th>
-              <th>Use-case name</th>
-              <th>Use-case description</th>
-              <th>Stage</th>
-              <th>Category</th>
-              <th>Weightage</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div class="config-stage-pane">
+        <div class="config-criteria-card">
+          <div>
+            <h2>${tabLabel} pass / fail</h2>
+            <p>A stage passes when its score is at or above this mark. A failed critical use-case zeros the stage.</p>
+          </div>
+          <div class="config-pass-field">
+            <label for="stage-pass-pct">Pass mark</label>
+            <div class="config-pass-input">
+              <input type="number" id="stage-pass-pct" min="0" max="100" step="1" value="${passPct}" ${readOnly ? 'disabled' : ''} />
+              <span>%</span>
+            </div>
             ${
-              rows.length === 0
-                ? `<tr><td colspan="7" class="empty-cell">No use-cases match the current filters.</td></tr>`
-                : rows
-                    .map((u) => {
-                      const catClass = `cat-${u.riskCategory}`;
-                      return `
+              readOnly
+                ? ''
+                : `<button type="button" class="btn btn-secondary" data-action="save-pass">Save pass mark</button>`
+            }
+          </div>
+        </div>
+
+        <div class="config-table-card">
+          <div class="config-table-filters">
+            <div class="filter-group">
+              <label>Search</label>
+              <input type="search" id="uc-search" placeholder="Search ${tabLabel} use-cases…" value="${filters.query.replace(/"/g, '&quot;')}" />
+            </div>
+            <div class="filter-group">
+              <label>Category ${iconFilter()}</label>
+              <select id="filter-category">
+                <option value="all">All categories</option>
+                ${RISK_CATEGORIES.map((c) => `<option value="${c.id}" ${filters.riskCategory === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="config-table-wrap">
+            <table class="config-table">
+              <thead>
                 <tr>
-                  <td class="col-menu">
-                    ${
-                      readOnly
-                        ? ''
-                        : `
-                      <div class="row-menu-wrap">
-                        <button type="button" class="row-menu-btn" data-menu="${u.id}" aria-label="Actions">${iconDots()}</button>
+                  <th class="col-menu"></th>
+                  <th>Use-case no.</th>
+                  <th>Use-case name</th>
+                  <th>Use-case description</th>
+                  <th>Category</th>
+                  <th>Weightage</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  rows.length === 0
+                    ? `<tr><td colspan="6" class="empty-cell">No use-cases in ${tabLabel} yet. Add one to start scoring this stage.</td></tr>`
+                    : rows
+                        .map((u) => {
+                          const catClass = `cat-${u.riskCategory}`;
+                          return `
+                    <tr>
+                      <td class="col-menu">
                         ${
-                          openMenuId === u.id
-                            ? `
-                          <div class="row-menu">
-                            <button type="button" data-edit="${u.id}">Edit category / weightage</button>
-                            <button type="button" class="danger" data-delete="${u.id}">Delete use-case</button>
+                          readOnly
+                            ? ''
+                            : `
+                          <div class="row-menu-wrap">
+                            <button type="button" class="row-menu-btn" data-menu="${u.id}" aria-label="Actions">${iconDots()}</button>
+                            ${
+                              openMenuId === u.id
+                                ? `
+                              <div class="row-menu">
+                                <button type="button" data-edit="${u.id}">Edit category / weightage</button>
+                                <button type="button" class="danger" data-delete="${u.id}">Delete use-case</button>
+                              </div>
+                            `
+                                : ''
+                            }
                           </div>
                         `
-                            : ''
                         }
-                      </div>
-                    `
-                    }
-                  </td>
-                  <td><span class="check-code">${u.code}</span></td>
-                  <td class="uc-name">${u.name}</td>
-                  <td class="uc-desc">${u.description || '—'}</td>
-                  <td>${stageName(u.stage)}</td>
-                  <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
-                  <td class="uc-weight">${u.hardFail ? '—' : `${u.weight ?? 0}%`}</td>
-                </tr>
-              `;
-                    })
-                    .join('')
+                      </td>
+                      <td><span class="check-code">${u.code}</span></td>
+                      <td class="uc-name">${u.name}${u.hardFail ? ' <span class="tag critical">Critical</span>' : ''}</td>
+                      <td class="uc-desc">${u.description || '—'}</td>
+                      <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
+                      <td class="uc-weight">${u.weight ?? 0}%</td>
+                    </tr>
+                  `;
+                        })
+                        .join('')
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="config-weight-footer ${weightTotal === 100 ? 'is-ok' : 'is-warn'}">
+            <span>Stage weightage</span>
+            <strong>${weightTotal}% / 100%</strong>
+            <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
+          </div>
+        </div>
+
+        ${
+          showMix
+            ? `
+          <div class="config-criteria-card config-mix-card">
+            <div>
+              <h2>Cumulative scoring</h2>
+              <p>${formulaHtml(mix, scoringTab)}</p>
+            </div>
+            <div class="config-mix-grid">
+              ${mixStagesFor(scoringTab)
+                .map((s) => {
+                  const val = Number((mix[scoringTab] || {})[s.id]) || 0;
+                  return `
+                  <div class="field">
+                    <label for="mix-${s.id}">${s.name} weight</label>
+                    <div class="config-pass-input">
+                      <input type="number" id="mix-${s.id}" data-mix-stage="${s.id}" min="0" max="100" step="1" value="${val}" ${readOnly ? 'disabled' : ''} />
+                      <span>%</span>
+                    </div>
+                  </div>`;
+                })
+                .join('')}
+            </div>
+            <div class="config-weight-footer ${mixSum === 100 ? 'is-ok' : 'is-warn'}">
+              <span>Checkpoint mix</span>
+              <strong>${mixSum}% / 100%</strong>
+              <small>${mixSum === 100 ? 'Cumulative weights add up to 100%.' : 'Cumulative weights for this checkpoint should be 100%.'}</small>
+            </div>
+            ${
+              readOnly
+                ? ''
+                : `<button type="button" class="btn btn-secondary" data-action="save-mix">Save cumulative scoring</button>`
             }
-          </tbody>
-        </table>
+          </div>`
+            : ''
+        }
       </div>
     </div>
 
@@ -379,14 +475,17 @@ function renderModalHtml(currentUseCases) {
   const draft = modal.draft || defaultVersionDates();
   const step = modal.step || 'form';
 
-  // Step 2: require start/end dates before creating the version
   if (step === 'version-dates') {
     const summary =
       modal.type === 'delete'
         ? `Delete use-case from configuration`
         : modal.type === 'add'
           ? `Add ${draft.code || ''} ${draft.name || 'use-case'}`
-          : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
+          : modal.type === 'pass'
+            ? `Set ${stageName(scoringTab)} pass mark to ${draft.passPct}%`
+            : modal.type === 'mix'
+              ? `Update ${stageName(scoringTab)} cumulative scoring`
+              : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
     return `
       <div class="modal-backdrop" data-action="close-modal">
         <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
@@ -422,9 +521,28 @@ function renderModalHtml(currentUseCases) {
     `;
   }
 
+  if (modal.type === 'pass' || modal.type === 'mix') {
+    return `
+      <div class="modal-backdrop" data-action="close-modal">
+        <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
+          <h2>${modal.type === 'pass' ? 'Save pass mark' : 'Save cumulative scoring'}</h2>
+          <div class="version-notice" role="status">Your changes will be saved as a new version.</div>
+          <p class="modal-copy">${
+            modal.type === 'pass'
+              ? `${stageName(scoringTab)} will pass at ${draft.passPct}%.`
+              : formulaHtml(draft.stageMix || DEFAULT_STAGE_MIX, scoringTab)
+          }</p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
+            <button type="button" class="btn btn-primary" data-action="continue-version-dates">Continue</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   const isAdd = modal.type === 'add';
   const selectedDef = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
-  const isCriticalHard = selectedDef?.hardFail || draft.hardFail;
   const selectedEnabled = selectedDef ? isTenantEnabledUseCase(selectedDef) : false;
   const isLockedSelection = isAdd && selectedDef && !selectedEnabled;
 
@@ -437,16 +555,12 @@ function renderModalHtml(currentUseCases) {
     if (!selectedDef) {
       primaryLabel = 'Add Use-Case';
       primaryDisabled = true;
-      primaryAction = 'continue-version-dates';
     } else if (isLockedSelection) {
       primaryLabel = 'Raise a Request';
       primaryAction = 'raise-request';
       primaryClass = 'btn btn-primary btn-request';
-      primaryDisabled = false;
     } else {
       primaryLabel = 'Add Use-Case';
-      primaryDisabled = false;
-      primaryAction = 'continue-version-dates';
     }
   }
 
@@ -461,11 +575,15 @@ function renderModalHtml(currentUseCases) {
                <p class="modal-copy">${isAdd ? 'Select an available (green) use-case and set category / weightage.' : 'Update category or weightage.'}</p>`
         }
 
-        ${isAdd ? useCasePickerHtml(currentUseCases, draft) : `
+        ${
+          isAdd
+            ? useCasePickerHtml(currentUseCases, draft)
+            : `
         <div class="field">
           <label>Use-case</label>
-          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>
-        </div>`}
+          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}${draft.hardFail ? ' · Critical' : ''}</div>
+        </div>`
+        }
 
         <div class="field">
           <label>Description</label>
@@ -480,7 +598,7 @@ function renderModalHtml(currentUseCases) {
           <div class="field">
             <label>Stage</label>
             <select id="modal-stage" ${isAdd && !selectedDef ? 'disabled' : ''}>
-              ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${(draft.stage || selectedDef?.stage) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+              ${CLAIM_STAGES.map((s) => `<option value="${s.id}" ${(draft.stage || selectedDef?.stage || scoringTab) === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
           </div>
           <div class="field">
@@ -492,8 +610,8 @@ function renderModalHtml(currentUseCases) {
           <div class="field">
             <label>Weightage %</label>
             <input type="number" id="modal-weight" min="0" max="100" step="1"
-              value="${isCriticalHard ? '' : draft.weight ?? selectedDef?.weight ?? 0}"
-              ${isCriticalHard || (isAdd && !selectedDef) ? 'disabled placeholder="N/A"' : ''} />
+              value="${draft.weight ?? selectedDef?.weight ?? 0}"
+              ${isAdd && !selectedDef ? 'disabled' : ''} />
           </div>
         </div>
         `
@@ -511,12 +629,17 @@ function renderModalHtml(currentUseCases) {
 function bindConfigEvents(root, session, currentUseCases) {
   const rerender = () => renderConfig(root, session);
 
+  root.querySelectorAll('[data-scoring-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      scoringTab = btn.dataset.scoringTab;
+      openMenuId = null;
+      filters.query = '';
+      rerender();
+    });
+  });
+
   root.querySelector('#uc-search')?.addEventListener('input', (e) => {
     filters.query = e.target.value;
-    rerender();
-  });
-  root.querySelector('#filter-stage')?.addEventListener('change', (e) => {
-    filters.stage = e.target.value;
     rerender();
   });
   root.querySelector('#filter-category')?.addEventListener('change', (e) => {
@@ -552,7 +675,44 @@ function bindConfigEvents(root, session, currentUseCases) {
     modal = {
       type: 'add',
       step: 'form',
-      draft: { riskCategory: 'high', weight: 0, stage: 'fnol', ...defaultVersionDates() },
+      draft: { riskCategory: 'high', weight: 0, stage: scoringTab, ...defaultVersionDates() },
+    };
+    rerender();
+  });
+
+  root.querySelector('[data-action="save-pass"]')?.addEventListener('click', () => {
+    const raw = Number(root.querySelector('#stage-pass-pct')?.value);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 100) {
+      feedback = { type: 'error', message: 'Enter a pass mark between 0 and 100.' };
+      rerender();
+      return;
+    }
+    modal = {
+      type: 'pass',
+      step: 'form',
+      draft: { passPct: Math.round(raw), ...defaultVersionDates() },
+    };
+    rerender();
+  });
+
+  root.querySelector('[data-action="save-mix"]')?.addEventListener('click', () => {
+    const current = getCurrentConfigVersion();
+    const nextMix = cloneMix(current.stageMix || DEFAULT_STAGE_MIX);
+    nextMix[scoringTab] = nextMix[scoringTab] || {};
+    mixStagesFor(scoringTab).forEach((s) => {
+      const raw = Number(root.querySelector(`[data-mix-stage="${s.id}"]`)?.value);
+      nextMix[scoringTab][s.id] = Number.isFinite(raw) ? Math.round(raw) : 0;
+    });
+    const total = mixTotal(nextMix, scoringTab);
+    if (total !== 100) {
+      feedback = { type: 'error', message: `Cumulative weights must add up to 100% (currently ${total}%).` };
+      rerender();
+      return;
+    }
+    modal = {
+      type: 'mix',
+      step: 'form',
+      draft: { stageMix: nextMix, ...defaultVersionDates() },
     };
     rerender();
   });
@@ -618,10 +778,10 @@ function bindConfigEvents(root, session, currentUseCases) {
         code: checkCode(def.id),
         name: def.name,
         description: def.description,
-        stage: def.stage,
+        stage: scoringTab,
         riskCategory: def.riskCategory,
         hardFail: def.hardFail,
-        weight: def.hardFail ? null : def.weight,
+        weight: def.weight ?? 0,
         startDate: '',
         endDate: '',
         dateError: null,
@@ -635,12 +795,12 @@ function bindConfigEvents(root, session, currentUseCases) {
     const stage = root.querySelector('#modal-stage')?.value;
     const riskCategory = root.querySelector('#modal-category')?.value;
     const weightRaw = root.querySelector('#modal-weight')?.value;
-    const weight = weightRaw === '' || weightRaw == null ? null : parseInt(weightRaw, 10);
+    const weight = weightRaw === '' || weightRaw == null ? 0 : parseInt(weightRaw, 10);
     modal.draft = {
       ...(modal.draft || {}),
-      stage: stage || modal.draft?.stage,
+      stage: stage || modal.draft?.stage || scoringTab,
       riskCategory: riskCategory || modal.draft?.riskCategory,
-      weight: modal.draft?.hardFail ? null : Number.isFinite(weight) ? weight : modal.draft?.weight,
+      weight: Number.isFinite(weight) ? weight : modal.draft?.weight ?? 0,
       dateError: null,
     };
   }
@@ -655,13 +815,11 @@ function bindConfigEvents(root, session, currentUseCases) {
         return;
       }
       captureFormDraft();
-      if (!def.hardFail) {
-        const w = modal.draft.weight;
-        if (!Number.isFinite(w) || w < 0) {
-          feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
-          rerender();
-          return;
-        }
+      const w = modal.draft.weight;
+      if (!Number.isFinite(w) || w < 0) {
+        feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
+        rerender();
+        return;
       }
     } else if (modal.type === 'edit') {
       captureFormDraft();
@@ -730,22 +888,19 @@ function bindConfigEvents(root, session, currentUseCases) {
         rerender();
         return;
       }
-      applyMutation(
-        (list) => [
-          ...list,
-          {
-            id: def.id,
-            code: checkCode(def.id),
-            name: def.name,
-            description: def.description,
-            stage: modal.draft.stage || def.stage,
-            riskCategory: modal.draft.riskCategory || def.riskCategory,
-            hardFail: def.hardFail,
-            weight: def.hardFail ? null : modal.draft.weight,
-          },
-        ],
-        dates
-      );
+      applyMutation((list) => [
+        ...list,
+        {
+          id: def.id,
+          code: checkCode(def.id),
+          name: def.name,
+          description: def.description,
+          stage: modal.draft.stage || scoringTab || def.stage,
+          riskCategory: modal.draft.riskCategory || def.riskCategory,
+          hardFail: def.hardFail,
+          weight: modal.draft.weight ?? def.weight ?? 0,
+        },
+      ], dates);
     } else if (modal.type === 'edit') {
       const id = modal.useCaseId;
       applyMutation(
@@ -756,7 +911,7 @@ function bindConfigEvents(root, session, currentUseCases) {
               ...u,
               stage: modal.draft.stage || u.stage,
               riskCategory: modal.draft.riskCategory || u.riskCategory,
-              weight: u.hardFail ? null : modal.draft.weight,
+              weight: modal.draft.weight ?? u.weight ?? 0,
             };
           }),
         dates
@@ -764,6 +919,12 @@ function bindConfigEvents(root, session, currentUseCases) {
     } else if (modal.type === 'delete') {
       const id = modal.useCaseId;
       applyMutation((list) => list.filter((u) => u.id !== id), dates);
+    } else if (modal.type === 'pass') {
+      const current = getCurrentConfigVersion();
+      const nextPass = { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}), [scoringTab]: modal.draft.passPct };
+      applyMutation((list) => list, dates, { stagePassPct: nextPass });
+    } else if (modal.type === 'mix') {
+      applyMutation((list) => list, dates, { stageMix: modal.draft.stageMix });
     }
 
     modal = null;
@@ -784,7 +945,6 @@ function bindConfigEvents(root, session, currentUseCases) {
     rerender();
   });
 
-  // Keep picker open clicks from bubbling; close menus on outside click
   root.querySelector('.uc-picker-menu')?.addEventListener('click', (e) => e.stopPropagation());
 
   root.querySelector('.main')?.addEventListener(

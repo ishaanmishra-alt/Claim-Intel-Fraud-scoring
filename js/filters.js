@@ -1,5 +1,5 @@
 import { getClaimWorkflowStage, WORKFLOW_STAGES, getClaimAuditLog, getPendingExceptions } from './data.js';
-import { formatAED } from './scoring.js';
+import { formatAED, formatDate } from './scoring.js';
 
 /** Prototype “today” for Dashboard and Report (not the config version date). */
 export const PROTOTYPE_TODAY = '2026-08-11';
@@ -73,14 +73,8 @@ export function resolvePeriodRange(period, { from, to, today = PROTOTYPE_TODAY }
 
 export function formatRangeLabel(range) {
   if (!range?.from || !range?.to) return '';
-  const from = new Date(`${range.from}T12:00:00`);
-  const to = new Date(`${range.to}T12:00:00`);
-  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
-  const day = (d) => String(d.getDate()).padStart(2, '0');
-  const mon = (d) => d.toLocaleString('en-GB', { month: 'short' });
-  if (range.from === range.to) return `${day(from)} ${mon(from)}`;
-  if (sameMonth) return `${day(from)}–${day(to)} ${mon(to)}`;
-  return `${day(from)} ${mon(from)} – ${day(to)} ${mon(to)}`;
+  if (range.from === range.to) return formatDate(range.from);
+  return `${formatDate(range.from)} – ${formatDate(range.to)}`;
 }
 
 export function filterClaimUniverse(claims, filters = {}) {
@@ -128,7 +122,7 @@ export function snapshotMetrics(claims) {
   const count = claims.length;
   const value = claims.reduce((sum, c) => sum + (c.amount || 0), 0);
   const red = claims.filter((c) => c.tier === 'red');
-  const cantEval = claims.filter((c) => (c.summary?.cantEvaluateCount || 0) > 0);
+  const failed = claims.filter((c) => (c.summary?.failCount || c.summary?.softFailCount || 0) > 0);
   const hardFails = claims.reduce((n, c) => n + (c.hardFails?.length || 0), 0);
   const waived = claims.reduce((n, c) => n + (c.waivedCheckIds?.length || 0), 0);
   const pending = claims.reduce((n, c) => n + getPendingExceptions(c).length, 0);
@@ -138,8 +132,10 @@ export function snapshotMetrics(claims) {
     redCount: red.length,
     redValue: red.reduce((sum, c) => sum + (c.amount || 0), 0),
     highRiskRate: count ? Math.round((red.length / count) * 100) : 0,
-    cantEvalCount: cantEval.length,
-    cantEvalRate: count ? Math.round((cantEval.length / count) * 100) : 0,
+    failCount: failed.length,
+    failRate: count ? Math.round((failed.length / count) * 100) : 0,
+    cantEvalCount: 0,
+    cantEvalRate: 0,
     hardFails,
     waived,
     pending,
@@ -173,6 +169,11 @@ export function flattenClaimLedger(claims) {
       rows.push({
         ...entry,
         claimId: claim.id,
+        fnolNumber: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+        policyNumber: claim.policyNumber || '—',
+        score: claim.score,
+        workflowStage: getClaimWorkflowStage(claim),
+        workflowStageName: WORKFLOW_STAGES.find((s) => s.id === getClaimWorkflowStage(claim))?.name || getClaimWorkflowStage(claim),
         ledgerType: ledgerChangeType(entry),
         delta: formatLedgerDelta(entry),
       });

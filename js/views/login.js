@@ -1,4 +1,4 @@
-import { USERS, ROLE_LABELS } from '../data.js';
+import { USERS, LOGIN_USERS, ROLE_LABELS } from '../data.js';
 import { brandMark } from '../components.js';
 import { authenticate, setSession } from '../state.js';
 import { homeRouteForRole } from '../scoring.js';
@@ -38,7 +38,7 @@ export function renderLogin(root, { error = '', ssoOpen = false } = {}) {
         <div class="demo-accounts">
           <h3>Demo accounts</h3>
           <div class="demo-list">
-            ${USERS.map(
+            ${LOGIN_USERS.map(
               (u) => `
               <button type="button" class="demo-chip" data-user="${u.username}" data-pass="${u.password}">
                 <span class="role">${ROLE_LABELS[u.role]}</span>
@@ -58,7 +58,7 @@ export function renderLogin(root, { error = '', ssoOpen = false } = {}) {
             <h2 id="sso-title">Sign in with SSO</h2>
             <p class="modal-copy">Select your organisation identity to continue. Demo mode maps each persona to an SSO profile.</p>
             <div class="sso-persona-list">
-              ${USERS.map(
+              ${LOGIN_USERS.map(
                 (u) => `
                 <button type="button" class="sso-persona" data-sso-user="${u.username}">
                   <span class="persona-avatar">${u.initials}</span>

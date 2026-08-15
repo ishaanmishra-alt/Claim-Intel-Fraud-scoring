@@ -767,21 +767,21 @@ a {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   font-family: var(--mono);
   border: 2px solid;
 }
 
 .score-circle.sm {
-  width: 40px;
-  height: 40px;
-  font-size: 0.85rem;
+  width: 42px;
+  height: 42px;
+  font-size: 0.68rem;
 }
 
 .score-circle.lg {
   width: 96px;
   height: 96px;
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   border-width: 3px;
 }
 
@@ -817,7 +817,8 @@ a {
 
 .claim-id {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .claim-name {
@@ -1272,6 +1273,10 @@ a {
   margin: 0 0 8px;
   font-size: 0.8rem;
   color: var(--navy-deep);
+}
+
+.ledger-table {
+  min-width: 1100px;
 }
 
 .ledger-row {
@@ -1889,9 +1894,9 @@ a {
 }
 
 .score-circle.xs {
-  width: 28px;
-  height: 28px;
-  font-size: 0.7rem;
+  width: 34px;
+  height: 34px;
+  font-size: 0.55rem;
   border-width: 2px;
 }
 
@@ -2046,6 +2051,130 @@ button.stage-chip.is-active {
 }
 
 /* ---------- Config table ---------- */
+.config-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.config-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  top: 12px;
+}
+
+.config-subnav-item {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-subnav-item:hover,
+.config-subnav-item.is-active {
+  border-color: var(--accent);
+  background: var(--mint-soft);
+  color: var(--navy-deep);
+}
+
+.config-stage-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.config-criteria-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.config-criteria-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.config-criteria-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.config-pass-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.config-pass-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-pass-input input {
+  width: 72px;
+}
+
+.config-mix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.config-mix-card {
+  flex-direction: column;
+}
+
+.config-weight-footer {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  font-size: 0.85rem;
+}
+
+.config-weight-footer.is-ok strong {
+  color: var(--green);
+}
+
+.config-weight-footer.is-warn strong {
+  color: var(--amber);
+}
+
+.config-weight-footer small {
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .config-layout {
+    grid-template-columns: 1fr;
+  }
+  .config-subnav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
+}
+
 .config-page-header {
   align-items: flex-end;
 }

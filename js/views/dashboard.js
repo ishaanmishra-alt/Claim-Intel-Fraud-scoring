@@ -129,14 +129,14 @@ export function renderDashboard(root, session, claims, state, onChange) {
   const red = filtered.filter((c) => c.tier === 'red');
   const yellow = filtered.filter((c) => c.tier === 'yellow');
   const green = filtered.filter((c) => c.tier === 'green');
-  const cantEvalClaims = filtered.filter((c) => c.summary.cantEvaluateCount > 0);
+  const criticalClaims = filtered.filter((c) => (c.hardFails?.length || 0) > 0);
 
   const redValue = red.reduce((s, c) => s + c.amount, 0);
   const yellowValue = yellow.reduce((s, c) => s + c.amount, 0);
   const greenValue = green.reduce((s, c) => s + c.amount, 0);
 
   const flaggedPct = totalCount ? Math.round((red.length / totalCount) * 100) : 0;
-  const cantEvalPct = totalCount ? Math.round((cantEvalClaims.length / totalCount) * 100) : 0;
+  const criticalPct = totalCount ? Math.round((criticalClaims.length / totalCount) * 100) : 0;
 
   const maxCount = Math.max(red.length, yellow.length, green.length, 1);
   const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
@@ -210,9 +210,9 @@ export function renderDashboard(root, session, claims, state, onChange) {
         <div class="sub">${formatAED(redValue)} exposed</div>
       </div>
       <div class="stat-tile">
-        <div class="label">Couldn't evaluate</div>
-        <div class="value">${cantEvalPct}%</div>
-        <div class="sub">Data-quality indicator</div>
+        <div class="label">Critical fails</div>
+        <div class="value">${criticalPct}%</div>
+        <div class="sub">${criticalClaims.length} claims with a failed critical</div>
       </div>
     </div>
 

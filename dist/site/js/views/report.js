@@ -5,8 +5,9 @@ import {
   WORKFLOW_STAGES,
   getClaimWorkflowStage,
   getPendingExceptions,
+  formatClaimRef,
 } from '../data.js';
-import { formatAED, tierLabel, canAccess, useCaseFailStats } from '../scoring.js';
+import { formatAED, formatClaimAmount, formatDate, formatScore, tierLabel, canAccess, useCaseFailStats } from '../scoring.js';
 import {
   PERIOD_PRESETS,
   CLAIM_TYPE_OPTIONS,
@@ -36,8 +37,24 @@ function sampleNote(claim) {
   if (pending) return `${pending} pending exception${pending === 1 ? '' : 's'}`;
   if (claim.forcedRed) return 'Critical fail override';
   if (claim.hasOverride) return 'Override (waived)';
-  if (claim.summary?.cantEvaluateCount) return `${claim.summary.cantEvaluateCount} can't evaluate`;
+  if (claim.summary?.failCount) return `${claim.summary.failCount} failed check${claim.summary.failCount === 1 ? '' : 's'}`;
   return '—';
+}
+
+function csvEscape(value) {
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(filename, rows) {
+  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exceptionSample(universe, state) {
@@ -138,9 +155,11 @@ export function renderReport(root, session, claims, state, onChange) {
 
   const reportRange = range;
   const txRange =
-    state.txPeriod === 'yesterday' || state.txPeriod === '7'
-      ? resolvePeriodRange(state.txPeriod)
-      : reportRange;
+    state.txPeriod === 'custom' && state.txFrom && state.txTo
+      ? resolvePeriodRange('custom', { from: state.txFrom, to: state.txTo })
+      : state.txPeriod === 'yesterday' || state.txPeriod === '7'
+        ? resolvePeriodRange(state.txPeriod)
+        : reportRange;
   const txGate = ledgerRangeState(txRange);
   const allLedger = flattenClaimLedger(claims);
   const ledgerInRange = txGate.ok ? filterLedgerRows(allLedger, { range: txRange }) : [];
@@ -166,8 +185,9 @@ export function renderReport(root, session, claims, state, onChange) {
     <div class="page-header">
       <div>
         <h1>Report</h1>
-        <p class="page-subtitle">Filtered management snapshot · prototype today ${formatRangeLabel({ from: '2026-08-11', to: '2026-08-11' })}</p>
+        <p class="page-subtitle">Filtered management snapshot · prototype today ${formatDate('2026-08-11')}</p>
       </div>
+      <button type="button" class="btn btn-secondary" data-action="export-report">Export report</button>
     </div>
 
     <div class="report-sticky-bar">
@@ -180,18 +200,14 @@ export function renderReport(root, session, claims, state, onChange) {
             ).join('')}
           </select>
         </div>
-        ${
-          state.period === 'custom'
-            ? `<div class="filter-group">
-          <label for="report-from">From</label>
+        <div class="filter-group">
+          <label for="report-from">Start date</label>
           <input id="report-from" type="date" value="${esc(state.from || range.from)}" />
         </div>
         <div class="filter-group">
-          <label for="report-to">To</label>
+          <label for="report-to">End date</label>
           <input id="report-to" type="date" value="${esc(state.to || range.to)}" />
-        </div>`
-            : ''
-        }
+        </div>
         <div class="filter-group">
           <label for="report-branch">Branch</label>
           <select id="report-branch">
@@ -243,14 +259,14 @@ export function renderReport(root, session, claims, state, onChange) {
         <div class="sub">${formatAED(metrics.redValue)} · ${metrics.redCount} claims</div>
       </div>
       <div class="stat-tile">
-        <div class="label">Can't evaluate</div>
-        <div class="value">${metrics.cantEvalRate}%</div>
-        <div class="sub">${metrics.cantEvalCount} incomplete-doc claims</div>
+        <div class="label">Failed checks</div>
+        <div class="value">${metrics.failRate}%</div>
+        <div class="sub">${metrics.failCount} claims with a fail</div>
       </div>
       <div class="stat-tile">
         <div class="label">Exceptions</div>
         <div class="value" style="font-size:1.05rem">${metrics.hardFails} · ${metrics.waived} · ${metrics.pending}</div>
-        <div class="sub">Hard-fail · waived · pending</div>
+        <div class="sub">Critical · waived · pending</div>
       </div>
     </div>
 
@@ -318,7 +334,7 @@ export function renderReport(root, session, claims, state, onChange) {
           (s) =>
             `<button type="button" class="chip ${state.ucStage === s.id ? 'active' : ''}" data-uc-stage="${s.id}">${s.name}</button>`
         ).join('')}
-        <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Hard-fail only</button>
+        <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Critical only</button>
       </div>
       ${
         ranked.length === 0
@@ -332,7 +348,7 @@ export function renderReport(root, session, claims, state, onChange) {
               <span class="check-code">${row.code}</span>
               <div>
                 <strong>${row.name}</strong>
-                <small>${row.stageName}${row.hardFail ? ' · Hard-fail' : ''} · ${row.failRate}% fail rate</small>
+                <small>${row.stageName}${row.hardFail ? ' · Critical' : ''} · ${row.failRate}% fail rate</small>
               </div>
             </div>
             <strong>${row.fail}</strong>
@@ -378,11 +394,11 @@ export function renderReport(root, session, claims, state, onChange) {
               .map(
                 (c) => `
               <tr>
-                <td><a href="#/claim/${c.id}">${c.id}</a></td>
+                <td><a href="#/claim/${c.id}">${formatClaimRef(c)}</a></td>
                 <td>${esc(c.branch)}</td>
                 <td>${esc(claimTypeLabel(c.claimType))}</td>
-                <td>${formatAED(c.amount)}</td>
-                <td class="mono">${c.score}</td>
+                <td>${formatClaimAmount(c)}</td>
+                <td class="mono">${formatScore(c.score)}</td>
                 <td class="claim-tier ${c.tier}">${tierLabel(c.tier)}</td>
                 <td class="muted">${esc(sampleNote(c))}</td>
               </tr>`
@@ -399,6 +415,7 @@ export function renderReport(root, session, claims, state, onChange) {
     <div class="panel">
       <div class="panel-header">
         <h2>Transactions</h2>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export transactions</button>
       </div>
       <p class="page-subtitle" style="margin:0 0 12px">Cross-claim ledger · does not change the scorecard</p>
       <div class="filters-bar">
@@ -408,7 +425,16 @@ export function renderReport(root, session, claims, state, onChange) {
             <option value="inherit" ${state.txPeriod === 'inherit' ? 'selected' : ''}>Match report (${esc(formatRangeLabel(reportRange))})</option>
             <option value="yesterday" ${state.txPeriod === 'yesterday' ? 'selected' : ''}>Yesterday</option>
             <option value="7" ${state.txPeriod === '7' ? 'selected' : ''}>Last 7 days</option>
+            <option value="custom" ${state.txPeriod === 'custom' ? 'selected' : ''}>Custom</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label for="tx-from">Start date</label>
+          <input id="tx-from" type="date" value="${esc(txRange.from)}" />
+        </div>
+        <div class="filter-group">
+          <label for="tx-to">End date</label>
+          <input id="tx-to" type="date" value="${esc(txRange.to)}" />
         </div>
         ${
           txGate.ok
@@ -451,28 +477,51 @@ export function renderReport(root, session, claims, state, onChange) {
       ${
         capped.shown.length === 0
           ? `<div class="chart-empty">No transactions in this range.</div>`
-          : dayGroups
-              .map(
-                (g) => `
-          <div class="ledger-day">
-            <h3 class="ledger-day-title">${esc(formatRangeLabel({ from: g.date, to: g.date }))}</h3>
-            ${g.rows
+          : `<div class="sample-table-wrap">
+        <table class="sample-table ledger-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Claim</th>
+              <th>FNOL</th>
+              <th>Policy</th>
+              <th>Score</th>
+              <th>Stage</th>
+              <th>User</th>
+              <th>Action</th>
+              <th>Change type</th>
+              <th>Field</th>
+              <th>Old value</th>
+              <th>New value</th>
+              <th>Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${capped.shown
               .map(
                 (r) => `
-              <div class="ledger-row">
-                <span class="ledger-time">${esc(r.time)}</span>
-                <a class="ledger-claim" href="#/claim/${r.claimId}">${r.claimId}</a>
-                <span class="ledger-user">${esc(r.user)}</span>
-                <span class="ledger-delta">${esc(r.delta)}</span>
-                <span class="ledger-chip">${esc(r.ledgerType)}</span>
-                <span class="audit-status">${esc(r.status || 'Completed')}</span>
-                ${r.comments ? `<span class="ledger-comment">${esc(r.comments)}</span>` : ''}
-              </div>`
+              <tr>
+                <td>${esc(formatDate(r.date))}</td>
+                <td class="mono">${esc(r.time)}</td>
+                <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
+                <td class="mono">${esc(r.fnolNumber)}</td>
+                <td class="mono">${esc(r.policyNumber)}</td>
+                <td class="mono">${formatScore(r.score)}</td>
+                <td>${esc(r.workflowStageName)}</td>
+                <td>${esc(r.user)}</td>
+                <td>${esc(r.action)}</td>
+                <td><span class="ledger-chip">${esc(r.ledgerType)}</span></td>
+                <td>${esc(r.field)}</td>
+                <td>${esc(r.oldValue)}</td>
+                <td>${esc(r.newValue)}</td>
+                <td class="ledger-comment">${esc(r.comments || '—')}</td>
+              </tr>`
               )
               .join('')}
-          </div>`
-              )
-              .join('')
+          </tbody>
+        </table>
+      </div>`
       }`
       }
     </div>
@@ -511,7 +560,81 @@ export function renderReport(root, session, claims, state, onChange) {
   root.querySelector('[data-sample-pending]')?.addEventListener('click', () => {
     patch({ samplePendingOnly: !state.samplePendingOnly });
   });
-  root.querySelector('#tx-period')?.addEventListener('change', (e) => patch({ txPeriod: e.target.value }));
+  root.querySelector('#tx-period')?.addEventListener('change', (e) => {
+    const txPeriod = e.target.value;
+    if (txPeriod === 'inherit') {
+      patch({ txPeriod, txFrom: range.from, txTo: range.to });
+      return;
+    }
+    const next = resolvePeriodRange(txPeriod, { from: state.txFrom, to: state.txTo });
+    patch({ txPeriod, txFrom: next.from, txTo: next.to });
+  });
+  root.querySelector('#tx-from')?.addEventListener('change', (e) =>
+    patch({ txFrom: e.target.value, txPeriod: 'custom' })
+  );
+  root.querySelector('#tx-to')?.addEventListener('change', (e) =>
+    patch({ txTo: e.target.value, txPeriod: 'custom' })
+  );
   root.querySelector('#tx-type')?.addEventListener('change', (e) => patch({ txChangeType: e.target.value }));
   root.querySelector('#tx-user')?.addEventListener('change', (e) => patch({ txUser: e.target.value }));
+
+  root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
+    const rows = [
+      ['Section', 'Metric', 'Value'],
+      ['Scorecard', 'Claims scored', metrics.count],
+      ['Scorecard', 'Total value', formatAED(metrics.value)],
+      ['Scorecard', 'High-risk rate', `${metrics.highRiskRate}%`],
+      ['Scorecard', 'Failed-check claims', metrics.failCount],
+      ['Scorecard', 'Critical fails', metrics.hardFails],
+      ['Scorecard', 'Scope', scope],
+      ...byStage.map((st) => ['By stage', st.name, `${st.count} · ${st.highRiskPct}% high risk`]),
+      ...byType.map((t) => ['By type', t.label, `${t.count} · ${formatAED(t.value)}`]),
+      ...ranked.map((row) => ['Use-case fail', `${row.code} ${row.name}`, `${row.fail} · ${row.failRate}%`]),
+      ...sample.rows.map((c) => [
+        'Exception sample',
+        formatClaimRef(c),
+        `${formatScore(c.score)} · ${tierLabel(c.tier)} · ${formatClaimAmount(c)}`,
+      ]),
+    ];
+    downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
+  });
+
+  root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
+    const header = [
+      'Date',
+      'Time',
+      'Claim',
+      'FNOL',
+      'Policy',
+      'Score',
+      'Stage',
+      'User',
+      'Action',
+      'Change type',
+      'Field',
+      'Old value',
+      'New value',
+      'Comments',
+    ];
+    const rows = [
+      header,
+      ...ledgerFiltered.map((r) => [
+        formatDate(r.date),
+        r.time,
+        r.claimId,
+        r.fnolNumber,
+        r.policyNumber,
+        formatScore(r.score),
+        r.workflowStageName,
+        r.user,
+        r.action,
+        r.ledgerType,
+        r.field,
+        r.oldValue,
+        r.newValue,
+        r.comments || '',
+      ]),
+    ];
+    downloadCsv(`claim-intel-transactions-${txRange.from}-to-${txRange.to}.csv`, rows);
+  });
 }

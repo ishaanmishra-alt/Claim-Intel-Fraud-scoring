@@ -7,8 +7,9 @@ import {
   canViewClaimAudit,
   getClaimAuditLog,
   getPendingExceptions,
+  formatClaimRef,
 } from '../data.js';
-import { formatAED, tierLabel } from '../scoring.js';
+import { formatClaimAmount, formatDate, formatScore, tierLabel } from '../scoring.js';
 
 function esc(value) {
   return String(value ?? '')
@@ -19,9 +20,7 @@ function esc(value) {
 }
 
 function formatAuditDate(iso) {
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(iso);
 }
 
 function auditTableHtml(claim) {
@@ -178,16 +177,16 @@ export function renderQueue(root, session, claims, state, onChange) {
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
                 const row = `
-              <div class="score-circle sm ${c.tier}">${c.score}</div>
+              <div class="score-circle sm ${c.tier}">${formatScore(c.score)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
-                  <span class="claim-id">${c.id}</span>
+                  <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
                   ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
-              <div class="claim-amount">${formatAED(c.amount)}</div>
+              <div class="claim-amount">${formatClaimAmount(c)}</div>
               <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>

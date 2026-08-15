@@ -5,10 +5,26 @@
 
 export const CLAIM_STAGES = [
   { id: 'fnol', name: 'FNOL', description: 'First notice of loss & intake' },
-  { id: 'intimation', name: 'Intimation', description: 'Claim intimation & cover checks' },
+  { id: 'intimation', name: 'Registration', description: 'Claim registration & cover checks' },
   { id: 'assessment', name: 'Assessment', description: 'Repair, garage & damage assessment' },
   { id: 'settlement', name: 'Settlement', description: 'Financial & settlement signals' },
 ];
+
+/** Default % required to pass each stage. */
+export const DEFAULT_STAGE_PASS = {
+  fnol: 70,
+  intimation: 70,
+  assessment: 70,
+  settlement: 70,
+};
+
+/** Cumulative mix at each checkpoint. Keys are stage ids; values must sum to 100. */
+export const DEFAULT_STAGE_MIX = {
+  fnol: { fnol: 100 },
+  intimation: { fnol: 40, intimation: 60 },
+  assessment: { fnol: 25, intimation: 25, assessment: 50 },
+  settlement: { fnol: 20, intimation: 20, assessment: 30, settlement: 30 },
+};
 
 export const RISK_CATEGORIES = [
   { id: 'critical', name: 'Critical' },
@@ -26,24 +42,25 @@ export const CHECK_CATEGORIES = {
 
 /**
  * 20 use-cases grouped by claim stage.
- * Soft weights sum to 100% within each stage (hard fails have no weight).
+ * Weights sum to 100% within each stage. Critical checks also carry weight;
+ * a failed critical zeros that stage, a passed critical scores normally.
  * riskCategory: Critical / High / Low (config table).
  */
 export const CHECK_DEFINITIONS = [
-  // FNOL — soft: 55 + 45 = 100
-  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: null },
-  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 55 },
+  // FNOL — 15+15+20+15+35 = 100 (use-case #20 is catalog-only)
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 20 },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 35 },
   { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', description: 'Assesses whether loss location aligns with the vehicle’s usual operating area.', category: 'behavioural', stage: 'fnol', hardFail: false, riskCategory: 'low', weight: 45 },
 
-  // Intimation — soft: 25+30+20+25 = 100
+  // Registration — 25+30+20+25 = 100 (#16 is catalog-only)
   { id: 5, code: '05', name: 'Vehicle make / model / colour: policy vs claim', description: 'Matches claimed vehicle attributes to the policy schedule.', category: 'identity', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
   { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', description: 'Detects losses occurring too soon after policy inception.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 7, code: '07', name: 'Loss not immediately before policy expiry', description: 'Flags losses clustered just before policy expiry/renewal.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', description: 'Checks if loss coincides with a newly added cover endorsement.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
-  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 15 },
 
   // Assessment — soft: 25+30+25+20 = 100
   { id: 10, code: '10', name: 'Garage is network / auto-assigned', description: 'Prefers network or auto-assigned garages over self-selected workshops.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -52,7 +69,7 @@ export const CHECK_DEFINITIONS = [
   { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', description: 'Validates that claimed parts align with reported damage evidence.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'low', weight: 20 },
 
   // Settlement — soft: 30+20+25+25 = 100
-  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: null },
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 20 },
   { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', description: 'Compares claim amount to the claimant’s historical average claim size.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', description: 'Checks salvage or total-loss values for consistency with the claim.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', description: 'Reviews claim frequency for the claimant/vehicle over 12 months.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -205,15 +222,17 @@ export function enabledSeedDefinitions() {
 }
 
 export const DEFAULT_WEIGHTS = Object.fromEntries(
-  enabledSeedDefinitions()
-    .filter((c) => !c.hardFail)
-    .map((c) => {
-      // Sole soft checks in their stage after #11–#20 are removed from seed
-      let weight = c.weight;
-      if (c.id === 8 || c.id === 10) weight = 100;
-      return [c.id, weight];
-    })
+  enabledSeedDefinitions().map((c) => {
+    let weight = c.weight ?? 0;
+    if (c.id === 10) weight = 100;
+    return [c.id, weight];
+  })
 );
+
+export function formatClaimRef(claim) {
+  if (!claim) return '—';
+  return claim.fnolNumber ? `${claim.id} · ${claim.fnolNumber}` : claim.id;
+}
 
 export function checkCode(id) {
   return `#${String(id).padStart(2, '0')}`;
@@ -270,6 +289,9 @@ export const ROLE_LABELS = {
   surveyor: 'Surveyor',
 };
 
+/** Demo accounts shown on the login page (surveyor is kept in USERS for existing sessions). */
+export const LOGIN_USERS = USERS.filter((u) => u.role !== 'surveyor');
+
 const CLAIM_AUDIT_ROLES = new Set(['claim_head', 'admin', 'fiu']);
 
 export function canViewClaimAudit(role) {
@@ -278,9 +300,8 @@ export function canViewClaimAudit(role) {
 
 export const BRANCHES = ['All branches', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah'];
 
-/** Display label for claim-detail stage blocks (id stays assessment). */
+/** Display label for claim-detail stage blocks (id stays assessment / intimation). */
 export function stageDisplayName(stageId) {
-  if (stageId === 'assessment') return 'Surveyor';
   return CLAIM_STAGES.find((s) => s.id === stageId)?.name || stageId;
 }
 
@@ -590,7 +611,7 @@ export function hasPassedPriorStages(claim, stageIds) {
   return stageIds.every((id) => hasStageDocsComplete(claim, id));
 }
 
-/** Claims that cleared FNOL + Intimation and are waiting on surveyor submit. */
+/** Claims that cleared FNOL + Registration and are waiting on assessment submit. */
 export function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
@@ -605,8 +626,8 @@ export function getClaimWorkflowStage(claim) {
 
 export const WORKFLOW_STAGES = [
   { id: 'fnol', name: 'FNOL' },
-  { id: 'intimation', name: 'Intimation' },
-  { id: 'assessment', name: 'Surveyor' },
+  { id: 'intimation', name: 'Registration' },
+  { id: 'assessment', name: 'Assessment' },
   { id: 'settlement', name: 'Settlement' },
 ];
 
@@ -614,7 +635,7 @@ export function submitSurveyorAssessment(claimId) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return { ok: false, message: 'Claim not found.' };
   if (!hasStageDocsComplete(claim, 'assessment')) {
-    return { ok: false, message: 'Upload all required Surveyor documents before submitting.' };
+    return { ok: false, message: 'Upload all required Assessment documents before submitting.' };
   }
   claim.surveyorSubmitted = true;
   appendClaimAudit(claimId, {
@@ -623,9 +644,9 @@ export function submitSurveyorAssessment(claimId) {
     changeType: 'Status',
     entity: 'Stage',
     field: 'Claim stage',
-    oldValue: 'Surveyor',
+    oldValue: 'Assessment',
     newValue: 'Settlement',
-    comments: 'Surveyor documents submitted for further scoring.',
+    comments: 'Assessment documents submitted for further scoring.',
   });
   return { ok: true, message: 'Submitted for further scoring. This claim has moved to the next stage.' };
 }
@@ -1265,6 +1286,7 @@ export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.exceptions = [];
   claim.waivedCheckIds = [];
   claim.dispositions = {};
+  claim.fnolNumber = c.fnolNumber || c.id.replace(/^CLM-/, 'FNOL-');
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
   const passedIntake = hasPassedPriorStages(claim, ['fnol', 'intimation']);
   claim.surveyorSubmitted = AWAITING_SURVEYOR_IDS.has(c.id) ? false : passedIntake;
@@ -1396,8 +1418,8 @@ function buildSeedAudit(claim) {
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'FNOL',
-      newValue: 'Intimation',
-      comments: 'FNOL documents complete — moved to Intimation.',
+      newValue: 'Registration',
+      comments: 'FNOL documents complete — moved to Registration.',
     });
   }
 
@@ -1409,10 +1431,10 @@ function buildSeedAudit(claim) {
       action: 'Assigned',
       changeType: 'Assignment',
       entity: 'Stage',
-      field: 'Surveyor',
+      field: 'Assessment',
       oldValue: '—',
       newValue: 'Hassan Al-Falasi',
-      comments: 'Surveyor assigned after Intimation.',
+      comments: 'Assessor assigned after Registration.',
     });
     rows.push({
       date: shiftDate(filed, 2),
@@ -1422,9 +1444,9 @@ function buildSeedAudit(claim) {
       changeType: 'Status',
       entity: 'Stage',
       field: 'Claim stage',
-      oldValue: 'Intimation',
-      newValue: 'Surveyor',
-      comments: 'Claim released to surveyor.',
+      oldValue: 'Registration',
+      newValue: 'Assessment',
+      comments: 'Claim released to assessment.',
     });
   }
 
@@ -1437,14 +1459,13 @@ function buildSeedAudit(claim) {
       changeType: 'Status',
       entity: 'Stage',
       field: 'Claim stage',
-      oldValue: 'Surveyor',
+      oldValue: 'Assessment',
       newValue: 'Settlement',
-      comments: 'Surveyor pack submitted for further scoring.',
+      comments: 'Assessment pack submitted for further scoring.',
     });
   }
 
-  const failed = (claim.checks || []).filter((c) => c.state === 'fail').length;
-  const cant = (claim.checks || []).filter((c) => c.state === 'cant_evaluate').length;
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
   rows.push({
     date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
     time: `${pad2(hour + 3)}:02`,
@@ -1455,7 +1476,7 @@ function buildSeedAudit(claim) {
     field: 'Fraud risk score',
     oldValue: '—',
     newValue: 'Published',
-    comments: `${failed} failed check${failed === 1 ? '' : 's'}${cant ? ` · ${cant} could not be evaluated` : ''}.`,
+    comments: `${failed} failed check${failed === 1 ? '' : 's'}.`,
   });
 
   if (failed >= 3) {
@@ -1558,9 +1579,9 @@ const EXTRA_LEDGER_EVENTS = [
     changeType: 'Status',
     entity: 'Stage',
     field: 'Claim stage',
-    oldValue: 'Surveyor',
+    oldValue: 'Assessment',
     newValue: 'Settlement',
-    comments: 'Surveyor pack submitted for further scoring.',
+    comments: 'Assessment pack submitted for further scoring.',
   },
   {
     id: 'CLM-2026-08419',
@@ -1570,10 +1591,10 @@ const EXTRA_LEDGER_EVENTS = [
     action: 'Assigned',
     changeType: 'Assignment',
     entity: 'Stage',
-    field: 'Surveyor',
+    field: 'Assessment',
     oldValue: '—',
     newValue: 'Hassan Al-Falasi',
-    comments: 'Surveyor assigned after Intimation.',
+    comments: 'Assessor assigned after Registration.',
   },
   {
     id: 'CLM-2026-08412',
