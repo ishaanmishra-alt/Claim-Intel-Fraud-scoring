@@ -510,7 +510,7 @@ export function renderReport(root, session, claims, state, onChange) {
                 <td class="mono">${formatScore(r.score)}</td>
                 <td>${esc(r.workflowStageName)}</td>
                 <td>${esc(r.user)}</td>
-                <td>${esc(r.action)}</td>
+                <td>${esc(r.userAction)}</td>
                 <td><span class="ledger-chip">${esc(r.ledgerType)}</span></td>
                 <td>${esc(r.field)}</td>
                 <td>${esc(r.oldValue)}</td>
@@ -627,7 +627,7 @@ export function renderReport(root, session, claims, state, onChange) {
         formatScore(r.score),
         r.workflowStageName,
         r.user,
-        r.action,
+        r.userAction,
         r.ledgerType,
         r.field,
         r.oldValue,

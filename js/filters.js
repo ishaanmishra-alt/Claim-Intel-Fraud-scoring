@@ -153,6 +153,18 @@ export function ledgerChangeType(row) {
   return raw || 'Update';
 }
 
+/** Action column: only human actions. System events such as scoring stay blank. */
+export function formatLedgerAction(row) {
+  const action = String(row.action || '').trim();
+  const automatic =
+    row.user === 'Claim Intel' ||
+    row.changeType === 'Score' ||
+    action === 'Scored' ||
+    action === 'Created';
+  if (automatic || !action) return '—';
+  return action;
+}
+
 export function formatLedgerDelta(row) {
   const field = row.field && row.field !== '—' ? row.field : row.action || 'Change';
   const oldV = row.oldValue ?? '—';
@@ -175,6 +187,7 @@ export function flattenClaimLedger(claims) {
         workflowStage: getClaimWorkflowStage(claim),
         workflowStageName: WORKFLOW_STAGES.find((s) => s.id === getClaimWorkflowStage(claim))?.name || getClaimWorkflowStage(claim),
         ledgerType: ledgerChangeType(entry),
+        userAction: formatLedgerAction(entry),
         delta: formatLedgerDelta(entry),
       });
     });
