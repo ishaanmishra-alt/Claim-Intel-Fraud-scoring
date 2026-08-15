@@ -181,7 +181,7 @@ export function renderQueue(root, session, claims, state, onChange) {
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
-                  ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
+                  ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
                   ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>

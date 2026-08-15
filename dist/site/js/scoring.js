@@ -2,7 +2,6 @@ import {
   USE_CASE_LIBRARY,
   DEFAULT_WEIGHTS,
   DEFAULT_STAGE_PASS,
-  DEFAULT_STAGE_MIX,
   RAW_CLAIMS,
   CLAIM_STAGES,
   checkCode,
@@ -10,7 +9,7 @@ import {
   uploadedDocsForCheck,
   getClaimWorkflowStage,
 } from './data.js';
-import { getActiveUseCases, getWeights as getStoreWeights, getStagePassPct, getStageMix } from './state.js';
+import { getActiveUseCases, getWeights as getStoreWeights, getStagePassPct } from './state.js';
 
 function daysBetween(fromIso, toIso) {
   const a = new Date(`${fromIso}T12:00:00`);
@@ -107,14 +106,12 @@ function scoreBand(score) {
   return 'red';
 }
 
-function reachedStageIds(workflowStage) {
-  const order = CLAIM_STAGES.map((s) => s.id);
-  const idx = order.indexOf(workflowStage);
-  return order.slice(0, idx < 0 ? 0 : idx + 1);
+function isExcludedFromScore(r) {
+  return r.state === 'waived' || r.state === 'bypassed';
 }
 
 function scoreWeightedGroup(results) {
-  const evaluable = results.filter((r) => r.state !== 'waived');
+  const evaluable = results.filter((r) => !isExcludedFromScore(r));
   const passed = evaluable.filter((r) => r.state === 'pass');
   const activeWeight = evaluable.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
   const earnedWeight = passed.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
@@ -132,29 +129,10 @@ function scoreWeightedGroup(results) {
   };
 }
 
-function cumulativeAtCheckpoint(stageScores, mix, checkpointId) {
-  const mixFor = mix?.[checkpointId] || { [checkpointId]: 100 };
-  const reached = new Set(reachedStageIds(checkpointId));
-  let total = 0;
-  let weightUsed = 0;
-  Object.entries(mixFor).forEach(([sid, w]) => {
-    const weight = Number(w) || 0;
-    if (!weight || !reached.has(sid)) return;
-    const row = stageScores.find((s) => s.stageId === sid);
-    if (!row) return;
-    total += (row.score * weight) / 100;
-    weightUsed += weight;
-  });
-  if (weightUsed === 0) {
-    const row = stageScores.find((s) => s.stageId === checkpointId);
-    return row ? row.score : 0;
-  }
-  return Math.round((total * 100) / weightUsed);
-}
-
 /**
  * Stage-based scoring using the active config use-case set.
  * Scores are percentages (0–100). A failed critical zeros that stage.
+ * There is no overall / cumulative score — claim.score is the current stage score.
  */
 export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, options = {}) {
   const active = activeUseCases || getActiveUseCases();
@@ -162,9 +140,9 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
   const passPct = options.stagePassPct || getStagePassPct();
-  const stageMix = options.stageMix || getStageMix();
 
   const waivedIds = new Set(claim.waivedCheckIds || []);
+  const bypassedIds = new Set(claim.bypassedCheckIds || []);
   const dispositions = claim.dispositions || {};
 
   const results = claim.checks
@@ -176,7 +154,10 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
       const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
       let state = evaluated.state === 'cant_evaluate' ? 'fail' : evaluated.state;
       let evidence = evaluated.evidence;
-      if (waivedIds.has(c.checkId)) {
+      if (bypassedIds.has(c.checkId)) {
+        state = 'bypassed';
+        evidence = `${evaluated.evidence} · Bypassed — excluded from this stage’s score and weightage.`;
+      } else if (waivedIds.has(c.checkId)) {
         state = 'waived';
         evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
       } else {
@@ -206,12 +187,13 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
         hardFail,
         weight,
         waived: state === 'waived',
+        bypassed: state === 'bypassed',
         disposition,
       };
     });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scored = results.filter((r) => r.state !== 'waived');
+  const scored = results.filter((r) => !isExcludedFromScore(r));
   const failed = scored.filter((r) => r.state === 'fail');
   const passed = scored.filter((r) => r.state === 'pass');
 
@@ -243,23 +225,21 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
   }).filter((s) => s.checkCount > 0);
 
   const workflowStage = getClaimWorkflowStage(claim);
-  const contextScore = cumulativeAtCheckpoint(stageScores, stageMix, workflowStage);
+  const currentStage = stageScores.find((s) => s.stageId === workflowStage) || stageScores[0] || null;
+  const contextScore = currentStage ? currentStage.score : 0;
   const currentMark = Number(passPct[workflowStage] ?? DEFAULT_STAGE_PASS[workflowStage] ?? 70);
-  const forcedRed = hardFails.length > 0;
-  const softTier = scoreBand(contextScore);
-  const tier = forcedRed ? 'red' : softTier;
+  const forcedRed = (currentStage?.hardFailCount || 0) > 0;
+  const tier = currentStage?.tier || (forcedRed ? 'red' : scoreBand(contextScore));
 
   return {
     score: contextScore,
     tier,
     forcedRed,
-    hasOverride: waivedIds.size > 0,
+    hasOverride: waivedIds.size > 0 || bypassedIds.size > 0,
     hardFails,
     results,
     stageScores,
     workflowStage,
-    passMark: currentMark,
-    stageMix: stageMix[workflowStage] || DEFAULT_STAGE_MIX[workflowStage],
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failed.filter((r) => !r.hardFail).length,
@@ -276,9 +256,8 @@ export function scoreAllClaims(weights, activeUseCases) {
   const w = weights || getStoreWeights();
   const active = activeUseCases || getActiveUseCases();
   const stagePassPct = getStagePassPct();
-  const stageMix = getStageMix();
   return RAW_CLAIMS.map((claim) => {
-    const scored = scoreClaim(claim, w, active, { stagePassPct, stageMix });
+    const scored = scoreClaim(claim, w, active, { stagePassPct });
     return { ...claim, ...scored };
   });
 }
@@ -304,7 +283,7 @@ export function useCaseFailStats(claims) {
     claim.results.forEach((r) => {
       const row = byId[r.checkId];
       if (!row) return;
-      if (r.state === 'waived') return;
+      if (r.state === 'waived' || r.state === 'bypassed') return;
       row.total += 1;
       if (r.state === 'fail' || r.state === 'cant_evaluate') row.fail += 1;
       else if (r.state === 'pass') row.pass += 1;
@@ -363,7 +342,7 @@ export function sortChecksForDisplay(results) {
   const rank = (r) => {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail' || r.state === 'cant_evaluate') return 1;
-    if (r.state === 'waived') return 3;
+    if (r.state === 'waived' || r.state === 'bypassed') return 3;
     return 2;
   };
   return [...results].sort((a, b) => {
@@ -400,11 +379,11 @@ export function withVisibleStages(scored, stageIds) {
   const results = (scored.results || []).filter((r) => idSet.has(r.stage));
   const stageScores = (scored.stageScores || []).filter((s) => idSet.has(s.stageId));
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scoredRows = results.filter((r) => r.state !== 'waived');
+  const scoredRows = results.filter((r) => r.state !== 'waived' && r.state !== 'bypassed');
   const last = stageIds[stageIds.length - 1] || scored.workflowStage;
-  const mix = scored.stageMix || getStageMix();
-  const contextScore = cumulativeAtCheckpoint(stageScores, { [last]: mix[last] || { [last]: 100 } }, last);
-  const forcedRed = hardFails.length > 0 || stageScores.some((s) => !s.passed);
+  const currentStage = stageScores.find((s) => s.stageId === last) || stageScores[0] || null;
+  const contextScore = currentStage ? currentStage.score : 0;
+  const forcedRed = (currentStage?.hardFailCount || 0) > 0;
   return {
     ...scored,
     results,
@@ -425,4 +404,4 @@ export function withVisibleStages(scored, stageIds) {
   };
 }
 
-export { checkCode, DEFAULT_STAGE_PASS, DEFAULT_STAGE_MIX };
+export { checkCode, DEFAULT_STAGE_PASS };

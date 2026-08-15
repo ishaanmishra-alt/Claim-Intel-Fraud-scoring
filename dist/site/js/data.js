@@ -1285,6 +1285,7 @@ export const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.usualArea = c.usualArea || `${claim.branch} registered area`;
   claim.exceptions = [];
   claim.waivedCheckIds = [];
+  claim.bypassedCheckIds = [];
   claim.dispositions = {};
   claim.fnolNumber = c.fnolNumber || c.id.replace(/^CLM-/, 'FNOL-');
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
@@ -1804,6 +1805,7 @@ function persistClaimRuntime(claim) {
     fields,
     exceptions: claim.exceptions || [],
     waivedCheckIds: claim.waivedCheckIds || [],
+    bypassedCheckIds: claim.bypassedCheckIds || [],
     dispositions: claim.dispositions || {},
   };
   localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
@@ -1820,6 +1822,7 @@ function hydrateClaimRuntime() {
     }
     claim.exceptions = slice.exceptions || [];
     claim.waivedCheckIds = slice.waivedCheckIds || [];
+    claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
   });
 }
@@ -1857,7 +1860,7 @@ export function proposeCheckException(claimId, payload, actor) {
   const checkId = Number(payload.checkId);
   const type = payload.type;
   const comment = String(payload.comment || '').trim();
-  if (!['resolve', 'reject', 'approve'].includes(type)) {
+  if (!['resolve', 'reject', 'approve', 'bypass'].includes(type)) {
     return { ok: false, message: 'Unknown exception action.' };
   }
   if (!comment) return { ok: false, message: 'A comment is required.' };
@@ -1908,7 +1911,14 @@ export function proposeCheckException(claimId, payload, actor) {
   claim.exceptions.push(exception);
   persistClaimRuntime(claim);
 
-  const actionLabel = type === 'resolve' ? 'Exception resolve' : type === 'reject' ? 'Exception reject' : 'Exception approve';
+  const actionLabel =
+    type === 'resolve'
+      ? 'Exception resolve'
+      : type === 'reject'
+        ? 'Exception reject'
+        : type === 'bypass'
+          ? 'Bypass requested'
+          : 'Exception approve';
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
     action: actionLabel,
@@ -1916,7 +1926,14 @@ export function proposeCheckException(claimId, payload, actor) {
     entity: 'Use-case',
     field: checkCode(checkId),
     oldValue: type === 'resolve' ? fieldSummary(previousFields) : 'Active fail',
-    newValue: type === 'resolve' ? fieldSummary(proposedFields) : type === 'reject' ? 'Pending waive' : exception.disposition,
+    newValue:
+      type === 'resolve'
+        ? fieldSummary(proposedFields)
+        : type === 'reject'
+          ? 'Pending waive'
+          : type === 'bypass'
+            ? 'Pending bypass'
+            : exception.disposition,
     comments: comment,
   });
   persistClaimRuntime(claim);
@@ -1971,6 +1988,10 @@ export function decideCheckException(claimId, exceptionId, decision, comment, ac
     const ids = new Set(claim.waivedCheckIds || []);
     ids.add(exception.checkId);
     claim.waivedCheckIds = [...ids];
+  } else if (exception.type === 'bypass') {
+    const ids = new Set(claim.bypassedCheckIds || []);
+    ids.add(exception.checkId);
+    claim.bypassedCheckIds = [...ids];
   } else if (exception.type === 'approve') {
     claim.dispositions = { ...(claim.dispositions || {}), [exception.checkId]: exception.disposition };
   }
@@ -1984,7 +2005,7 @@ export function decideCheckException(claimId, exceptionId, decision, comment, ac
     oldValue:
       exception.type === 'resolve'
         ? fieldSummary(exception.previousFields)
-        : exception.type === 'reject'
+        : exception.type === 'reject' || exception.type === 'bypass'
           ? 'Fail'
           : 'Fail',
     newValue:
@@ -1992,6 +2013,8 @@ export function decideCheckException(claimId, exceptionId, decision, comment, ac
         ? fieldSummary(exception.proposedFields)
         : exception.type === 'reject'
           ? 'Waived'
+          : exception.type === 'bypass'
+            ? 'Bypassed'
           : exception.disposition === 'refer'
             ? 'Refer to FIU'
             : 'Accept risk',

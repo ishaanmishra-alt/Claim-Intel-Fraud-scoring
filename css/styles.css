@@ -1054,6 +1054,7 @@ a {
   border-left: 3px solid var(--green);
 }
 
+.check-row.bypassed,
 .check-row.waived {
   border-left: 3px solid var(--accent);
 }
@@ -1082,6 +1083,7 @@ a {
   color: var(--amber);
 }
 
+.check-state-icon.bypassed,
 .check-state-icon.waived {
   background: var(--navy-soft);
   color: var(--navy);

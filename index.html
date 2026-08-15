@@ -1066,6 +1066,7 @@ a {
   border-left: 3px solid var(--green);
 }
 
+.check-row.bypassed,
 .check-row.waived {
   border-left: 3px solid var(--accent);
 }
@@ -1094,6 +1095,7 @@ a {
   color: var(--amber);
 }
 
+.check-state-icon.bypassed,
 .check-state-icon.waived {
   background: var(--navy-soft);
   color: var(--navy);
@@ -4356,6 +4358,7 @@ const RAW_CLAIMS = RAW_CLAIMS_BASE.map((c, i) => {
   claim.usualArea = c.usualArea || `${claim.branch} registered area`;
   claim.exceptions = [];
   claim.waivedCheckIds = [];
+  claim.bypassedCheckIds = [];
   claim.dispositions = {};
   claim.fnolNumber = c.fnolNumber || c.id.replace(/^CLM-/, 'FNOL-');
   claim.documents = seedDocuments(claim, DOCUMENT_SEEDS[c.id] || {});
@@ -4875,6 +4878,7 @@ function persistClaimRuntime(claim) {
     fields,
     exceptions: claim.exceptions || [],
     waivedCheckIds: claim.waivedCheckIds || [],
+    bypassedCheckIds: claim.bypassedCheckIds || [],
     dispositions: claim.dispositions || {},
   };
   localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
@@ -4891,6 +4895,7 @@ function hydrateClaimRuntime() {
     }
     claim.exceptions = slice.exceptions || [];
     claim.waivedCheckIds = slice.waivedCheckIds || [];
+    claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
   });
 }
@@ -4928,7 +4933,7 @@ function proposeCheckException(claimId, payload, actor) {
   const checkId = Number(payload.checkId);
   const type = payload.type;
   const comment = String(payload.comment || '').trim();
-  if (!['resolve', 'reject', 'approve'].includes(type)) {
+  if (!['resolve', 'reject', 'approve', 'bypass'].includes(type)) {
     return { ok: false, message: 'Unknown exception action.' };
   }
   if (!comment) return { ok: false, message: 'A comment is required.' };
@@ -4979,7 +4984,14 @@ function proposeCheckException(claimId, payload, actor) {
   claim.exceptions.push(exception);
   persistClaimRuntime(claim);
 
-  const actionLabel = type === 'resolve' ? 'Exception resolve' : type === 'reject' ? 'Exception reject' : 'Exception approve';
+  const actionLabel =
+    type === 'resolve'
+      ? 'Exception resolve'
+      : type === 'reject'
+        ? 'Exception reject'
+        : type === 'bypass'
+          ? 'Bypass requested'
+          : 'Exception approve';
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
     action: actionLabel,
@@ -4987,7 +4999,14 @@ function proposeCheckException(claimId, payload, actor) {
     entity: 'Use-case',
     field: checkCode(checkId),
     oldValue: type === 'resolve' ? fieldSummary(previousFields) : 'Active fail',
-    newValue: type === 'resolve' ? fieldSummary(proposedFields) : type === 'reject' ? 'Pending waive' : exception.disposition,
+    newValue:
+      type === 'resolve'
+        ? fieldSummary(proposedFields)
+        : type === 'reject'
+          ? 'Pending waive'
+          : type === 'bypass'
+            ? 'Pending bypass'
+            : exception.disposition,
     comments: comment,
   });
   persistClaimRuntime(claim);
@@ -5042,6 +5061,10 @@ function decideCheckException(claimId, exceptionId, decision, comment, actor) {
     const ids = new Set(claim.waivedCheckIds || []);
     ids.add(exception.checkId);
     claim.waivedCheckIds = [...ids];
+  } else if (exception.type === 'bypass') {
+    const ids = new Set(claim.bypassedCheckIds || []);
+    ids.add(exception.checkId);
+    claim.bypassedCheckIds = [...ids];
   } else if (exception.type === 'approve') {
     claim.dispositions = { ...(claim.dispositions || {}), [exception.checkId]: exception.disposition };
   }
@@ -5055,7 +5078,7 @@ function decideCheckException(claimId, exceptionId, decision, comment, actor) {
     oldValue:
       exception.type === 'resolve'
         ? fieldSummary(exception.previousFields)
-        : exception.type === 'reject'
+        : exception.type === 'reject' || exception.type === 'bypass'
           ? 'Fail'
           : 'Fail',
     newValue:
@@ -5063,6 +5086,8 @@ function decideCheckException(claimId, exceptionId, decision, comment, actor) {
         ? fieldSummary(exception.proposedFields)
         : exception.type === 'reject'
           ? 'Waived'
+          : exception.type === 'bypass'
+            ? 'Bypassed'
           : exception.disposition === 'refer'
             ? 'Refer to FIU'
             : 'Accept risk',
@@ -5471,14 +5496,12 @@ function scoreBand(score) {
   return 'red';
 }
 
-function reachedStageIds(workflowStage) {
-  const order = CLAIM_STAGES.map((s) => s.id);
-  const idx = order.indexOf(workflowStage);
-  return order.slice(0, idx < 0 ? 0 : idx + 1);
+function isExcludedFromScore(r) {
+  return r.state === 'waived' || r.state === 'bypassed';
 }
 
 function scoreWeightedGroup(results) {
-  const evaluable = results.filter((r) => r.state !== 'waived');
+  const evaluable = results.filter((r) => !isExcludedFromScore(r));
   const passed = evaluable.filter((r) => r.state === 'pass');
   const activeWeight = evaluable.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
   const earnedWeight = passed.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
@@ -5496,29 +5519,10 @@ function scoreWeightedGroup(results) {
   };
 }
 
-function cumulativeAtCheckpoint(stageScores, mix, checkpointId) {
-  const mixFor = mix?.[checkpointId] || { [checkpointId]: 100 };
-  const reached = new Set(reachedStageIds(checkpointId));
-  let total = 0;
-  let weightUsed = 0;
-  Object.entries(mixFor).forEach(([sid, w]) => {
-    const weight = Number(w) || 0;
-    if (!weight || !reached.has(sid)) return;
-    const row = stageScores.find((s) => s.stageId === sid);
-    if (!row) return;
-    total += (row.score * weight) / 100;
-    weightUsed += weight;
-  });
-  if (weightUsed === 0) {
-    const row = stageScores.find((s) => s.stageId === checkpointId);
-    return row ? row.score : 0;
-  }
-  return Math.round((total * 100) / weightUsed);
-}
-
 /**
  * Stage-based scoring using the active config use-case set.
  * Scores are percentages (0–100). A failed critical zeros that stage.
+ * There is no overall / cumulative score — claim.score is the current stage score.
  */
 function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, options = {}) {
   const active = activeUseCases || getActiveUseCases();
@@ -5526,9 +5530,9 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
   const metaById = Object.fromEntries(active.map((u) => [u.id, u]));
   const defById = Object.fromEntries(USE_CASE_LIBRARY.map((d) => [d.id, d]));
   const passPct = options.stagePassPct || getStagePassPct();
-  const stageMix = options.stageMix || getStageMix();
 
   const waivedIds = new Set(claim.waivedCheckIds || []);
+  const bypassedIds = new Set(claim.bypassedCheckIds || []);
   const dispositions = claim.dispositions || {};
 
   const results = claim.checks
@@ -5540,7 +5544,10 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
       const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
       let state = evaluated.state === 'cant_evaluate' ? 'fail' : evaluated.state;
       let evidence = evaluated.evidence;
-      if (waivedIds.has(c.checkId)) {
+      if (bypassedIds.has(c.checkId)) {
+        state = 'bypassed';
+        evidence = `${evaluated.evidence} · Bypassed — excluded from this stage’s score and weightage.`;
+      } else if (waivedIds.has(c.checkId)) {
         state = 'waived';
         evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
       } else {
@@ -5570,12 +5577,13 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
         hardFail,
         weight,
         waived: state === 'waived',
+        bypassed: state === 'bypassed',
         disposition,
       };
     });
 
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scored = results.filter((r) => r.state !== 'waived');
+  const scored = results.filter((r) => !isExcludedFromScore(r));
   const failed = scored.filter((r) => r.state === 'fail');
   const passed = scored.filter((r) => r.state === 'pass');
 
@@ -5607,23 +5615,21 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
   }).filter((s) => s.checkCount > 0);
 
   const workflowStage = getClaimWorkflowStage(claim);
-  const contextScore = cumulativeAtCheckpoint(stageScores, stageMix, workflowStage);
+  const currentStage = stageScores.find((s) => s.stageId === workflowStage) || stageScores[0] || null;
+  const contextScore = currentStage ? currentStage.score : 0;
   const currentMark = Number(passPct[workflowStage] ?? DEFAULT_STAGE_PASS[workflowStage] ?? 70);
-  const forcedRed = hardFails.length > 0;
-  const softTier = scoreBand(contextScore);
-  const tier = forcedRed ? 'red' : softTier;
+  const forcedRed = (currentStage?.hardFailCount || 0) > 0;
+  const tier = currentStage?.tier || (forcedRed ? 'red' : scoreBand(contextScore));
 
   return {
     score: contextScore,
     tier,
     forcedRed,
-    hasOverride: waivedIds.size > 0,
+    hasOverride: waivedIds.size > 0 || bypassedIds.size > 0,
     hardFails,
     results,
     stageScores,
     workflowStage,
-    passMark: currentMark,
-    stageMix: stageMix[workflowStage] || DEFAULT_STAGE_MIX[workflowStage],
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failed.filter((r) => !r.hardFail).length,
@@ -5640,9 +5646,8 @@ function scoreAllClaims(weights, activeUseCases) {
   const w = weights || getStoreWeights();
   const active = activeUseCases || getActiveUseCases();
   const stagePassPct = getStagePassPct();
-  const stageMix = getStageMix();
   return RAW_CLAIMS.map((claim) => {
-    const scored = scoreClaim(claim, w, active, { stagePassPct, stageMix });
+    const scored = scoreClaim(claim, w, active, { stagePassPct });
     return { ...claim, ...scored };
   });
 }
@@ -5668,7 +5673,7 @@ function useCaseFailStats(claims) {
     claim.results.forEach((r) => {
       const row = byId[r.checkId];
       if (!row) return;
-      if (r.state === 'waived') return;
+      if (r.state === 'waived' || r.state === 'bypassed') return;
       row.total += 1;
       if (r.state === 'fail' || r.state === 'cant_evaluate') row.fail += 1;
       else if (r.state === 'pass') row.pass += 1;
@@ -5727,7 +5732,7 @@ function sortChecksForDisplay(results) {
   const rank = (r) => {
     if (r.state === 'fail' && r.hardFail) return 0;
     if (r.state === 'fail' || r.state === 'cant_evaluate') return 1;
-    if (r.state === 'waived') return 3;
+    if (r.state === 'waived' || r.state === 'bypassed') return 3;
     return 2;
   };
   return [...results].sort((a, b) => {
@@ -5764,11 +5769,11 @@ function withVisibleStages(scored, stageIds) {
   const results = (scored.results || []).filter((r) => idSet.has(r.stage));
   const stageScores = (scored.stageScores || []).filter((s) => idSet.has(s.stageId));
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scoredRows = results.filter((r) => r.state !== 'waived');
+  const scoredRows = results.filter((r) => r.state !== 'waived' && r.state !== 'bypassed');
   const last = stageIds[stageIds.length - 1] || scored.workflowStage;
-  const mix = scored.stageMix || getStageMix();
-  const contextScore = cumulativeAtCheckpoint(stageScores, { [last]: mix[last] || { [last]: 100 } }, last);
-  const forcedRed = hardFails.length > 0 || stageScores.some((s) => !s.passed);
+  const currentStage = stageScores.find((s) => s.stageId === last) || stageScores[0] || null;
+  const contextScore = currentStage ? currentStage.score : 0;
+  const forcedRed = (currentStage?.hardFailCount || 0) > 0;
   return {
     ...scored,
     results,
@@ -6427,7 +6432,7 @@ function renderQueue(root, session, claims, state, onChange) {
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
-                  ${c.forcedRed ? `<span class="tag critical">Critical fail</span>` : ''}
+                  ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
                   ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
@@ -6501,7 +6506,7 @@ function renderQueue(root, session, claims, state, onChange) {
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
-  if (state === 'waived') {
+  if (state === 'waived' || state === 'bypassed') {
     return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
   }
   return iconAlert();
@@ -6550,6 +6555,21 @@ function exceptionPanelHtml(result, mode, claim, pending) {
         <p class="exception-lead">False positive — the data is already correct. After approval this check is waived (not Pass) and marked as an override.</p>
         <label>Reason
           <textarea name="comment" rows="2" required placeholder="Why is this a false positive?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'bypass') {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="bypass" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Bypass ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Request a bypass for this failed use-case. After Claim Head approval it will not count toward this stage’s score or weightage. The same approval flow runs in the core system.</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why bypass this use-case?"></textarea>
         </label>
         <div class="exception-actions">
           <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
@@ -6619,6 +6639,7 @@ function exceptionBlockHtml(result, session, panel, claim) {
     );
   }
   if (result.state === 'waived') bits.push(`<span class="tag override">Waived</span>`);
+  if (result.state === 'bypassed') bits.push(`<span class="tag override">Bypassed</span>`);
   if (result.disposition === 'refer') bits.push(`<span class="tag critical">Refer to FIU</span>`);
   if (result.disposition === 'continue') bits.push(`<span class="tag override">Accepted risk</span>`);
 
@@ -6634,6 +6655,9 @@ function exceptionBlockHtml(result, session, panel, claim) {
     }
     buttons.push(
       `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="resolve" data-check-id="${result.checkId}">Resolve</button>`
+    );
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
     );
   }
   if (canWaiveHard) {
@@ -6765,7 +6789,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>Risk score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -6943,7 +6967,7 @@ function renderClaimDetail(
         <div class="banner-icon">${iconAlert()}</div>
         <div>
           <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The failed critical use-case zeros that stage. The claim score is the cumulative checkpoint score.</p>
+          <p>${hardFailNames}. The failed critical use-case zeros this stage unless it is bypassed.</p>
         </div>
       </div>
     `
@@ -6953,7 +6977,7 @@ function renderClaimDetail(
     <div class="score-panel">
       <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
       <div class="score-panel-text">
-        <h2>Fraud risk score</h2>
+        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} score</h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
@@ -7022,7 +7046,7 @@ function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = r.hardFail ? 'Critical' : `${r.weight ?? 0}%`;
+                          const metaLabel = `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -7030,8 +7054,6 @@ function renderClaimDetail(
                       <div class="check-name">
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
-                        ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Critical</span>` : ''}
                         ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
@@ -7552,10 +7574,6 @@ function cloneUseCases(list) {
   return list.map((u) => ({ ...u }));
 }
 
-function cloneMix(mix) {
-  return Object.fromEntries(Object.entries(mix || {}).map(([k, v]) => [k, { ...(v || {}) }]));
-}
-
 /** @type {{ riskCategory: string, query: string }} */
 let filters = { riskCategory: 'all', query: '' };
 let scoringTab = 'fnol';
@@ -7728,24 +7746,6 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
   `;
 }
 
-function mixStagesFor(tabId) {
-  const idx = CLAIM_STAGES.findIndex((s) => s.id === tabId);
-  return CLAIM_STAGES.slice(0, idx + 1);
-}
-
-function mixTotal(mix, tabId) {
-  const row = mix[tabId] || {};
-  return mixStagesFor(tabId).reduce((sum, s) => sum + (Number(row[s.id]) || 0), 0);
-}
-
-function formulaHtml(mix, tabId) {
-  const parts = mixStagesFor(tabId).map((s) => {
-    const w = Number((mix[tabId] || {})[s.id]) || 0;
-    return `(${s.name} × ${w}%)`;
-  });
-  return `Overall score (this checkpoint) = ${parts.join(' + ')}`;
-}
-
 function renderConfig(root, session) {
   if (!canAccess(session.role, 'config')) {
     location.hash = '#/queue';
@@ -7762,9 +7762,6 @@ function renderConfig(root, session) {
   const rows = filteredRows(view.useCases);
   const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
   const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
-  const mix = view.stageMix || DEFAULT_STAGE_MIX;
-  const showMix = scoringTab !== 'fnol';
-  const mixSum = mixTotal(mix, scoringTab);
   const tabLabel = stageName(scoringTab);
 
   const content = `
@@ -7906,7 +7903,7 @@ function renderConfig(root, session) {
                         }
                       </td>
                       <td><span class="check-code">${u.code}</span></td>
-                      <td class="uc-name">${u.name}${u.hardFail ? ' <span class="tag critical">Critical</span>' : ''}</td>
+                      <td class="uc-name">${u.name}</td>
                       <td class="uc-desc">${u.description || '—'}</td>
                       <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
                       <td class="uc-weight">${u.weight ?? 0}%</td>
@@ -7924,43 +7921,6 @@ function renderConfig(root, session) {
             <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
           </div>
         </div>
-
-        ${
-          showMix
-            ? `
-          <div class="config-criteria-card config-mix-card">
-            <div>
-              <h2>Cumulative scoring</h2>
-              <p>${formulaHtml(mix, scoringTab)}</p>
-            </div>
-            <div class="config-mix-grid">
-              ${mixStagesFor(scoringTab)
-                .map((s) => {
-                  const val = Number((mix[scoringTab] || {})[s.id]) || 0;
-                  return `
-                  <div class="field">
-                    <label for="mix-${s.id}">${s.name} weight</label>
-                    <div class="config-pass-input">
-                      <input type="number" id="mix-${s.id}" data-mix-stage="${s.id}" min="0" max="100" step="1" value="${val}" ${readOnly ? 'disabled' : ''} />
-                      <span>%</span>
-                    </div>
-                  </div>`;
-                })
-                .join('')}
-            </div>
-            <div class="config-weight-footer ${mixSum === 100 ? 'is-ok' : 'is-warn'}">
-              <span>Checkpoint mix</span>
-              <strong>${mixSum}% / 100%</strong>
-              <small>${mixSum === 100 ? 'Cumulative weights add up to 100%.' : 'Cumulative weights for this checkpoint should be 100%.'}</small>
-            </div>
-            ${
-              readOnly
-                ? ''
-                : `<button type="button" class="btn btn-secondary" data-action="save-mix">Save cumulative scoring</button>`
-            }
-          </div>`
-            : ''
-        }
       </div>
     </div>
 
@@ -7986,8 +7946,6 @@ function renderModalHtml(currentUseCases) {
           ? `Add ${draft.code || ''} ${draft.name || 'use-case'}`
           : modal.type === 'pass'
             ? `Set ${stageName(scoringTab)} pass mark to ${draft.passPct}%`
-            : modal.type === 'mix'
-              ? `Update ${stageName(scoringTab)} cumulative scoring`
               : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
     return `
       <div class="modal-backdrop" data-action="close-modal">
@@ -8024,17 +7982,13 @@ function renderModalHtml(currentUseCases) {
     `;
   }
 
-  if (modal.type === 'pass' || modal.type === 'mix') {
+  if (modal.type === 'pass') {
     return `
       <div class="modal-backdrop" data-action="close-modal">
         <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
-          <h2>${modal.type === 'pass' ? 'Save pass mark' : 'Save cumulative scoring'}</h2>
+          <h2>Save pass mark</h2>
           <div class="version-notice" role="status">Your changes will be saved as a new version.</div>
-          <p class="modal-copy">${
-            modal.type === 'pass'
-              ? `${stageName(scoringTab)} will pass at ${draft.passPct}%.`
-              : formulaHtml(draft.stageMix || DEFAULT_STAGE_MIX, scoringTab)
-          }</p>
+          <p class="modal-copy">${stageName(scoringTab)} will pass at ${draft.passPct}%.</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
             <button type="button" class="btn btn-primary" data-action="continue-version-dates">Continue</button>
@@ -8084,7 +8038,7 @@ function renderModalHtml(currentUseCases) {
             : `
         <div class="field">
           <label>Use-case</label>
-          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}${draft.hardFail ? ' · Critical' : ''}</div>
+          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>
         </div>`
         }
 
@@ -8194,28 +8148,6 @@ function bindConfigEvents(root, session, currentUseCases) {
       type: 'pass',
       step: 'form',
       draft: { passPct: Math.round(raw), ...defaultVersionDates() },
-    };
-    rerender();
-  });
-
-  root.querySelector('[data-action="save-mix"]')?.addEventListener('click', () => {
-    const current = getCurrentConfigVersion();
-    const nextMix = cloneMix(current.stageMix || DEFAULT_STAGE_MIX);
-    nextMix[scoringTab] = nextMix[scoringTab] || {};
-    mixStagesFor(scoringTab).forEach((s) => {
-      const raw = Number(root.querySelector(`[data-mix-stage="${s.id}"]`)?.value);
-      nextMix[scoringTab][s.id] = Number.isFinite(raw) ? Math.round(raw) : 0;
-    });
-    const total = mixTotal(nextMix, scoringTab);
-    if (total !== 100) {
-      feedback = { type: 'error', message: `Cumulative weights must add up to 100% (currently ${total}%).` };
-      rerender();
-      return;
-    }
-    modal = {
-      type: 'mix',
-      step: 'form',
-      draft: { stageMix: nextMix, ...defaultVersionDates() },
     };
     rerender();
   });
@@ -8426,8 +8358,6 @@ function bindConfigEvents(root, session, currentUseCases) {
       const current = getCurrentConfigVersion();
       const nextPass = { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}), [scoringTab]: modal.draft.passPct };
       applyMutation((list) => list, dates, { stagePassPct: nextPass });
-    } else if (modal.type === 'mix') {
-      applyMutation((list) => list, dates, { stageMix: modal.draft.stageMix });
     }
 
     modal = null;
@@ -8933,7 +8863,7 @@ function renderReport(root, session, claims, state, onChange) {
               <th>Claim</th>
               <th>FNOL</th>
               <th>Policy</th>
-              <th>Score</th>
+              <th>Stage score</th>
               <th>Stage</th>
               <th>User</th>
               <th>Action</th>
@@ -9053,7 +8983,7 @@ function renderReport(root, session, claims, state, onChange) {
       'Claim',
       'FNOL',
       'Policy',
-      'Score',
+      'Stage score',
       'Stage',
       'User',
       'Action',

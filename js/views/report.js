@@ -486,7 +486,7 @@ export function renderReport(root, session, claims, state, onChange) {
               <th>Claim</th>
               <th>FNOL</th>
               <th>Policy</th>
-              <th>Score</th>
+              <th>Stage score</th>
               <th>Stage</th>
               <th>User</th>
               <th>Action</th>
@@ -606,7 +606,7 @@ export function renderReport(root, session, claims, state, onChange) {
       'Claim',
       'FNOL',
       'Policy',
-      'Score',
+      'Stage score',
       'Stage',
       'User',
       'Action',

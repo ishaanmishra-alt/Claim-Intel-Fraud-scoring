@@ -5,7 +5,6 @@ import {
   CLAIM_STAGES,
   RISK_CATEGORIES,
   DEFAULT_STAGE_PASS,
-  DEFAULT_STAGE_MIX,
   checkCode,
   isTenantEnabledUseCase,
 } from '../data.js';
@@ -47,10 +46,6 @@ function iconFilter() {
 
 function cloneUseCases(list) {
   return list.map((u) => ({ ...u }));
-}
-
-function cloneMix(mix) {
-  return Object.fromEntries(Object.entries(mix || {}).map(([k, v]) => [k, { ...(v || {}) }]));
 }
 
 /** @type {{ riskCategory: string, query: string }} */
@@ -225,24 +220,6 @@ function useCasePickerHtml(currentUseCases, draft = {}) {
   `;
 }
 
-function mixStagesFor(tabId) {
-  const idx = CLAIM_STAGES.findIndex((s) => s.id === tabId);
-  return CLAIM_STAGES.slice(0, idx + 1);
-}
-
-function mixTotal(mix, tabId) {
-  const row = mix[tabId] || {};
-  return mixStagesFor(tabId).reduce((sum, s) => sum + (Number(row[s.id]) || 0), 0);
-}
-
-function formulaHtml(mix, tabId) {
-  const parts = mixStagesFor(tabId).map((s) => {
-    const w = Number((mix[tabId] || {})[s.id]) || 0;
-    return `(${s.name} × ${w}%)`;
-  });
-  return `Overall score (this checkpoint) = ${parts.join(' + ')}`;
-}
-
 export function renderConfig(root, session) {
   if (!canAccess(session.role, 'config')) {
     location.hash = '#/queue';
@@ -259,9 +236,6 @@ export function renderConfig(root, session) {
   const rows = filteredRows(view.useCases);
   const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
   const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
-  const mix = view.stageMix || DEFAULT_STAGE_MIX;
-  const showMix = scoringTab !== 'fnol';
-  const mixSum = mixTotal(mix, scoringTab);
   const tabLabel = stageName(scoringTab);
 
   const content = `
@@ -403,7 +377,7 @@ export function renderConfig(root, session) {
                         }
                       </td>
                       <td><span class="check-code">${u.code}</span></td>
-                      <td class="uc-name">${u.name}${u.hardFail ? ' <span class="tag critical">Critical</span>' : ''}</td>
+                      <td class="uc-name">${u.name}</td>
                       <td class="uc-desc">${u.description || '—'}</td>
                       <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
                       <td class="uc-weight">${u.weight ?? 0}%</td>
@@ -421,43 +395,6 @@ export function renderConfig(root, session) {
             <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
           </div>
         </div>
-
-        ${
-          showMix
-            ? `
-          <div class="config-criteria-card config-mix-card">
-            <div>
-              <h2>Cumulative scoring</h2>
-              <p>${formulaHtml(mix, scoringTab)}</p>
-            </div>
-            <div class="config-mix-grid">
-              ${mixStagesFor(scoringTab)
-                .map((s) => {
-                  const val = Number((mix[scoringTab] || {})[s.id]) || 0;
-                  return `
-                  <div class="field">
-                    <label for="mix-${s.id}">${s.name} weight</label>
-                    <div class="config-pass-input">
-                      <input type="number" id="mix-${s.id}" data-mix-stage="${s.id}" min="0" max="100" step="1" value="${val}" ${readOnly ? 'disabled' : ''} />
-                      <span>%</span>
-                    </div>
-                  </div>`;
-                })
-                .join('')}
-            </div>
-            <div class="config-weight-footer ${mixSum === 100 ? 'is-ok' : 'is-warn'}">
-              <span>Checkpoint mix</span>
-              <strong>${mixSum}% / 100%</strong>
-              <small>${mixSum === 100 ? 'Cumulative weights add up to 100%.' : 'Cumulative weights for this checkpoint should be 100%.'}</small>
-            </div>
-            ${
-              readOnly
-                ? ''
-                : `<button type="button" class="btn btn-secondary" data-action="save-mix">Save cumulative scoring</button>`
-            }
-          </div>`
-            : ''
-        }
       </div>
     </div>
 
@@ -483,8 +420,6 @@ function renderModalHtml(currentUseCases) {
           ? `Add ${draft.code || ''} ${draft.name || 'use-case'}`
           : modal.type === 'pass'
             ? `Set ${stageName(scoringTab)} pass mark to ${draft.passPct}%`
-            : modal.type === 'mix'
-              ? `Update ${stageName(scoringTab)} cumulative scoring`
               : `Update ${draft.code || ''} ${draft.name || 'use-case'}`;
     return `
       <div class="modal-backdrop" data-action="close-modal">
@@ -521,17 +456,13 @@ function renderModalHtml(currentUseCases) {
     `;
   }
 
-  if (modal.type === 'pass' || modal.type === 'mix') {
+  if (modal.type === 'pass') {
     return `
       <div class="modal-backdrop" data-action="close-modal">
         <div class="modal-card modal-card-wide" onclick="event.stopPropagation()">
-          <h2>${modal.type === 'pass' ? 'Save pass mark' : 'Save cumulative scoring'}</h2>
+          <h2>Save pass mark</h2>
           <div class="version-notice" role="status">Your changes will be saved as a new version.</div>
-          <p class="modal-copy">${
-            modal.type === 'pass'
-              ? `${stageName(scoringTab)} will pass at ${draft.passPct}%.`
-              : formulaHtml(draft.stageMix || DEFAULT_STAGE_MIX, scoringTab)
-          }</p>
+          <p class="modal-copy">${stageName(scoringTab)} will pass at ${draft.passPct}%.</p>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
             <button type="button" class="btn btn-primary" data-action="continue-version-dates">Continue</button>
@@ -581,7 +512,7 @@ function renderModalHtml(currentUseCases) {
             : `
         <div class="field">
           <label>Use-case</label>
-          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}${draft.hardFail ? ' · Critical' : ''}</div>
+          <div class="value-readonly"><span class="check-code">${draft.code}</span> ${draft.name}</div>
         </div>`
         }
 
@@ -691,28 +622,6 @@ function bindConfigEvents(root, session, currentUseCases) {
       type: 'pass',
       step: 'form',
       draft: { passPct: Math.round(raw), ...defaultVersionDates() },
-    };
-    rerender();
-  });
-
-  root.querySelector('[data-action="save-mix"]')?.addEventListener('click', () => {
-    const current = getCurrentConfigVersion();
-    const nextMix = cloneMix(current.stageMix || DEFAULT_STAGE_MIX);
-    nextMix[scoringTab] = nextMix[scoringTab] || {};
-    mixStagesFor(scoringTab).forEach((s) => {
-      const raw = Number(root.querySelector(`[data-mix-stage="${s.id}"]`)?.value);
-      nextMix[scoringTab][s.id] = Number.isFinite(raw) ? Math.round(raw) : 0;
-    });
-    const total = mixTotal(nextMix, scoringTab);
-    if (total !== 100) {
-      feedback = { type: 'error', message: `Cumulative weights must add up to 100% (currently ${total}%).` };
-      rerender();
-      return;
-    }
-    modal = {
-      type: 'mix',
-      step: 'form',
-      draft: { stageMix: nextMix, ...defaultVersionDates() },
     };
     rerender();
   });
@@ -923,8 +832,6 @@ function bindConfigEvents(root, session, currentUseCases) {
       const current = getCurrentConfigVersion();
       const nextPass = { ...DEFAULT_STAGE_PASS, ...(current.stagePassPct || {}), [scoringTab]: modal.draft.passPct };
       applyMutation((list) => list, dates, { stagePassPct: nextPass });
-    } else if (modal.type === 'mix') {
-      applyMutation((list) => list, dates, { stageMix: modal.draft.stageMix });
     }
 
     modal = null;

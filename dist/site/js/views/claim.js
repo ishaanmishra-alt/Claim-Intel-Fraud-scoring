@@ -9,6 +9,7 @@ import {
   mockUploadClaimDocument,
   hasPassedPriorStages,
   hasStageDocsComplete,
+  getClaimWorkflowStage,
   submitSurveyorAssessment,
   getExceptionFields,
   getPendingExceptions,
@@ -23,7 +24,7 @@ import { formatAED, formatClaimAmount, formatDate, formatScore, tierLabel, sortC
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
-  if (state === 'waived') {
+  if (state === 'waived' || state === 'bypassed') {
     return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
   }
   return iconAlert();
@@ -72,6 +73,21 @@ function exceptionPanelHtml(result, mode, claim, pending) {
         <p class="exception-lead">False positive — the data is already correct. After approval this check is waived (not Pass) and marked as an override.</p>
         <label>Reason
           <textarea name="comment" rows="2" required placeholder="Why is this a false positive?"></textarea>
+        </label>
+        <div class="exception-actions">
+          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+  if (mode === 'bypass') {
+    return `
+      <form class="exception-panel" data-exception-form data-mode="bypass" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
+        <strong>Bypass ${checkCode(result.checkId)}</strong>
+        <p class="exception-lead">Request a bypass for this failed use-case. After Claim Head approval it will not count toward this stage’s score or weightage. The same approval flow runs in the core system.</p>
+        <label>Comment
+          <textarea name="comment" rows="2" required placeholder="Why bypass this use-case?"></textarea>
         </label>
         <div class="exception-actions">
           <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
@@ -141,6 +157,7 @@ function exceptionBlockHtml(result, session, panel, claim) {
     );
   }
   if (result.state === 'waived') bits.push(`<span class="tag override">Waived</span>`);
+  if (result.state === 'bypassed') bits.push(`<span class="tag override">Bypassed</span>`);
   if (result.disposition === 'refer') bits.push(`<span class="tag critical">Refer to FIU</span>`);
   if (result.disposition === 'continue') bits.push(`<span class="tag override">Accepted risk</span>`);
 
@@ -156,6 +173,9 @@ function exceptionBlockHtml(result, session, panel, claim) {
     }
     buttons.push(
       `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="resolve" data-check-id="${result.checkId}">Resolve</button>`
+    );
+    buttons.push(
+      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
     );
   }
   if (canWaiveHard) {
@@ -287,7 +307,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>Risk score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -465,7 +485,7 @@ export function renderClaimDetail(
         <div class="banner-icon">${iconAlert()}</div>
         <div>
           <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The failed critical use-case zeros that stage. The claim score is the cumulative checkpoint score.</p>
+          <p>${hardFailNames}. The failed critical use-case zeros this stage unless it is bypassed.</p>
         </div>
       </div>
     `
@@ -475,7 +495,7 @@ export function renderClaimDetail(
     <div class="score-panel">
       <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
       <div class="score-panel-text">
-        <h2>Fraud risk score</h2>
+        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} score</h2>
         <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
@@ -544,7 +564,7 @@ export function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = r.hardFail ? 'Critical' : `${r.weight ?? 0}%`;
+                          const metaLabel = `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -552,8 +572,6 @@ export function renderClaimDetail(
                       <div class="check-name">
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
-                        ${r.hardFail && r.state === 'fail' ? `<span class="tag critical">Critical</span>` : ''}
-                        ${r.hardFail && r.state !== 'fail' && r.state !== 'waived' ? `<span class="tag knockout">Critical</span>` : ''}
                         ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
