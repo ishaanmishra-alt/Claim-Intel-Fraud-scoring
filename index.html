@@ -5818,7 +5818,7 @@ const CLAIM_TYPE_OPTIONS = [
 const LEDGER_CHANGE_TYPES = ['Score', 'Document', 'Exception', 'Stage', 'Assignment', 'Review'];
 
 const TX_MAX_DAYS = 31;
-const TX_LIST_CAP = 100;
+const TX_LIST_CAP = 10;
 
 function claimTypeLabel(id) {
   return CLAIM_TYPE_OPTIONS.find((t) => t.id === id)?.label || id || '—';
@@ -8904,8 +8904,8 @@ function renderReport(root, session, claims, state, onChange) {
           : `
       <p class="scope-line">${ledgerFiltered.length} transactions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
       ${
-        capped.total > capped.cap
-          ? `<p class="scope-line">Showing ${capped.shown.length} of ${capped.total} in this range.</p>`
+        capped.shown.length
+          ? `<p class="scope-line">Last 10 transactions. Export for the full list.</p>`
           : ''
       }
       ${

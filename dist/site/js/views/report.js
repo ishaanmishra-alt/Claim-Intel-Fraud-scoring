@@ -470,8 +470,8 @@ export function renderReport(root, session, claims, state, onChange) {
           : `
       <p class="scope-line">${ledgerFiltered.length} transactions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
       ${
-        capped.total > capped.cap
-          ? `<p class="scope-line">Showing ${capped.shown.length} of ${capped.total} in this range.</p>`
+        capped.shown.length
+          ? `<p class="scope-line">Last 10 transactions. Export for the full list.</p>`
           : ''
       }
       ${

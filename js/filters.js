@@ -24,7 +24,7 @@ export const CLAIM_TYPE_OPTIONS = [
 export const LEDGER_CHANGE_TYPES = ['Score', 'Document', 'Exception', 'Stage', 'Assignment', 'Review'];
 
 const TX_MAX_DAYS = 31;
-const TX_LIST_CAP = 100;
+const TX_LIST_CAP = 10;
 
 export function claimTypeLabel(id) {
   return CLAIM_TYPE_OPTIONS.find((t) => t.id === id)?.label || id || '—';
