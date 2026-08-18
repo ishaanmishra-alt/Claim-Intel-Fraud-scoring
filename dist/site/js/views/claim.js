@@ -11,7 +11,6 @@ import {
   hasStageDocsComplete,
   getClaimWorkflowStage,
   submitSurveyorAssessment,
-  getExceptionFields,
   getPendingExceptions,
   latestExceptionForCheck,
   isCheckerRole,
@@ -39,48 +38,7 @@ function esc(value) {
 }
 
 function exceptionPanelHtml(result, mode, claim, pending) {
-  const commentRequired = mode !== 'approved';
-  if (mode === 'resolve') {
-    const fields = getExceptionFields(result.checkId);
-    return `
-      <form class="exception-panel" data-exception-form data-mode="resolve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
-        <strong>Resolve ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">Data is wrong. Edit the field(s) this check used. A comment is required. The fail stays until Claim Head approves.</p>
-        <p class="exception-evidence">Current evidence: ${esc(result.evidence)}</p>
-        <div class="exception-fields">
-          ${fields
-            .map((field) => {
-              const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text';
-              const value = claim[field.key] ?? '';
-              return `<label>${esc(field.label)}<input name="${field.key}" data-field="${field.key}" type="${type}" value="${esc(value)}" /></label>`;
-            })
-            .join('')}
-        </div>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="Why is the captured data wrong?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
-  }
-  if (mode === 'reject') {
-    return `
-      <form class="exception-panel" data-exception-form data-mode="reject" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
-        <strong>Reject ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">False positive — the data is already correct. After approval this check is waived (not Pass) and marked as an override.</p>
-        <label>Reason
-          <textarea name="comment" rows="2" required placeholder="Why is this a false positive?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
-  }
+  void claim;
   if (mode === 'bypass') {
     return `
       <form class="exception-panel" data-exception-form data-mode="bypass" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
@@ -88,26 +46,6 @@ function exceptionPanelHtml(result, mode, claim, pending) {
         <p class="exception-lead">Request a bypass for this failed use-case. After Claim Head approval it will not count toward this stage’s score or weightage. The same approval flow runs in the core system.</p>
         <label>Comment
           <textarea name="comment" rows="2" required placeholder="Why bypass this use-case?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
-  }
-  if (mode === 'approve') {
-    const refer = !!result.hardFail;
-    return `
-      <form class="exception-panel" data-exception-form data-mode="approve" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
-        <strong>Approve ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">${
-          refer
-            ? 'The critical check is correct. Disposition after Claim Head approval: Refer to FIU. The fail remains.'
-            : 'The fail is correct. Accept the risk — the flag remains and the claim can continue after Claim Head approval.'
-        }</p>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="Why accept this result?"></textarea>
         </label>
         <div class="exception-actions">
           <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
@@ -131,7 +69,6 @@ function exceptionPanelHtml(result, mode, claim, pending) {
       </form>
     `;
   }
-  void commentRequired;
   return '';
 }
 
@@ -142,45 +79,25 @@ function exceptionBlockHtml(result, session, panel, claim) {
   const sentBack = latest?.status === 'sent_back' ? latest : null;
   const eligibleState = result.state === 'fail';
   const canPropose = session.role === 'claim_user' && eligibleState && !pending;
-  const canWaiveHard = isCheckerRole(session.role) && result.hardFail && result.state === 'fail' && !pending;
   const canDecide = isCheckerRole(session.role) && !!pending;
 
   const bits = [];
   if (pending) {
     bits.push(
-      `<div class="exception-status is-pending">Pending Claim Head · ${esc(pending.type)} requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
+      `<div class="exception-status is-pending">Pending Claim Head · Bypass requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
     );
     if (pending.comment) bits.push(`<p class="exception-note">${esc(pending.comment)}</p>`);
-  } else if (sentBack && (canPropose || canWaiveHard)) {
+  } else if (sentBack && canPropose) {
     bits.push(
       `<div class="exception-status is-back">Sent back${sentBack.decidedBy?.name ? ` by ${esc(sentBack.decidedBy.name)}` : ''}: ${esc(sentBack.decisionComment)}</div>`
     );
   }
-  if (result.state === 'waived') bits.push(`<span class="tag override">Waived</span>`);
   if (result.state === 'bypassed') bits.push(`<span class="tag override">Bypassed</span>`);
-  if (result.disposition === 'refer') bits.push(`<span class="tag critical">Refer to FIU</span>`);
-  if (result.disposition === 'continue') bits.push(`<span class="tag override">Accepted risk</span>`);
 
   const buttons = [];
   if (canPropose) {
     buttons.push(
-      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="approve" data-check-id="${result.checkId}">Approve</button>`
-    );
-    if (!result.hardFail) {
-      buttons.push(
-        `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
-      );
-    }
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="resolve" data-check-id="${result.checkId}">Resolve</button>`
-    );
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
-    );
-  }
-  if (canWaiveHard) {
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="reject" data-check-id="${result.checkId}">Reject</button>`
+      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
     );
   }
   if (canDecide) {
