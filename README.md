@@ -37,12 +37,12 @@ After drop, Netlify gives a public URL you can share (e.g. `https://….netlify.
 ## What to try
 
 1. **Queue** — defaults to My claims; toggle All claims; filter by Claim Stage (FNOL / Registration / Assessment / Settlement). Claim and FNOL numbers sit together. Amount shows `-` until Settlement. Scores are percentages. Claim Head / Admin / FIU: expand the chevron on the left of a row to open that claim’s version audit.
-2. **Critical fail** — open `CLM-2026-08391` (Layla Hassan): a failed critical use-case zeros that stage and forces High risk. If the critical later passes, it scores with the other weighted checks.
+2. **Critical fail** — open `CLM-2026-08391` (Layla Hassan): a failed critical use-case marks that stage as **Fail** and the claim stays on that stage. If every critical in the stage passes, remaining use-cases share 100% weightage.
 3. **Missing documents count as Fail** — open `CLM-2026-08344` or `CLM-2026-08460`: incomplete evidence is Failed, not a separate “Can't evaluate” state.
-4. **Config** (Admin / FIU) — left tabs for FNOL / Registration / Assessment / Settlement scoring. Add or edit use-cases (same version dates flow), set weightage (footer should read 100%), and set the stage pass mark. Scoring is stage-wise only — there is no overall / cumulative score.
+4. **Config** (Admin / FIU) — left tabs for FNOL / Registration / Assessment / Settlement scoring. Add or edit use-cases (same version dates flow). Critical use-cases are pass / fail (no weight). Remaining weights in the stage should read 100%. Set the stage pass mark for the weighted remainder.
 5. **FNOL photos** — open `CLM-2026-08455` (Yusuf Al-Qahtani): FNOL shows 3/4 docs and a missing accident-scene photo set. Click the missing row to mock-upload (5 photos). Related checks pick up “Document on file” evidence.
 6. **Assessment set** — open `CLM-2026-08344` (Noura Al-Mazrouei): under Assessment, upload the missing surveyor report, pre-repair photos, and parts list.
 7. **Settlement IBAN** — still on `CLM-2026-08455`, scroll to Settlement and click the missing IBAN / payee proof row to mock-upload. Amount becomes visible once the claim is at Settlement.
 8. **Claim version audit** — as Claim Head / Admin / FIU, open Claims and click the chevron on the left of a row. Dates use `dd-MMM-yyyy` (e.g. 11-Aug-2026).
-9. **Bypass** — `claim.user` / `demo123`, open `CLM-2026-08391` (Layla Hassan). On a failed check, **Bypass**, add a comment, submit. Sign out. `claim.head` / `demo123` → same claim → **Approve**. That use-case’s score and weightage drop out of the stage score.
+9. **Bypass** — `claim.user` / `demo123`, open `CLM-2026-08391` (Layla Hassan). On a failed use-case, click **Bypass**. That sends a notification to the core system (out of scope). This prototype then shows the claim as if core approved: that use-case is excluded, and remaining weights in the stage are normalised to 100%.
 10. **Report** — `claim.head` / `demo123` → Report. Start and end dates sit on the snapshot and on Transactions. Export the whole report or the transaction ledger. Transaction columns include Claim, FNOL, Policy, current stage score %, and current stage.

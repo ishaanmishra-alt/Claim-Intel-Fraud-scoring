@@ -7,6 +7,7 @@ import {
   DEFAULT_STAGE_PASS,
   checkCode,
   isTenantEnabledUseCase,
+  isCriticalUseCase,
 } from '../data.js';
 import { canAccess } from '../scoring.js';
 import {
@@ -234,7 +235,9 @@ export function renderConfig(root, session) {
     .filter((v) => v.id !== store.currentId)
     .sort((a, b) => b.number - a.number);
   const rows = filteredRows(view.useCases);
-  const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const weightedRows = rows.filter((u) => !isCriticalUseCase(u));
+  const weightTotal = weightedRows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const weightFooterOk = weightedRows.length === 0 || weightTotal === 100;
   const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
   const tabLabel = stageName(scoringTab);
 
@@ -303,7 +306,7 @@ export function renderConfig(root, session) {
         <div class="config-criteria-card">
           <div>
             <h2>${tabLabel} pass / fail</h2>
-            <p>A stage passes when its score is at or above this mark. A failed critical use-case zeros the stage.</p>
+            <p>Critical use-cases are pass / fail only. If they pass, remaining use-cases share 100% weightage. A failed critical fails the stage and the claim does not move on.</p>
           </div>
           <div class="config-pass-field">
             <label for="stage-pass-pct">Pass mark</label>
@@ -380,7 +383,7 @@ export function renderConfig(root, session) {
                       <td class="uc-name">${u.name}</td>
                       <td class="uc-desc">${u.description || '—'}</td>
                       <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
-                      <td class="uc-weight">${u.weight ?? 0}%</td>
+                      <td class="uc-weight">${isCriticalUseCase(u) ? 'Pass / fail' : `${u.weight ?? 0}%`}</td>
                     </tr>
                   `;
                         })
@@ -389,10 +392,16 @@ export function renderConfig(root, session) {
               </tbody>
             </table>
           </div>
-          <div class="config-weight-footer ${weightTotal === 100 ? 'is-ok' : 'is-warn'}">
+          <div class="config-weight-footer ${weightFooterOk ? 'is-ok' : 'is-warn'}">
             <span>Stage weightage</span>
-            <strong>${weightTotal}% / 100%</strong>
-            <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
+            <strong>${weightedRows.length === 0 ? '—' : `${weightTotal}% / 100%`}</strong>
+            <small>${
+              weightedRows.length === 0
+                ? 'Critical use-cases have no weight. This stage is pass / fail on critical checks only.'
+                : weightTotal === 100
+                  ? 'Remaining (non-critical) weights add up to 100%.'
+                  : 'Remaining use-cases in this stage should add to 100%.'
+            }</small>
           </div>
         </div>
       </div>
@@ -476,6 +485,7 @@ function renderModalHtml(currentUseCases) {
   const selectedDef = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
   const selectedEnabled = selectedDef ? isTenantEnabledUseCase(selectedDef) : false;
   const isLockedSelection = isAdd && selectedDef && !selectedEnabled;
+  const draftCritical = (draft.riskCategory || selectedDef?.riskCategory) === 'critical';
 
   let primaryLabel = 'Continue';
   let primaryAction = 'continue-version-dates';
@@ -540,9 +550,13 @@ function renderModalHtml(currentUseCases) {
           </div>
           <div class="field">
             <label>Weightage %</label>
-            <input type="number" id="modal-weight" min="0" max="100" step="1"
+            ${
+              draftCritical
+                ? `<div class="value-readonly">Pass / fail — no weightage</div>`
+                : `<input type="number" id="modal-weight" min="0" max="100" step="1"
               value="${draft.weight ?? selectedDef?.weight ?? 0}"
-              ${isAdd && !selectedDef ? 'disabled' : ''} />
+              ${isAdd && !selectedDef ? 'disabled' : ''} />`
+            }
           </div>
         </div>
         `
@@ -689,8 +703,8 @@ function bindConfigEvents(root, session, currentUseCases) {
         description: def.description,
         stage: scoringTab,
         riskCategory: def.riskCategory,
-        hardFail: def.hardFail,
-        weight: def.weight ?? 0,
+        hardFail: isCriticalUseCase(def),
+        weight: isCriticalUseCase(def) ? 0 : def.weight ?? 0,
         startDate: '',
         endDate: '',
         dateError: null,
@@ -704,15 +718,26 @@ function bindConfigEvents(root, session, currentUseCases) {
     const stage = root.querySelector('#modal-stage')?.value;
     const riskCategory = root.querySelector('#modal-category')?.value;
     const weightRaw = root.querySelector('#modal-weight')?.value;
-    const weight = weightRaw === '' || weightRaw == null ? 0 : parseInt(weightRaw, 10);
+    const critical = riskCategory === 'critical';
+    const weight = critical
+      ? 0
+      : weightRaw === '' || weightRaw == null
+        ? modal.draft?.weight ?? 0
+        : parseInt(weightRaw, 10);
     modal.draft = {
       ...(modal.draft || {}),
       stage: stage || modal.draft?.stage || scoringTab,
       riskCategory: riskCategory || modal.draft?.riskCategory,
+      hardFail: critical,
       weight: Number.isFinite(weight) ? weight : modal.draft?.weight ?? 0,
       dateError: null,
     };
   }
+
+  root.querySelector('#modal-category')?.addEventListener('change', () => {
+    captureFormDraft();
+    rerender();
+  });
 
   root.querySelector('[data-action="continue-version-dates"]')?.addEventListener('click', () => {
     if (modal.type === 'add') {
@@ -724,14 +749,18 @@ function bindConfigEvents(root, session, currentUseCases) {
         return;
       }
       captureFormDraft();
-      const w = modal.draft.weight;
-      if (!Number.isFinite(w) || w < 0) {
+      if (!isCriticalUseCase(modal.draft) && (!Number.isFinite(modal.draft.weight) || modal.draft.weight < 0)) {
         feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
         rerender();
         return;
       }
     } else if (modal.type === 'edit') {
       captureFormDraft();
+      if (!isCriticalUseCase(modal.draft) && (!Number.isFinite(modal.draft.weight) || modal.draft.weight < 0)) {
+        feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
+        rerender();
+        return;
+      }
     } else if (modal.type === 'delete') {
       const uc = currentUseCases.find((u) => u.id === modal.useCaseId);
       modal.draft = {
@@ -806,8 +835,8 @@ function bindConfigEvents(root, session, currentUseCases) {
           description: def.description,
           stage: modal.draft.stage || scoringTab || def.stage,
           riskCategory: modal.draft.riskCategory || def.riskCategory,
-          hardFail: def.hardFail,
-          weight: modal.draft.weight ?? def.weight ?? 0,
+          hardFail: (modal.draft.riskCategory || def.riskCategory) === 'critical',
+          weight: (modal.draft.riskCategory || def.riskCategory) === 'critical' ? 0 : modal.draft.weight ?? def.weight ?? 0,
         },
       ], dates);
     } else if (modal.type === 'edit') {
@@ -820,7 +849,8 @@ function bindConfigEvents(root, session, currentUseCases) {
               ...u,
               stage: modal.draft.stage || u.stage,
               riskCategory: modal.draft.riskCategory || u.riskCategory,
-              weight: modal.draft.weight ?? u.weight ?? 0,
+              hardFail: (modal.draft.riskCategory || u.riskCategory) === 'critical',
+              weight: (modal.draft.riskCategory || u.riskCategory) === 'critical' ? 0 : modal.draft.weight ?? u.weight ?? 0,
             };
           }),
         dates

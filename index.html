@@ -797,6 +797,19 @@ a {
   border-width: 3px;
 }
 
+.score-circle.is-fail-text {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+}
+
+.score-circle.sm.is-fail-text {
+  font-size: 0.55rem;
+}
+
+.score-circle.lg.is-fail-text {
+  font-size: 1.05rem;
+}
+
 .score-circle.red {
   color: var(--red);
   background: var(--red-bg);
@@ -1124,6 +1137,22 @@ a {
   font-family: var(--mono);
   white-space: nowrap;
   padding-top: 2px;
+  text-align: right;
+}
+
+.check-weight-was,
+.check-weight-excluded,
+.check-weight-gate {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.stage-norm-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 /* ---------- Dashboard ---------- */
@@ -1912,6 +1941,10 @@ a {
   height: 34px;
   font-size: 0.55rem;
   border-width: 2px;
+}
+
+.score-circle.xs.is-fail-text {
+  font-size: 0.48rem;
 }
 
 .stage-chips {
@@ -3115,17 +3148,18 @@ const CHECK_CATEGORIES = {
 
 /**
  * 20 use-cases grouped by claim stage.
- * Weights sum to 100% within each stage. Critical checks also carry weight;
- * a failed critical zeros that stage, a passed critical scores normally.
+ * Critical checks are pass/fail gates with no weightage.
+ * Remaining (non-critical) weights sum to 100% within each stage.
+ * A failed critical fails the stage and the claim does not move on.
  * riskCategory: Critical / High / Low (config table).
  */
 const CHECK_DEFINITIONS = [
-  // FNOL — 15+15+20+15+35 = 100 (use-case #20 is catalog-only)
-  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 20 },
-  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 35 },
+  // FNOL — criticals are gates; remaining #08 = 100 (use-case #20 is catalog-only)
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 100 },
   { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', description: 'Assesses whether loss location aligns with the vehicle’s usual operating area.', category: 'behavioural', stage: 'fnol', hardFail: false, riskCategory: 'low', weight: 45 },
 
   // Registration — 25+30+20+25 = 100 (#16 is catalog-only)
@@ -3133,7 +3167,7 @@ const CHECK_DEFINITIONS = [
   { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', description: 'Detects losses occurring too soon after policy inception.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 7, code: '07', name: 'Loss not immediately before policy expiry', description: 'Flags losses clustered just before policy expiry/renewal.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', description: 'Checks if loss coincides with a newly added cover endorsement.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
-  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 0 },
 
   // Assessment — soft: 25+30+25+20 = 100
   { id: 10, code: '10', name: 'Garage is network / auto-assigned', description: 'Prefers network or auto-assigned garages over self-selected workshops.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -3142,7 +3176,7 @@ const CHECK_DEFINITIONS = [
   { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', description: 'Validates that claimed parts align with reported damage evidence.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'low', weight: 20 },
 
   // Settlement — soft: 30+20+25+25 = 100
-  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 20 },
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 0 },
   { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', description: 'Compares claim amount to the claimant’s historical average claim size.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', description: 'Checks salvage or total-loss values for consistency with the claim.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', description: 'Reviews claim frequency for the claimant/vehicle over 12 months.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -3285,6 +3319,10 @@ const USE_CASE_LIBRARY = [
   ...OPTIONAL_USE_CASES.map((d) => ({ ...d, tenantEnabled: false })),
 ];
 
+function isCriticalUseCase(u) {
+  return !!(u && (u.hardFail || u.riskCategory === 'critical'));
+}
+
 function isTenantEnabledUseCase(def) {
   return def?.tenantEnabled === true;
 }
@@ -3296,6 +3334,7 @@ function enabledSeedDefinitions() {
 
 const DEFAULT_WEIGHTS = Object.fromEntries(
   enabledSeedDefinitions().map((c) => {
+    if (isCriticalUseCase(c)) return [c.id, 0];
     let weight = c.weight ?? 0;
     if (c.id === 10) weight = 100;
     return [c.id, weight];
@@ -3681,7 +3720,7 @@ function hasStageDocsComplete(claim, stageId) {
 }
 
 function hasPassedPriorStages(claim, stageIds) {
-  return stageIds.every((id) => hasStageDocsComplete(claim, id));
+  return stageIds.every((id) => hasStageDocsComplete(claim, id) && !stageHasCriticalFail(claim, id));
 }
 
 /** Claims that cleared FNOL + Registration and are waiting on assessment submit. */
@@ -3689,11 +3728,18 @@ function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
 
-/** Current workflow stage for queue column / filters. */
-function getClaimWorkflowStage(claim) {
-  if (!hasStageDocsComplete(claim, 'fnol')) return 'fnol';
-  if (!hasStageDocsComplete(claim, 'intimation')) return 'intimation';
-  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment')) return 'assessment';
+function stageHasCriticalFail(claim, stageId, stageScores = claim?.stageScores) {
+  return (stageScores || []).some((s) => s.stageId === stageId && s.criticalFailed);
+}
+
+/** Current workflow stage for queue column / filters. A critical fail holds the claim on that stage. */
+function getClaimWorkflowStage(claim, stageScores) {
+  const scores = stageScores || claim?.stageScores;
+  if (!hasStageDocsComplete(claim, 'fnol') || stageHasCriticalFail(claim, 'fnol', scores)) return 'fnol';
+  if (!hasStageDocsComplete(claim, 'intimation') || stageHasCriticalFail(claim, 'intimation', scores)) return 'intimation';
+  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment') || stageHasCriticalFail(claim, 'assessment', scores)) {
+    return 'assessment';
+  }
   return 'settlement';
 }
 
@@ -4897,6 +4943,7 @@ function hydrateClaimRuntime() {
     claim.waivedCheckIds = slice.waivedCheckIds || [];
     claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
+    if (settleCoreBypasses(claim)) persistClaimRuntime(claim);
   });
 }
 
@@ -4919,6 +4966,93 @@ function actorSnapshot(actor) {
     userId: actor?.userId || actor?.id || '',
     name: actor?.name || 'Demo user',
     role: actor?.role || '',
+  };
+}
+
+function settleCoreBypasses(claim) {
+  let changed = false;
+  (claim.exceptions || []).forEach((ex) => {
+    if (ex.type === 'bypass' && ex.status === 'pending') {
+      ex.status = 'approved';
+      ex.decidedBy = { userId: 'core', name: 'Core system', role: 'core' };
+      ex.decidedAt = ex.decidedAt || '2026-08-14';
+      ex.decisionComment = ex.decisionComment || 'Approved in the core system.';
+      changed = true;
+    }
+  });
+  const ids = new Set(claim.bypassedCheckIds || []);
+  (claim.exceptions || []).forEach((ex) => {
+    if (ex.type === 'bypass' && ex.status === 'approved' && !ids.has(ex.checkId)) {
+      ids.add(ex.checkId);
+      changed = true;
+    }
+  });
+  claim.bypassedCheckIds = [...ids];
+  return changed;
+}
+
+/**
+ * Claim User Bypass sends a notification to the core system (out of scope).
+ * This prototype applies the approved bypass immediately so scoring can be demoed:
+ * the use-case drops out and remaining stage weights are normalised to 100%.
+ */
+function requestCoreBypass(claimId, checkId, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  const id = Number(checkId);
+  if ((claim.bypassedCheckIds || []).includes(id)) {
+    return { ok: false, message: 'This use-case is already bypassed.' };
+  }
+
+  const stamp = nextAuditStamp();
+  const exception = {
+    id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
+    checkId: id,
+    type: 'bypass',
+    status: 'approved',
+    comment: 'Bypass notification sent to the core system.',
+    proposedFields: {},
+    previousFields: {},
+    hardFail: false,
+    disposition: null,
+    requestedBy: actorSnapshot(actor),
+    requestedAt: stamp.date,
+    decidedBy: { userId: 'core', name: 'Core system', role: 'core' },
+    decidedAt: stamp.date,
+    decisionComment: 'Approved in the core system.',
+  };
+  claim.exceptions = claim.exceptions || [];
+  claim.exceptions.push(exception);
+  const ids = new Set(claim.bypassedCheckIds || []);
+  ids.add(id);
+  claim.bypassedCheckIds = [...ids];
+  persistClaimRuntime(claim);
+
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Bypass requested',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(id),
+    oldValue: 'Fail',
+    newValue: 'Notification sent to core',
+    comments: 'Core system notified. Approval is outside this prototype.',
+  });
+  appendClaimAudit(claimId, {
+    user: 'Core system',
+    action: 'Bypass approved',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(id),
+    oldValue: 'Fail',
+    newValue: 'Bypassed',
+    comments: 'Use-case excluded from the stage. Remaining weights normalised to 100%.',
+  });
+  persistClaimRuntime(claim);
+  return {
+    ok: true,
+    message:
+      'A bypass notification was sent to the core system. This prototype shows the claim after core approval — that use-case is out of the stage score, and remaining weights in the stage are normalised to 100%.',
   };
 }
 
@@ -5109,12 +5243,11 @@ const TREND_HISTORY = [
 ];
 
 
-
 /* ===== js/state.js ===== */
 
 const SESSION_KEY = 'claim-intel-session';
 const WEIGHTS_KEY = 'claim-intel-weights-v4';
-const CONFIG_KEY = 'claim-intel-config-v5';
+const CONFIG_KEY = 'claim-intel-config-v6';
 
 /** Prototype "today" for version dating */
 const CONFIG_TODAY = '2026-08-12';
@@ -5166,16 +5299,17 @@ function cloneMix(mix) {
 
 function defaultUseCasesFromDefinitions() {
   return enabledSeedDefinitions().map((d) => {
-    let weight = d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
-    if (d.id === 10) weight = 100;
+    const critical = isCriticalUseCase(d);
+    let weight = critical ? 0 : d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
+    if (!critical && d.id === 10) weight = 100;
     return {
       id: d.id,
       code: checkCode(d.id),
       name: d.name,
       description: d.description,
       stage: d.stage,
-      riskCategory: d.riskCategory || (d.hardFail ? 'critical' : 'high'),
-      hardFail: !!d.hardFail,
+      riskCategory: critical ? 'critical' : d.riskCategory || 'high',
+      hardFail: critical,
       weight,
     };
   });
@@ -5397,7 +5531,6 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
 }
 
 
-
 /* ===== js/scoring.js ===== */
 
 
@@ -5500,11 +5633,43 @@ function isExcludedFromScore(r) {
   return r.state === 'waived' || r.state === 'bypassed';
 }
 
+function isWeightPoolRow(r) {
+  return !r.hardFail && !isExcludedFromScore(r);
+}
+
+/** Remaining non-critical use-cases in a stage share 100%. Criticals are pass/fail gates. */
+function attachNormalizedWeights(results) {
+  CLAIM_STAGES.forEach((stage) => {
+    const stageRows = results.filter((r) => r.stage === stage.id);
+    const live = stageRows.filter(isWeightPoolRow);
+    const total = live.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
+    live.forEach((r) => {
+      r.configuredWeight = Number(r.weight) || 0;
+      r.displayWeight = total ? Math.round((r.configuredWeight / total) * 100) : 0;
+    });
+    const shown = live.reduce((sum, r) => sum + r.displayWeight, 0);
+    if (live.length && shown !== 100) {
+      const richest = live.reduce((a, b) => (b.displayWeight >= a.displayWeight ? b : a));
+      richest.displayWeight += 100 - shown;
+    }
+    stageRows
+      .filter((r) => !isWeightPoolRow(r))
+      .forEach((r) => {
+        r.configuredWeight = Number(r.weight) || 0;
+        r.displayWeight = 0;
+      });
+  });
+}
+
+function scoreWeight(r) {
+  return Number(r.displayWeight ?? r.weight) || 0;
+}
+
 function scoreWeightedGroup(results) {
-  const evaluable = results.filter((r) => !isExcludedFromScore(r));
+  const evaluable = results.filter(isWeightPoolRow);
   const passed = evaluable.filter((r) => r.state === 'pass');
-  const activeWeight = evaluable.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
-  const earnedWeight = passed.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
+  const activeWeight = evaluable.reduce((sum, r) => sum + scoreWeight(r), 0);
+  const earnedWeight = passed.reduce((sum, r) => sum + scoreWeight(r), 0);
 
   if (activeWeight === 0) {
     return { score: 0, tier: 'red', activeWeight: 0, earnedWeight: 0, evaluable: 0 };
@@ -5521,7 +5686,9 @@ function scoreWeightedGroup(results) {
 
 /**
  * Stage-based scoring using the active config use-case set.
- * Scores are percentages (0–100). A failed critical zeros that stage.
+ * Critical use-cases are pass/fail gates and do not take weightage.
+ * If they pass, remaining use-cases in the stage share 100%.
+ * If any critical fails, the stage is Fail and the claim does not move on.
  * There is no overall / cumulative score — claim.score is the current stage score.
  */
 function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, options = {}) {
@@ -5540,13 +5707,13 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
     .map((c) => {
       const def = defById[c.checkId];
       const meta = metaById[c.checkId];
-      const hardFail = meta?.hardFail ?? def.hardFail;
+      const hardFail = !!(meta?.hardFail ?? def.hardFail) || (meta?.riskCategory || def.riskCategory) === 'critical';
       const evaluated = evaluateCheckFromFields(claim, c.checkId, { state: c.state, evidence: c.evidence });
       let state = evaluated.state === 'cant_evaluate' ? 'fail' : evaluated.state;
       let evidence = evaluated.evidence;
       if (bypassedIds.has(c.checkId)) {
         state = 'bypassed';
-        evidence = `${evaluated.evidence} · Bypassed — excluded from this stage’s score and weightage.`;
+        evidence = `${evaluated.evidence} · Bypassed — excluded from this stage. Remaining weights are normalised to 100%.`;
       } else if (waivedIds.has(c.checkId)) {
         state = 'waived';
         evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
@@ -5563,7 +5730,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
         }
       }
       const disposition = dispositions[c.checkId] || null;
-      const weight = Number(weights[c.checkId] ?? meta?.weight ?? def.weight ?? 0);
+      const weight = hardFail ? 0 : Number(weights[c.checkId] ?? meta?.weight ?? def.weight ?? 0);
       return {
         ...c,
         state,
@@ -5582,6 +5749,8 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
       };
     });
 
+  attachNormalizedWeights(results);
+
   const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
   const scored = results.filter((r) => !isExcludedFromScore(r));
   const failed = scored.filter((r) => r.state === 'fail');
@@ -5592,14 +5761,14 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
     const weighted = scoreWeightedGroup(stageResults);
     const criticalFailed = stageHardFails.length > 0;
-    const score = criticalFailed ? 0 : weighted.score;
+    const score = criticalFailed ? 0 : weighted.evaluable === 0 ? 100 : weighted.score;
     const mark = Number(passPct[stage.id] ?? DEFAULT_STAGE_PASS[stage.id] ?? 70);
     const passedStage = !criticalFailed && score >= mark;
     return {
       stageId: stage.id,
       stageName: stage.name,
       score,
-      tier: criticalFailed || !passedStage ? 'red' : scoreBand(score),
+      tier: criticalFailed ? 'red' : !passedStage ? 'red' : scoreBand(score),
       activeWeight: weighted.activeWeight,
       earnedWeight: weighted.earnedWeight,
       evaluable: weighted.evaluable,
@@ -5614,10 +5783,9 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
     };
   }).filter((s) => s.checkCount > 0);
 
-  const workflowStage = getClaimWorkflowStage(claim);
+  const workflowStage = getClaimWorkflowStage(claim, stageScores);
   const currentStage = stageScores.find((s) => s.stageId === workflowStage) || stageScores[0] || null;
   const contextScore = currentStage ? currentStage.score : 0;
-  const currentMark = Number(passPct[workflowStage] ?? DEFAULT_STAGE_PASS[workflowStage] ?? 70);
   const forcedRed = (currentStage?.hardFailCount || 0) > 0;
   const tier = currentStage?.tier || (forcedRed ? 'red' : scoreBand(contextScore));
 
@@ -5690,7 +5858,8 @@ function useCaseFailStats(claims) {
     .sort((a, b) => b.fail - a.fail || b.failRate - a.failRate);
 }
 
-function tierLabel(tier) {
+function tierLabel(tier, extra) {
+  if (extra?.forcedRed || extra?.criticalFailed) return 'Fail';
   if (tier === 'red') return 'High risk';
   if (tier === 'yellow') return 'Medium risk';
   return 'Pass';
@@ -5720,6 +5889,20 @@ function formatScore(score) {
   const n = Number(score);
   if (!Number.isFinite(n)) return '—';
   return `${Math.round(n)}%`;
+}
+
+function formatStageScore(stage) {
+  if (!stage) return '—';
+  if (stage.criticalFailed) return 'Fail';
+  return formatScore(stage.score);
+}
+
+function formatClaimScore(claim) {
+  if (!claim) return '—';
+  if (claim.forcedRed) return 'Fail';
+  const current = (claim.stageScores || []).find((s) => s.stageId === claim.workflowStage);
+  if (current?.criticalFailed) return 'Fail';
+  return formatScore(claim.score);
 }
 
 function formatClaimAmount(claim) {
@@ -5793,7 +5976,6 @@ function withVisibleStages(scored, stageIds) {
     },
   };
 }
-
 
 
 
@@ -5983,6 +6165,7 @@ function flattenClaimLedger(claims) {
         fnolNumber: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
         policyNumber: claim.policyNumber || '—',
         score: claim.score,
+        forcedRed: !!claim.forcedRed,
         workflowStage: getClaimWorkflowStage(claim),
         workflowStageName: WORKFLOW_STAGES.find((s) => s.id === getClaimWorkflowStage(claim))?.name || getClaimWorkflowStage(claim),
         ledgerType: ledgerChangeType(entry),
@@ -6023,7 +6206,6 @@ function ledgerRangeState(range) {
 function capLedgerRows(rows, cap = TX_LIST_CAP) {
   return { shown: rows.slice(0, cap), total: rows.length, cap };
 }
-
 
 
 
@@ -6135,7 +6317,6 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
     </div>
   `;
 }
-
 
 
 /* ===== js/views/login.js ===== */
@@ -6255,7 +6436,6 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
     });
   });
 }
-
 
 
 /* ===== js/views/queue.js ===== */
@@ -6428,17 +6608,17 @@ function renderQueue(root, session, claims, state, onChange) {
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
                 const row = `
-              <div class="score-circle sm ${c.tier}">${formatScore(c.score)}</div>
+              <div class="score-circle sm ${c.tier}${c.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(c)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
-                  ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
+                  ${(c.bypassedCheckIds || []).length ? `<span class="tag override">Bypassed</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
               <div class="claim-amount">${formatClaimAmount(c)}</div>
-              <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
+              <div class="claim-tier ${c.tier}">${tierLabel(c.tier, c)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
             `;
@@ -6498,7 +6678,6 @@ function renderQueue(root, session, claims, state, onChange) {
 }
 
 
-
 /* ===== js/views/claim.js ===== */
 
 
@@ -6520,86 +6699,41 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
-function exceptionPanelHtml(result, mode, claim, pending) {
-  void claim;
-  if (mode === 'bypass') {
-    return `
-      <form class="exception-panel" data-exception-form data-mode="bypass" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
-        <strong>Bypass ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">Request a bypass for this failed use-case. After Claim Head approval it will not count toward this stage’s score or weightage. The same approval flow runs in the core system.</p>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="Why bypass this use-case?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
+function weightCellHtml(r, stageHasExcluded) {
+  if (r.state === 'bypassed' || r.state === 'waived') {
+    return `<span class="check-weight-excluded" title="Excluded from this stage’s score">—</span>`;
   }
-  if (mode === 'send_back' && pending) {
-    return `
-      <form class="exception-panel" data-exception-form data-mode="send_back" data-exception-id="${pending.id}">
-        <strong>Send back ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">Return this request to the maker. A comment is required.</p>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="What should the maker change?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Send back</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
+  if (r.hardFail) {
+    return `<span class="check-weight-gate" title="Critical use-cases are pass / fail only">Pass / fail</span>`;
   }
-  return '';
+  const shown = r.displayWeight ?? r.weight ?? 0;
+  const configured = r.configuredWeight ?? r.weight ?? 0;
+  if (stageHasExcluded && shown !== configured) {
+    return `${shown}% <span class="check-weight-was">was ${configured}%</span>`;
+  }
+  return `${shown}%`;
 }
 
-function exceptionBlockHtml(result, session, panel, claim) {
+function exceptionBlockHtml(result, session) {
   if (session.role === 'surveyor') return '';
-  const latest = latestExceptionForCheck(claim, result.checkId);
-  const pending = latest?.status === 'pending' ? latest : null;
-  const sentBack = latest?.status === 'sent_back' ? latest : null;
-  const eligibleState = result.state === 'fail';
-  const canPropose = session.role === 'claim_user' && eligibleState && !pending;
-  const canDecide = isCheckerRole(session.role) && !!pending;
-
   const bits = [];
-  if (pending) {
+  if (result.state === 'bypassed') {
+    bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
-      `<div class="exception-status is-pending">Pending Claim Head · Bypass requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
-    );
-    if (pending.comment) bits.push(`<p class="exception-note">${esc(pending.comment)}</p>`);
-  } else if (sentBack && canPropose) {
-    bits.push(
-      `<div class="exception-status is-back">Sent back${sentBack.decidedBy?.name ? ` by ${esc(sentBack.decidedBy.name)}` : ''}: ${esc(sentBack.decisionComment)}</div>`
+      `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
   }
-  if (result.state === 'bypassed') bits.push(`<span class="tag override">Bypassed</span>`);
-
   const buttons = [];
-  if (canPropose) {
+  if (result.state === 'fail') {
     buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
+      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Bypass</button>`
     );
   }
-  if (canDecide) {
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-decide" data-decision="approved" data-exception-id="${pending.id}">Approve</button>`
-    );
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="send_back" data-check-id="${result.checkId}" data-exception-id="${pending.id}">Send back</button>`
-    );
-  }
-
-  const open = panel && Number(panel.checkId) === result.checkId;
-  const panelHtml = open ? exceptionPanelHtml(result, panel.mode, claim, pending) : '';
-  if (!bits.length && !buttons.length && !panelHtml) return '';
+  if (!bits.length && !buttons.length) return '';
   return `
     <div class="exception-block">
       ${bits.join('')}
       ${buttons.length ? `<div class="exception-actions">${buttons.join('')}</div>` : ''}
-      ${panelHtml}
     </div>
   `;
 }
@@ -6707,7 +6841,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatClaimScore(claim)} · ${tierLabel(claim.tier, claim)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -6716,7 +6850,7 @@ function claimInfoDrawer(claim) {
                 (s) => `
               <div class="stage-score-row">
                 <span>${s.stageName}</span>
-                <strong class="claim-tier ${s.tier}">${formatScore(s.score)}</strong>
+                <strong class="claim-tier ${s.tier}">${formatStageScore(s)}</strong>
               </div>
             `
               )
@@ -6734,7 +6868,7 @@ function renderClaimDetail(
   claim,
   filter,
   onFilter,
-  { drawerOpen = false, selectedStage = null, exceptionPanel = null, exceptionNotice = null } = {}
+  { drawerOpen = false, selectedStage = null, exceptionNotice = null } = {}
 ) {
   if (!claim) {
     root.innerHTML = renderShell(
@@ -6786,7 +6920,6 @@ function renderClaimDetail(
     .filter(Boolean)
     .join(' · ');
 
-  const pendingExceptions = getPendingExceptions(claim);
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
   const checksByStage = displayStages.map((stage) => {
@@ -6846,15 +6979,7 @@ function renderClaimDetail(
 
     ${
       exceptionNotice
-        ? `<div class="surveyor-banner">${esc(exceptionNotice)}</div>`
-        : ''
-    }
-    ${
-      pendingExceptions.length
-        ? `<div class="surveyor-banner">
-        <strong>Pending exceptions</strong>
-        <p>${pendingExceptions.length} use-case exception${pendingExceptions.length === 1 ? '' : 's'} waiting for Claim Head. Checks stay failed until approved.</p>
-      </div>`
+        ? `<div class="surveyor-banner"><strong>Bypass sent to core</strong><p>${esc(exceptionNotice)}</p></div>`
         : ''
     }
     ${
@@ -6884,8 +7009,8 @@ function renderClaimDetail(
       <div class="hardfail-banner">
         <div class="banner-icon">${iconAlert()}</div>
         <div>
-          <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The failed critical use-case zeros this stage unless it is bypassed.</p>
+          <strong>Critical use-case failed</strong>
+          <p>${hardFailNames}. This stage is Fail and the claim cannot move to the next stage unless the check is bypassed or corrected.</p>
         </div>
       </div>
     `
@@ -6893,10 +7018,10 @@ function renderClaimDetail(
     }
 
     <div class="score-panel">
-      <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
+      <div class="score-circle lg ${claim.tier}${claim.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(claim)}</div>
       <div class="score-panel-text">
-        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} score</h2>
-        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
+        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} ${claim.forcedRed ? 'result' : 'score'}</h2>
+        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier, claim)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
         <p class="summary-line">${summaryLine}</p>
@@ -6912,8 +7037,14 @@ function renderClaimDetail(
           const active = isSurveyor && stageTab === stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
-          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${formatScore(stageScore.score)}</span>` : ''}
-          ${stageScore ? `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>` : ''}
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>` : ''}
+          ${
+            stageScore
+              ? stageScore.criticalFailed
+                ? `<span class="doc-complete-chip">Fail</span>`
+                : `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>`
+              : ''
+          }
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
           return isSurveyor
@@ -6940,6 +7071,19 @@ function renderClaimDetail(
               .map(({ stage, items }) => {
                 const stageScore = (claim.stageScores || []).find((x) => x.stageId === stage.id);
                 const docs = getStageDocCompleteness(claim, stage.id);
+                const stageHasExcluded = (claim.results || []).some(
+                  (r) => r.stage === stage.id && !r.hardFail && (r.state === 'bypassed' || r.state === 'waived')
+                );
+                const stageHasCritical = (claim.results || []).some((r) => r.stage === stage.id && r.hardFail);
+                const hints = [];
+                if (stageHasCritical) {
+                  hints.push(
+                    'Critical use-cases are pass / fail only. If they pass, remaining use-cases in this stage share 100%.'
+                  );
+                }
+                if (stageHasExcluded) {
+                  hints.push('Bypassed use-cases are excluded. Remaining weights in this stage are normalised to 100%.');
+                }
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
@@ -6951,7 +7095,7 @@ function renderClaimDetail(
                   ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
                   ${
                     stageScore
-                      ? `<span class="score-circle sm ${stageScore.tier}">${formatScore(stageScore.score)}</span>`
+                      ? `<span class="score-circle sm ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>`
                       : ''
                   }
                 </div>
@@ -6964,7 +7108,6 @@ function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -6972,18 +7115,19 @@ function renderClaimDetail(
                       <div class="check-name">
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
-                        ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
+                        ${r.hardFail ? `<span class="tag critical">Critical</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
-                      ${exceptionBlockHtml(r, session, exceptionPanel, claim)}
+                      ${exceptionBlockHtml(r, session)}
                     </div>
-                    <div class="check-weight">${metaLabel}</div>
+                    <div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>
                   </div>
                 `;
                         })
                         .join('')
                 }
               </div>
+              ${hints.map((h) => `<p class="stage-norm-hint">${h}</p>`).join('')}
               ${documentChecklistHtml(claim, stage.id, {
                 readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
               })}
@@ -7021,7 +7165,6 @@ function renderClaimDetail(
     onFilter(nextFilter, {
       drawerOpen,
       selectedStage: stageTab,
-      exceptionPanel,
       exceptionNotice: null,
       ...extra,
     });
@@ -7048,69 +7191,15 @@ function renderClaimDetail(
     const result = submitSurveyorAssessment(claim.id);
     persist(filter, { surveyorMessage: result.message });
   });
-  root.querySelectorAll('[data-action="exception-open"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      persist(filter, {
-        exceptionPanel: { checkId: Number(btn.dataset.checkId), mode: btn.dataset.mode },
-        exceptionNotice: null,
-      });
-    });
-  });
-  root.querySelectorAll('[data-action="exception-cancel"]').forEach((btn) => {
-    btn.addEventListener('click', () => persist(filter, { exceptionPanel: null }));
-  });
-  root.querySelectorAll('[data-action="exception-decide"]').forEach((btn) => {
+  root.querySelectorAll('[data-action="request-bypass"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const result = decideCheckException(
-        claim.id,
-        btn.dataset.exceptionId,
-        btn.dataset.decision,
-        '',
-        session
-      );
+      const result = requestCoreBypass(claim.id, Number(btn.dataset.checkId), session);
       persist(filter, {
-        exceptionPanel: null,
-        exceptionNotice: result.ok ? null : result.message,
-      });
-    });
-  });
-  root.querySelectorAll('[data-exception-form]').forEach((form) => {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const mode = form.dataset.mode;
-      const comment = form.querySelector('[name="comment"]')?.value || '';
-      if (mode === 'send_back') {
-        const result = decideCheckException(claim.id, form.dataset.exceptionId, 'sent_back', comment, session);
-        persist(filter, {
-          exceptionPanel: null,
-          exceptionNotice: result.ok ? null : result.message,
-        });
-        return;
-      }
-      const proposedFields = {};
-      form.querySelectorAll('[data-field]').forEach((input) => {
-        proposedFields[input.dataset.field] = input.value;
-      });
-      const result = proposeCheckException(
-        claim.id,
-        {
-          checkId: Number(form.dataset.checkId),
-          type: mode,
-          comment,
-          proposedFields,
-          hardFail: form.dataset.hardFail === '1',
-        },
-        session
-      );
-      persist(filter, {
-        exceptionPanel: result.ok ? null : exceptionPanel,
-        exceptionNotice: result.ok ? null : result.message,
+        exceptionNotice: result.message,
       });
     });
   });
 }
-
 
 
 /* ===== js/views/dashboard.js ===== */
@@ -7457,7 +7546,6 @@ function renderDashboard(root, session, claims, state, onChange) {
 
 
 
-
 /* ===== js/views/config.js ===== */
 
 
@@ -7678,7 +7766,9 @@ function renderConfig(root, session) {
     .filter((v) => v.id !== store.currentId)
     .sort((a, b) => b.number - a.number);
   const rows = filteredRows(view.useCases);
-  const weightTotal = rows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const weightedRows = rows.filter((u) => !isCriticalUseCase(u));
+  const weightTotal = weightedRows.reduce((sum, u) => sum + (Number(u.weight) || 0), 0);
+  const weightFooterOk = weightedRows.length === 0 || weightTotal === 100;
   const passPct = Number(view.stagePassPct?.[scoringTab] ?? DEFAULT_STAGE_PASS[scoringTab] ?? 70);
   const tabLabel = stageName(scoringTab);
 
@@ -7747,7 +7837,7 @@ function renderConfig(root, session) {
         <div class="config-criteria-card">
           <div>
             <h2>${tabLabel} pass / fail</h2>
-            <p>A stage passes when its score is at or above this mark. A failed critical use-case zeros the stage.</p>
+            <p>Critical use-cases are pass / fail only. If they pass, remaining use-cases share 100% weightage. A failed critical fails the stage and the claim does not move on.</p>
           </div>
           <div class="config-pass-field">
             <label for="stage-pass-pct">Pass mark</label>
@@ -7824,7 +7914,7 @@ function renderConfig(root, session) {
                       <td class="uc-name">${u.name}</td>
                       <td class="uc-desc">${u.description || '—'}</td>
                       <td><span class="cat-pill ${catClass}">${categoryLabel(u.riskCategory)}</span></td>
-                      <td class="uc-weight">${u.weight ?? 0}%</td>
+                      <td class="uc-weight">${isCriticalUseCase(u) ? 'Pass / fail' : `${u.weight ?? 0}%`}</td>
                     </tr>
                   `;
                         })
@@ -7833,10 +7923,16 @@ function renderConfig(root, session) {
               </tbody>
             </table>
           </div>
-          <div class="config-weight-footer ${weightTotal === 100 ? 'is-ok' : 'is-warn'}">
+          <div class="config-weight-footer ${weightFooterOk ? 'is-ok' : 'is-warn'}">
             <span>Stage weightage</span>
-            <strong>${weightTotal}% / 100%</strong>
-            <small>${weightTotal === 100 ? 'Weights add up to 100%.' : 'Overall weightage for this stage should be 100%.'}</small>
+            <strong>${weightedRows.length === 0 ? '—' : `${weightTotal}% / 100%`}</strong>
+            <small>${
+              weightedRows.length === 0
+                ? 'Critical use-cases have no weight. This stage is pass / fail on critical checks only.'
+                : weightTotal === 100
+                  ? 'Remaining (non-critical) weights add up to 100%.'
+                  : 'Remaining use-cases in this stage should add to 100%.'
+            }</small>
           </div>
         </div>
       </div>
@@ -7920,6 +8016,7 @@ function renderModalHtml(currentUseCases) {
   const selectedDef = draft.id ? USE_CASE_LIBRARY.find((d) => d.id === Number(draft.id)) : null;
   const selectedEnabled = selectedDef ? isTenantEnabledUseCase(selectedDef) : false;
   const isLockedSelection = isAdd && selectedDef && !selectedEnabled;
+  const draftCritical = (draft.riskCategory || selectedDef?.riskCategory) === 'critical';
 
   let primaryLabel = 'Continue';
   let primaryAction = 'continue-version-dates';
@@ -7984,9 +8081,13 @@ function renderModalHtml(currentUseCases) {
           </div>
           <div class="field">
             <label>Weightage %</label>
-            <input type="number" id="modal-weight" min="0" max="100" step="1"
+            ${
+              draftCritical
+                ? `<div class="value-readonly">Pass / fail — no weightage</div>`
+                : `<input type="number" id="modal-weight" min="0" max="100" step="1"
               value="${draft.weight ?? selectedDef?.weight ?? 0}"
-              ${isAdd && !selectedDef ? 'disabled' : ''} />
+              ${isAdd && !selectedDef ? 'disabled' : ''} />`
+            }
           </div>
         </div>
         `
@@ -8133,8 +8234,8 @@ function bindConfigEvents(root, session, currentUseCases) {
         description: def.description,
         stage: scoringTab,
         riskCategory: def.riskCategory,
-        hardFail: def.hardFail,
-        weight: def.weight ?? 0,
+        hardFail: isCriticalUseCase(def),
+        weight: isCriticalUseCase(def) ? 0 : def.weight ?? 0,
         startDate: '',
         endDate: '',
         dateError: null,
@@ -8148,15 +8249,26 @@ function bindConfigEvents(root, session, currentUseCases) {
     const stage = root.querySelector('#modal-stage')?.value;
     const riskCategory = root.querySelector('#modal-category')?.value;
     const weightRaw = root.querySelector('#modal-weight')?.value;
-    const weight = weightRaw === '' || weightRaw == null ? 0 : parseInt(weightRaw, 10);
+    const critical = riskCategory === 'critical';
+    const weight = critical
+      ? 0
+      : weightRaw === '' || weightRaw == null
+        ? modal.draft?.weight ?? 0
+        : parseInt(weightRaw, 10);
     modal.draft = {
       ...(modal.draft || {}),
       stage: stage || modal.draft?.stage || scoringTab,
       riskCategory: riskCategory || modal.draft?.riskCategory,
+      hardFail: critical,
       weight: Number.isFinite(weight) ? weight : modal.draft?.weight ?? 0,
       dateError: null,
     };
   }
+
+  root.querySelector('#modal-category')?.addEventListener('change', () => {
+    captureFormDraft();
+    rerender();
+  });
 
   root.querySelector('[data-action="continue-version-dates"]')?.addEventListener('click', () => {
     if (modal.type === 'add') {
@@ -8168,14 +8280,18 @@ function bindConfigEvents(root, session, currentUseCases) {
         return;
       }
       captureFormDraft();
-      const w = modal.draft.weight;
-      if (!Number.isFinite(w) || w < 0) {
+      if (!isCriticalUseCase(modal.draft) && (!Number.isFinite(modal.draft.weight) || modal.draft.weight < 0)) {
         feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
         rerender();
         return;
       }
     } else if (modal.type === 'edit') {
       captureFormDraft();
+      if (!isCriticalUseCase(modal.draft) && (!Number.isFinite(modal.draft.weight) || modal.draft.weight < 0)) {
+        feedback = { type: 'error', message: 'Enter a whole-number weightage.' };
+        rerender();
+        return;
+      }
     } else if (modal.type === 'delete') {
       const uc = currentUseCases.find((u) => u.id === modal.useCaseId);
       modal.draft = {
@@ -8250,8 +8366,8 @@ function bindConfigEvents(root, session, currentUseCases) {
           description: def.description,
           stage: modal.draft.stage || scoringTab || def.stage,
           riskCategory: modal.draft.riskCategory || def.riskCategory,
-          hardFail: def.hardFail,
-          weight: modal.draft.weight ?? def.weight ?? 0,
+          hardFail: (modal.draft.riskCategory || def.riskCategory) === 'critical',
+          weight: (modal.draft.riskCategory || def.riskCategory) === 'critical' ? 0 : modal.draft.weight ?? def.weight ?? 0,
         },
       ], dates);
     } else if (modal.type === 'edit') {
@@ -8264,7 +8380,8 @@ function bindConfigEvents(root, session, currentUseCases) {
               ...u,
               stage: modal.draft.stage || u.stage,
               riskCategory: modal.draft.riskCategory || u.riskCategory,
-              weight: modal.draft.weight ?? u.weight ?? 0,
+              hardFail: (modal.draft.riskCategory || u.riskCategory) === 'critical',
+              weight: (modal.draft.riskCategory || u.riskCategory) === 'critical' ? 0 : modal.draft.weight ?? u.weight ?? 0,
             };
           }),
         dates
@@ -8311,7 +8428,6 @@ function bindConfigEvents(root, session, currentUseCases) {
     { once: true }
   );
 }
-
 
 
 /* ===== js/views/report.js ===== */
@@ -8693,8 +8809,8 @@ function renderReport(root, session, claims, state, onChange) {
                 <td>${esc(c.branch)}</td>
                 <td>${esc(claimTypeLabel(c.claimType))}</td>
                 <td>${formatClaimAmount(c)}</td>
-                <td class="mono">${formatScore(c.score)}</td>
-                <td class="claim-tier ${c.tier}">${tierLabel(c.tier)}</td>
+                <td class="mono">${formatClaimScore(c)}</td>
+                <td class="claim-tier ${c.tier}">${tierLabel(c.tier, c)}</td>
                 <td class="muted">${esc(sampleNote(c))}</td>
               </tr>`
               )
@@ -8802,7 +8918,7 @@ function renderReport(root, session, claims, state, onChange) {
                 <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
                 <td class="mono">${esc(r.fnolNumber)}</td>
                 <td class="mono">${esc(r.policyNumber)}</td>
-                <td class="mono">${formatScore(r.score)}</td>
+                <td class="mono">${formatClaimScore(r)}</td>
                 <td>${esc(r.workflowStageName)}</td>
                 <td>${esc(r.user)}</td>
                 <td>${esc(r.userAction)}</td>
@@ -8888,7 +9004,7 @@ function renderReport(root, session, claims, state, onChange) {
       ...sample.rows.map((c) => [
         'Exception sample',
         formatClaimRef(c),
-        `${formatScore(c.score)} · ${tierLabel(c.tier)} · ${formatClaimAmount(c)}`,
+        `${formatClaimScore(c)} · ${tierLabel(c.tier, c)} · ${formatClaimAmount(c)}`,
       ]),
     ];
     downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
@@ -8919,7 +9035,7 @@ function renderReport(root, session, claims, state, onChange) {
         r.claimId,
         r.fnolNumber,
         r.policyNumber,
-        formatScore(r.score),
+        formatClaimScore(r),
         r.workflowStageName,
         r.user,
         r.userAction,
@@ -8933,7 +9049,6 @@ function renderReport(root, session, claims, state, onChange) {
     downloadCsv(`claim-intel-transactions-${txRange.from}-to-${txRange.to}.csv`, rows);
   });
 }
-
 
 
 /* ===== js/app.js ===== */

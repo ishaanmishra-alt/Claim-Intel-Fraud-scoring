@@ -11,14 +11,10 @@ import {
   hasStageDocsComplete,
   getClaimWorkflowStage,
   submitSurveyorAssessment,
-  getPendingExceptions,
-  latestExceptionForCheck,
-  isCheckerRole,
-  proposeCheckException,
-  decideCheckException,
+  requestCoreBypass,
   formatClaimRef,
 } from '../data.js';
-import { formatAED, formatClaimAmount, formatDate, formatScore, tierLabel, sortChecksForDisplay } from '../scoring.js';
+import { formatAED, formatClaimAmount, formatDate, formatClaimScore, formatStageScore, tierLabel, sortChecksForDisplay } from '../scoring.js';
 
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
@@ -37,86 +33,41 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
-function exceptionPanelHtml(result, mode, claim, pending) {
-  void claim;
-  if (mode === 'bypass') {
-    return `
-      <form class="exception-panel" data-exception-form data-mode="bypass" data-check-id="${result.checkId}" data-hard-fail="${result.hardFail ? '1' : '0'}">
-        <strong>Bypass ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">Request a bypass for this failed use-case. After Claim Head approval it will not count toward this stage’s score or weightage. The same approval flow runs in the core system.</p>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="Why bypass this use-case?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Submit to Claim Head</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
+function weightCellHtml(r, stageHasExcluded) {
+  if (r.state === 'bypassed' || r.state === 'waived') {
+    return `<span class="check-weight-excluded" title="Excluded from this stage’s score">—</span>`;
   }
-  if (mode === 'send_back' && pending) {
-    return `
-      <form class="exception-panel" data-exception-form data-mode="send_back" data-exception-id="${pending.id}">
-        <strong>Send back ${checkCode(result.checkId)}</strong>
-        <p class="exception-lead">Return this request to the maker. A comment is required.</p>
-        <label>Comment
-          <textarea name="comment" rows="2" required placeholder="What should the maker change?"></textarea>
-        </label>
-        <div class="exception-actions">
-          <button type="submit" class="btn btn-sm btn-primary">Send back</button>
-          <button type="button" class="btn btn-sm btn-ghost" data-action="exception-cancel">Cancel</button>
-        </div>
-      </form>
-    `;
+  if (r.hardFail) {
+    return `<span class="check-weight-gate" title="Critical use-cases are pass / fail only">Pass / fail</span>`;
   }
-  return '';
+  const shown = r.displayWeight ?? r.weight ?? 0;
+  const configured = r.configuredWeight ?? r.weight ?? 0;
+  if (stageHasExcluded && shown !== configured) {
+    return `${shown}% <span class="check-weight-was">was ${configured}%</span>`;
+  }
+  return `${shown}%`;
 }
 
-function exceptionBlockHtml(result, session, panel, claim) {
+function exceptionBlockHtml(result, session) {
   if (session.role === 'surveyor') return '';
-  const latest = latestExceptionForCheck(claim, result.checkId);
-  const pending = latest?.status === 'pending' ? latest : null;
-  const sentBack = latest?.status === 'sent_back' ? latest : null;
-  const eligibleState = result.state === 'fail';
-  const canPropose = session.role === 'claim_user' && eligibleState && !pending;
-  const canDecide = isCheckerRole(session.role) && !!pending;
-
   const bits = [];
-  if (pending) {
+  if (result.state === 'bypassed') {
+    bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
-      `<div class="exception-status is-pending">Pending Claim Head · Bypass requested by ${esc(pending.requestedBy?.name || 'Claim User')}</div>`
-    );
-    if (pending.comment) bits.push(`<p class="exception-note">${esc(pending.comment)}</p>`);
-  } else if (sentBack && canPropose) {
-    bits.push(
-      `<div class="exception-status is-back">Sent back${sentBack.decidedBy?.name ? ` by ${esc(sentBack.decidedBy.name)}` : ''}: ${esc(sentBack.decisionComment)}</div>`
+      `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
   }
-  if (result.state === 'bypassed') bits.push(`<span class="tag override">Bypassed</span>`);
-
   const buttons = [];
-  if (canPropose) {
+  if (result.state === 'fail') {
     buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-open" data-mode="bypass" data-check-id="${result.checkId}">Bypass</button>`
+      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Bypass</button>`
     );
   }
-  if (canDecide) {
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="exception-decide" data-decision="approved" data-exception-id="${pending.id}">Approve</button>`
-    );
-    buttons.push(
-      `<button type="button" class="btn btn-sm btn-secondary" data-action="exception-open" data-mode="send_back" data-check-id="${result.checkId}" data-exception-id="${pending.id}">Send back</button>`
-    );
-  }
-
-  const open = panel && Number(panel.checkId) === result.checkId;
-  const panelHtml = open ? exceptionPanelHtml(result, panel.mode, claim, pending) : '';
-  if (!bits.length && !buttons.length && !panelHtml) return '';
+  if (!bits.length && !buttons.length) return '';
   return `
     <div class="exception-block">
       ${bits.join('')}
       ${buttons.length ? `<div class="exception-actions">${buttons.join('')}</div>` : ''}
-      ${panelHtml}
     </div>
   `;
 }
@@ -224,7 +175,7 @@ function claimInfoDrawer(claim) {
             <div class="meta-item"><label>Garage</label><div class="value">${claim.garage}</div></div>
             <div class="meta-item"><label>Assigned to</label><div class="value">${claim.assignedName}</div></div>
             <div class="meta-item"><label>Due in</label><div class="value">${claim.dueInDays} day(s)</div></div>
-            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatScore(claim.score)} · ${tierLabel(claim.tier)}</div></div>
+            <div class="meta-item"><label>${stageDisplayName(getClaimWorkflowStage(claim))} score</label><div class="value">${formatClaimScore(claim)} · ${tierLabel(claim.tier, claim)}</div></div>
           </div>
           <h3 class="drawer-section-title">Stage scores</h3>
           <div class="stage-score-list">
@@ -233,7 +184,7 @@ function claimInfoDrawer(claim) {
                 (s) => `
               <div class="stage-score-row">
                 <span>${s.stageName}</span>
-                <strong class="claim-tier ${s.tier}">${formatScore(s.score)}</strong>
+                <strong class="claim-tier ${s.tier}">${formatStageScore(s)}</strong>
               </div>
             `
               )
@@ -251,7 +202,7 @@ export function renderClaimDetail(
   claim,
   filter,
   onFilter,
-  { drawerOpen = false, selectedStage = null, exceptionPanel = null, exceptionNotice = null } = {}
+  { drawerOpen = false, selectedStage = null, exceptionNotice = null } = {}
 ) {
   if (!claim) {
     root.innerHTML = renderShell(
@@ -303,7 +254,6 @@ export function renderClaimDetail(
     .filter(Boolean)
     .join(' · ');
 
-  const pendingExceptions = getPendingExceptions(claim);
   const hardFailNames = claim.hardFails.map((h) => `${checkCode(h.checkId)} ${h.name}`).join('; ');
 
   const checksByStage = displayStages.map((stage) => {
@@ -363,15 +313,7 @@ export function renderClaimDetail(
 
     ${
       exceptionNotice
-        ? `<div class="surveyor-banner">${esc(exceptionNotice)}</div>`
-        : ''
-    }
-    ${
-      pendingExceptions.length
-        ? `<div class="surveyor-banner">
-        <strong>Pending exceptions</strong>
-        <p>${pendingExceptions.length} use-case exception${pendingExceptions.length === 1 ? '' : 's'} waiting for Claim Head. Checks stay failed until approved.</p>
-      </div>`
+        ? `<div class="surveyor-banner"><strong>Bypass sent to core</strong><p>${esc(exceptionNotice)}</p></div>`
         : ''
     }
     ${
@@ -401,8 +343,8 @@ export function renderClaimDetail(
       <div class="hardfail-banner">
         <div class="banner-icon">${iconAlert()}</div>
         <div>
-          <strong>Critical check failed — routed to red</strong>
-          <p>${hardFailNames}. The failed critical use-case zeros this stage unless it is bypassed.</p>
+          <strong>Critical use-case failed</strong>
+          <p>${hardFailNames}. This stage is Fail and the claim cannot move to the next stage unless the check is bypassed or corrected.</p>
         </div>
       </div>
     `
@@ -410,10 +352,10 @@ export function renderClaimDetail(
     }
 
     <div class="score-panel">
-      <div class="score-circle lg ${claim.tier}">${formatScore(claim.score)}</div>
+      <div class="score-circle lg ${claim.tier}${claim.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(claim)}</div>
       <div class="score-panel-text">
-        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} score</h2>
-        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier)}${
+        <h2>${stageDisplayName(getClaimWorkflowStage(claim))} ${claim.forcedRed ? 'result' : 'score'}</h2>
+        <div class="tier-label ${claim.tier}" style="color:var(--${claim.tier === 'yellow' ? 'amber' : claim.tier})">${tierLabel(claim.tier, claim)}${
           claim.hasOverride ? ` <span class="tag override">Override</span>` : ''
         }</div>
         <p class="summary-line">${summaryLine}</p>
@@ -429,8 +371,14 @@ export function renderClaimDetail(
           const active = isSurveyor && stageTab === stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
-          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}">${formatScore(stageScore.score)}</span>` : ''}
-          ${stageScore ? `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>` : ''}
+          ${stageScore ? `<span class="score-circle xs ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>` : ''}
+          ${
+            stageScore
+              ? stageScore.criticalFailed
+                ? `<span class="doc-complete-chip">Fail</span>`
+                : `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>`
+              : ''
+          }
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
           return isSurveyor
@@ -457,6 +405,19 @@ export function renderClaimDetail(
               .map(({ stage, items }) => {
                 const stageScore = (claim.stageScores || []).find((x) => x.stageId === stage.id);
                 const docs = getStageDocCompleteness(claim, stage.id);
+                const stageHasExcluded = (claim.results || []).some(
+                  (r) => r.stage === stage.id && !r.hardFail && (r.state === 'bypassed' || r.state === 'waived')
+                );
+                const stageHasCritical = (claim.results || []).some((r) => r.stage === stage.id && r.hardFail);
+                const hints = [];
+                if (stageHasCritical) {
+                  hints.push(
+                    'Critical use-cases are pass / fail only. If they pass, remaining use-cases in this stage share 100%.'
+                  );
+                }
+                if (stageHasExcluded) {
+                  hints.push('Bypassed use-cases are excluded. Remaining weights in this stage are normalised to 100%.');
+                }
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
@@ -468,7 +429,7 @@ export function renderClaimDetail(
                   ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
                   ${
                     stageScore
-                      ? `<span class="score-circle sm ${stageScore.tier}">${formatScore(stageScore.score)}</span>`
+                      ? `<span class="score-circle sm ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>`
                       : ''
                   }
                 </div>
@@ -481,7 +442,6 @@ export function renderClaimDetail(
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
-                          const metaLabel = `${r.weight ?? 0}%`;
                           return `
                   <div class="check-row ${r.state}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
@@ -489,18 +449,19 @@ export function renderClaimDetail(
                       <div class="check-name">
                         <span class="check-code">${checkCode(r.checkId)}</span>
                         ${r.name}
-                        ${pendingExceptions.some((e) => e.checkId === r.checkId) ? `<span class="tag override">Pending</span>` : ''}
+                        ${r.hardFail ? `<span class="tag critical">Critical</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
-                      ${exceptionBlockHtml(r, session, exceptionPanel, claim)}
+                      ${exceptionBlockHtml(r, session)}
                     </div>
-                    <div class="check-weight">${metaLabel}</div>
+                    <div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>
                   </div>
                 `;
                         })
                         .join('')
                 }
               </div>
+              ${hints.map((h) => `<p class="stage-norm-hint">${h}</p>`).join('')}
               ${documentChecklistHtml(claim, stage.id, {
                 readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
               })}
@@ -538,7 +499,6 @@ export function renderClaimDetail(
     onFilter(nextFilter, {
       drawerOpen,
       selectedStage: stageTab,
-      exceptionPanel,
       exceptionNotice: null,
       ...extra,
     });
@@ -565,64 +525,11 @@ export function renderClaimDetail(
     const result = submitSurveyorAssessment(claim.id);
     persist(filter, { surveyorMessage: result.message });
   });
-  root.querySelectorAll('[data-action="exception-open"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      persist(filter, {
-        exceptionPanel: { checkId: Number(btn.dataset.checkId), mode: btn.dataset.mode },
-        exceptionNotice: null,
-      });
-    });
-  });
-  root.querySelectorAll('[data-action="exception-cancel"]').forEach((btn) => {
-    btn.addEventListener('click', () => persist(filter, { exceptionPanel: null }));
-  });
-  root.querySelectorAll('[data-action="exception-decide"]').forEach((btn) => {
+  root.querySelectorAll('[data-action="request-bypass"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const result = decideCheckException(
-        claim.id,
-        btn.dataset.exceptionId,
-        btn.dataset.decision,
-        '',
-        session
-      );
+      const result = requestCoreBypass(claim.id, Number(btn.dataset.checkId), session);
       persist(filter, {
-        exceptionPanel: null,
-        exceptionNotice: result.ok ? null : result.message,
-      });
-    });
-  });
-  root.querySelectorAll('[data-exception-form]').forEach((form) => {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const mode = form.dataset.mode;
-      const comment = form.querySelector('[name="comment"]')?.value || '';
-      if (mode === 'send_back') {
-        const result = decideCheckException(claim.id, form.dataset.exceptionId, 'sent_back', comment, session);
-        persist(filter, {
-          exceptionPanel: null,
-          exceptionNotice: result.ok ? null : result.message,
-        });
-        return;
-      }
-      const proposedFields = {};
-      form.querySelectorAll('[data-field]').forEach((input) => {
-        proposedFields[input.dataset.field] = input.value;
-      });
-      const result = proposeCheckException(
-        claim.id,
-        {
-          checkId: Number(form.dataset.checkId),
-          type: mode,
-          comment,
-          proposedFields,
-          hardFail: form.dataset.hardFail === '1',
-        },
-        session
-      );
-      persist(filter, {
-        exceptionPanel: result.ok ? null : exceptionPanel,
-        exceptionNotice: result.ok ? null : result.message,
+        exceptionNotice: result.message,
       });
     });
   });

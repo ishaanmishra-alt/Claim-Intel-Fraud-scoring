@@ -785,6 +785,19 @@ a {
   border-width: 3px;
 }
 
+.score-circle.is-fail-text {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+}
+
+.score-circle.sm.is-fail-text {
+  font-size: 0.55rem;
+}
+
+.score-circle.lg.is-fail-text {
+  font-size: 1.05rem;
+}
+
 .score-circle.red {
   color: var(--red);
   background: var(--red-bg);
@@ -1112,6 +1125,22 @@ a {
   font-family: var(--mono);
   white-space: nowrap;
   padding-top: 2px;
+  text-align: right;
+}
+
+.check-weight-was,
+.check-weight-excluded,
+.check-weight-gate {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.stage-norm-hint {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 /* ---------- Dashboard ---------- */
@@ -1900,6 +1929,10 @@ a {
   height: 34px;
   font-size: 0.55rem;
   border-width: 2px;
+}
+
+.score-circle.xs.is-fail-text {
+  font-size: 0.48rem;
 }
 
 .stage-chips {

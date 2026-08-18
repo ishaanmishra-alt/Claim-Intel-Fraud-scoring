@@ -184,6 +184,7 @@ export function flattenClaimLedger(claims) {
         fnolNumber: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
         policyNumber: claim.policyNumber || '—',
         score: claim.score,
+        forcedRed: !!claim.forcedRed,
         workflowStage: getClaimWorkflowStage(claim),
         workflowStageName: WORKFLOW_STAGES.find((s) => s.id === getClaimWorkflowStage(claim))?.name || getClaimWorkflowStage(claim),
         ledgerType: ledgerChangeType(entry),

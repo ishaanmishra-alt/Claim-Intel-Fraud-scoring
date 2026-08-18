@@ -6,10 +6,9 @@ import {
   stageDisplayName,
   canViewClaimAudit,
   getClaimAuditLog,
-  getPendingExceptions,
   formatClaimRef,
 } from '../data.js';
-import { formatClaimAmount, formatDate, formatScore, tierLabel } from '../scoring.js';
+import { formatClaimAmount, formatDate, formatClaimScore, tierLabel } from '../scoring.js';
 
 function esc(value) {
   return String(value ?? '')
@@ -177,17 +176,17 @@ export function renderQueue(root, session, claims, state, onChange) {
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
                 const row = `
-              <div class="score-circle sm ${c.tier}">${formatScore(c.score)}</div>
+              <div class="score-circle sm ${c.tier}${c.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(c)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
-                  ${getPendingExceptions(c).length ? `<span class="tag override">Pending exceptions</span>` : ''}
+                  ${(c.bypassedCheckIds || []).length ? `<span class="tag override">Bypassed</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
               <div class="claim-amount">${formatClaimAmount(c)}</div>
-              <div class="claim-tier ${c.tier}">${tierLabel(c.tier)}</div>
+              <div class="claim-tier ${c.tier}">${tierLabel(c.tier, c)}</div>
               <div class="claim-stage-cell">${stageDisplayName(workflow)}</div>
               <div class="due-badge ${dueClass}">${dueText}</div>
             `;

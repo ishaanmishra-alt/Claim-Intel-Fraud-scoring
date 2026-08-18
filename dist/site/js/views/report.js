@@ -7,7 +7,7 @@ import {
   getPendingExceptions,
   formatClaimRef,
 } from '../data.js';
-import { formatAED, formatClaimAmount, formatDate, formatScore, tierLabel, canAccess, useCaseFailStats } from '../scoring.js';
+import { formatAED, formatClaimAmount, formatDate, formatClaimScore, tierLabel, canAccess, useCaseFailStats } from '../scoring.js';
 import {
   PERIOD_PRESETS,
   CLAIM_TYPE_OPTIONS,
@@ -398,8 +398,8 @@ export function renderReport(root, session, claims, state, onChange) {
                 <td>${esc(c.branch)}</td>
                 <td>${esc(claimTypeLabel(c.claimType))}</td>
                 <td>${formatClaimAmount(c)}</td>
-                <td class="mono">${formatScore(c.score)}</td>
-                <td class="claim-tier ${c.tier}">${tierLabel(c.tier)}</td>
+                <td class="mono">${formatClaimScore(c)}</td>
+                <td class="claim-tier ${c.tier}">${tierLabel(c.tier, c)}</td>
                 <td class="muted">${esc(sampleNote(c))}</td>
               </tr>`
               )
@@ -507,7 +507,7 @@ export function renderReport(root, session, claims, state, onChange) {
                 <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
                 <td class="mono">${esc(r.fnolNumber)}</td>
                 <td class="mono">${esc(r.policyNumber)}</td>
-                <td class="mono">${formatScore(r.score)}</td>
+                <td class="mono">${formatClaimScore(r)}</td>
                 <td>${esc(r.workflowStageName)}</td>
                 <td>${esc(r.user)}</td>
                 <td>${esc(r.userAction)}</td>
@@ -593,7 +593,7 @@ export function renderReport(root, session, claims, state, onChange) {
       ...sample.rows.map((c) => [
         'Exception sample',
         formatClaimRef(c),
-        `${formatScore(c.score)} · ${tierLabel(c.tier)} · ${formatClaimAmount(c)}`,
+        `${formatClaimScore(c)} · ${tierLabel(c.tier, c)} · ${formatClaimAmount(c)}`,
       ]),
     ];
     downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
@@ -624,7 +624,7 @@ export function renderReport(root, session, claims, state, onChange) {
         r.claimId,
         r.fnolNumber,
         r.policyNumber,
-        formatScore(r.score),
+        formatClaimScore(r),
         r.workflowStageName,
         r.user,
         r.userAction,

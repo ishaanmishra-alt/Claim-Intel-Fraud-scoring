@@ -42,17 +42,18 @@ export const CHECK_CATEGORIES = {
 
 /**
  * 20 use-cases grouped by claim stage.
- * Weights sum to 100% within each stage. Critical checks also carry weight;
- * a failed critical zeros that stage, a passed critical scores normally.
+ * Critical checks are pass/fail gates with no weightage.
+ * Remaining (non-critical) weights sum to 100% within each stage.
+ * A failed critical fails the stage and the claim does not move on.
  * riskCategory: Critical / High / Low (config table).
  */
 export const CHECK_DEFINITIONS = [
-  // FNOL — 15+15+20+15+35 = 100 (use-case #20 is catalog-only)
-  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 20 },
-  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 15 },
-  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 35 },
+  // FNOL — criticals are gates; remaining #08 = 100 (use-case #20 is catalog-only)
+  { id: 1, code: '01', name: 'Plate number: policy vs claim', description: 'Verifies the vehicle plate on the claim matches the plate on the active policy.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 2, code: '02', name: 'VIN / chassis number: policy vs claim', description: 'Compares VIN/chassis between policy and claim records for identity mismatch.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 3, code: '03', name: 'Policy active on date of loss', description: 'Confirms the policy was in force on the reported date of loss.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 4, code: '04', name: 'Claimant is the policyholder (or endorsed driver)', description: 'Checks the claimant/driver is the policyholder or an endorsed driver.', category: 'identity', stage: 'fnol', hardFail: true, riskCategory: 'critical', weight: 0 },
+  { id: 8, code: '08', name: 'Delay between date of loss and reporting is normal', description: 'Flags unusually long gaps between loss date and FNOL reporting.', category: 'timing', stage: 'fnol', hardFail: false, riskCategory: 'high', weight: 100 },
   { id: 20, code: '20', name: 'Location of loss consistent with registered/usual area', description: 'Assesses whether loss location aligns with the vehicle’s usual operating area.', category: 'behavioural', stage: 'fnol', hardFail: false, riskCategory: 'low', weight: 45 },
 
   // Registration — 25+30+20+25 = 100 (#16 is catalog-only)
@@ -60,7 +61,7 @@ export const CHECK_DEFINITIONS = [
   { id: 6, code: '06', name: 'Loss occurred after a minimum cover period', description: 'Detects losses occurring too soon after policy inception.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 7, code: '07', name: 'Loss not immediately before policy expiry', description: 'Flags losses clustered just before policy expiry/renewal.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 9, code: '09', name: 'Loss date is not on a recently-added endorsement', description: 'Checks if loss coincides with a newly added cover endorsement.', category: 'timing', stage: 'intimation', hardFail: false, riskCategory: 'high', weight: 25 },
-  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 15 },
+  { id: 16, code: '16', name: 'No duplicate claim for the same incident/date', description: 'Detects duplicate claims for the same incident or loss date.', category: 'financial', stage: 'intimation', hardFail: true, riskCategory: 'critical', weight: 0 },
 
   // Assessment — soft: 25+30+25+20 = 100
   { id: 10, code: '10', name: 'Garage is network / auto-assigned', description: 'Prefers network or auto-assigned garages over self-selected workshops.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -69,7 +70,7 @@ export const CHECK_DEFINITIONS = [
   { id: 13, code: '13', name: 'Parts claimed consistent with reported damage', description: 'Validates that claimed parts align with reported damage evidence.', category: 'garage', stage: 'assessment', hardFail: false, riskCategory: 'low', weight: 20 },
 
   // Settlement — soft: 30+20+25+25 = 100
-  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 20 },
+  { id: 14, code: '14', name: 'Claim amount within sum-insured / IDV limit', description: 'Ensures claim amount does not exceed sum insured / IDV.', category: 'financial', stage: 'settlement', hardFail: true, riskCategory: 'critical', weight: 0 },
   { id: 15, code: '15', name: 'Claim amount vs claimant\'s historical average', description: 'Compares claim amount to the claimant’s historical average claim size.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 30 },
   { id: 17, code: '17', name: 'Salvage / total-loss value consistent with claim', description: 'Checks salvage or total-loss values for consistency with the claim.', category: 'financial', stage: 'settlement', hardFail: false, riskCategory: 'low', weight: 20 },
   { id: 18, code: '18', name: 'Claim frequency in last 12 months within normal range', description: 'Reviews claim frequency for the claimant/vehicle over 12 months.', category: 'behavioural', stage: 'settlement', hardFail: false, riskCategory: 'high', weight: 25 },
@@ -212,6 +213,10 @@ export const USE_CASE_LIBRARY = [
   ...OPTIONAL_USE_CASES.map((d) => ({ ...d, tenantEnabled: false })),
 ];
 
+export function isCriticalUseCase(u) {
+  return !!(u && (u.hardFail || u.riskCategory === 'critical'));
+}
+
 export function isTenantEnabledUseCase(def) {
   return def?.tenantEnabled === true;
 }
@@ -223,6 +228,7 @@ export function enabledSeedDefinitions() {
 
 export const DEFAULT_WEIGHTS = Object.fromEntries(
   enabledSeedDefinitions().map((c) => {
+    if (isCriticalUseCase(c)) return [c.id, 0];
     let weight = c.weight ?? 0;
     if (c.id === 10) weight = 100;
     return [c.id, weight];
@@ -608,7 +614,7 @@ export function hasStageDocsComplete(claim, stageId) {
 }
 
 export function hasPassedPriorStages(claim, stageIds) {
-  return stageIds.every((id) => hasStageDocsComplete(claim, id));
+  return stageIds.every((id) => hasStageDocsComplete(claim, id) && !stageHasCriticalFail(claim, id));
 }
 
 /** Claims that cleared FNOL + Registration and are waiting on assessment submit. */
@@ -616,11 +622,18 @@ export function isReadyForSurveyor(claim) {
   return hasPassedPriorStages(claim, ['fnol', 'intimation']) && !claim.surveyorSubmitted;
 }
 
-/** Current workflow stage for queue column / filters. */
-export function getClaimWorkflowStage(claim) {
-  if (!hasStageDocsComplete(claim, 'fnol')) return 'fnol';
-  if (!hasStageDocsComplete(claim, 'intimation')) return 'intimation';
-  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment')) return 'assessment';
+export function stageHasCriticalFail(claim, stageId, stageScores = claim?.stageScores) {
+  return (stageScores || []).some((s) => s.stageId === stageId && s.criticalFailed);
+}
+
+/** Current workflow stage for queue column / filters. A critical fail holds the claim on that stage. */
+export function getClaimWorkflowStage(claim, stageScores) {
+  const scores = stageScores || claim?.stageScores;
+  if (!hasStageDocsComplete(claim, 'fnol') || stageHasCriticalFail(claim, 'fnol', scores)) return 'fnol';
+  if (!hasStageDocsComplete(claim, 'intimation') || stageHasCriticalFail(claim, 'intimation', scores)) return 'intimation';
+  if (!claim.surveyorSubmitted || !hasStageDocsComplete(claim, 'assessment') || stageHasCriticalFail(claim, 'assessment', scores)) {
+    return 'assessment';
+  }
   return 'settlement';
 }
 
@@ -1824,6 +1837,7 @@ function hydrateClaimRuntime() {
     claim.waivedCheckIds = slice.waivedCheckIds || [];
     claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
+    if (settleCoreBypasses(claim)) persistClaimRuntime(claim);
   });
 }
 
@@ -1846,6 +1860,93 @@ function actorSnapshot(actor) {
     userId: actor?.userId || actor?.id || '',
     name: actor?.name || 'Demo user',
     role: actor?.role || '',
+  };
+}
+
+function settleCoreBypasses(claim) {
+  let changed = false;
+  (claim.exceptions || []).forEach((ex) => {
+    if (ex.type === 'bypass' && ex.status === 'pending') {
+      ex.status = 'approved';
+      ex.decidedBy = { userId: 'core', name: 'Core system', role: 'core' };
+      ex.decidedAt = ex.decidedAt || '2026-08-14';
+      ex.decisionComment = ex.decisionComment || 'Approved in the core system.';
+      changed = true;
+    }
+  });
+  const ids = new Set(claim.bypassedCheckIds || []);
+  (claim.exceptions || []).forEach((ex) => {
+    if (ex.type === 'bypass' && ex.status === 'approved' && !ids.has(ex.checkId)) {
+      ids.add(ex.checkId);
+      changed = true;
+    }
+  });
+  claim.bypassedCheckIds = [...ids];
+  return changed;
+}
+
+/**
+ * Claim User Bypass sends a notification to the core system (out of scope).
+ * This prototype applies the approved bypass immediately so scoring can be demoed:
+ * the use-case drops out and remaining stage weights are normalised to 100%.
+ */
+export function requestCoreBypass(claimId, checkId, actor) {
+  const claim = RAW_CLAIMS.find((c) => c.id === claimId);
+  if (!claim) return { ok: false, message: 'Claim not found.' };
+  const id = Number(checkId);
+  if ((claim.bypassedCheckIds || []).includes(id)) {
+    return { ok: false, message: 'This use-case is already bypassed.' };
+  }
+
+  const stamp = nextAuditStamp();
+  const exception = {
+    id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
+    checkId: id,
+    type: 'bypass',
+    status: 'approved',
+    comment: 'Bypass notification sent to the core system.',
+    proposedFields: {},
+    previousFields: {},
+    hardFail: false,
+    disposition: null,
+    requestedBy: actorSnapshot(actor),
+    requestedAt: stamp.date,
+    decidedBy: { userId: 'core', name: 'Core system', role: 'core' },
+    decidedAt: stamp.date,
+    decisionComment: 'Approved in the core system.',
+  };
+  claim.exceptions = claim.exceptions || [];
+  claim.exceptions.push(exception);
+  const ids = new Set(claim.bypassedCheckIds || []);
+  ids.add(id);
+  claim.bypassedCheckIds = [...ids];
+  persistClaimRuntime(claim);
+
+  appendClaimAudit(claimId, {
+    user: actor?.name || 'Demo user',
+    action: 'Bypass requested',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(id),
+    oldValue: 'Fail',
+    newValue: 'Notification sent to core',
+    comments: 'Core system notified. Approval is outside this prototype.',
+  });
+  appendClaimAudit(claimId, {
+    user: 'Core system',
+    action: 'Bypass approved',
+    changeType: 'Exception',
+    entity: 'Use-case',
+    field: checkCode(id),
+    oldValue: 'Fail',
+    newValue: 'Bypassed',
+    comments: 'Use-case excluded from the stage. Remaining weights normalised to 100%.',
+  });
+  persistClaimRuntime(claim);
+  return {
+    ok: true,
+    message:
+      'A bypass notification was sent to the core system. This prototype shows the claim after core approval — that use-case is out of the stage score, and remaining weights in the stage are normalised to 100%.',
   };
 }
 

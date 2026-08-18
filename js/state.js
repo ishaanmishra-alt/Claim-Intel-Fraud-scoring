@@ -5,11 +5,12 @@ import {
   DEFAULT_STAGE_PASS,
   DEFAULT_STAGE_MIX,
   checkCode,
+  isCriticalUseCase,
 } from './data.js';
 
 const SESSION_KEY = 'claim-intel-session';
 const WEIGHTS_KEY = 'claim-intel-weights-v4';
-const CONFIG_KEY = 'claim-intel-config-v5';
+const CONFIG_KEY = 'claim-intel-config-v6';
 
 /** Prototype "today" for version dating */
 export const CONFIG_TODAY = '2026-08-12';
@@ -61,16 +62,17 @@ function cloneMix(mix) {
 
 export function defaultUseCasesFromDefinitions() {
   return enabledSeedDefinitions().map((d) => {
-    let weight = d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
-    if (d.id === 10) weight = 100;
+    const critical = isCriticalUseCase(d);
+    let weight = critical ? 0 : d.weight ?? DEFAULT_WEIGHTS[d.id] ?? 0;
+    if (!critical && d.id === 10) weight = 100;
     return {
       id: d.id,
       code: checkCode(d.id),
       name: d.name,
       description: d.description,
       stage: d.stage,
-      riskCategory: d.riskCategory || (d.hardFail ? 'critical' : 'high'),
-      hardFail: !!d.hardFail,
+      riskCategory: critical ? 'critical' : d.riskCategory || 'high',
+      hardFail: critical,
       weight,
     };
   });
