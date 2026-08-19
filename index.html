@@ -903,6 +903,74 @@ a {
   min-width: 0;
 }
 
+.version-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.version-claim-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.version-claim-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 12px 14px;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.version-claim-id a {
+  font-weight: 700;
+  color: var(--navy-deep);
+  font-size: 0.92rem;
+}
+
+.version-claim-id .claim-name {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.version-claim-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: baseline;
+}
+
+.version-claim-meta span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+
+.version-claim-meta label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-claim-table {
+  margin: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.version-claim-table th:last-child,
+.version-claim-table td:last-child {
+  white-space: normal;
+}
+
 .claim-audit-empty {
   padding: 16px;
   color: var(--text-muted);
@@ -8884,21 +8952,24 @@ function sampleCaption(state, shown, total) {
   return `${shown} of ${total} high-risk claims in this slice · sorted by value`;
 }
 
-function groupLedgerByDay(rows) {
-  const groups = [];
-  const byDay = new Map();
-  rows.forEach((row) => {
-    if (!byDay.has(row.date)) {
-      byDay.set(row.date, []);
-      groups.push(row.date);
-    }
-    byDay.get(row.date).push(row);
-  });
-  return groups.map((date) => ({ date, rows: byDay.get(date) }));
+function versionChangeSummary(version) {
+  return version?.summary || version?.comments || version?.action || '—';
 }
 
-function ledgerUsers(rows) {
-  return [...new Set(rows.map((r) => r.user).filter(Boolean))].sort();
+function claimVersionGroups(claims) {
+  return [...claims]
+    .map((claim) => {
+      const versions = getClaimVersions(claim);
+      const latest = versions[versions.length - 1] || null;
+      return { claim, versions, latest };
+    })
+    .filter((g) => g.versions.length)
+    .sort((a, b) => {
+      const key = (g) => `${g.latest?.date || ''}T${g.latest?.time || '00:00'}`;
+      const byWhen = key(b).localeCompare(key(a));
+      if (byWhen) return byWhen;
+      return String(a.claim.id).localeCompare(String(b.claim.id));
+    });
 }
 
 function renderReport(root, session, claims, state, onChange) {
@@ -8956,32 +9027,8 @@ function renderReport(root, session, claims, state, onChange) {
   const ranked = failStats.filter((s) => s.fail > 0).slice(0, 15);
 
   const sample = exceptionSample(universe, state);
-
-  const reportRange = range;
-  const txRange =
-    state.txPeriod === 'custom' && state.txFrom && state.txTo
-      ? resolvePeriodRange('custom', { from: state.txFrom, to: state.txTo })
-      : state.txPeriod === 'yesterday' || state.txPeriod === '7'
-        ? resolvePeriodRange(state.txPeriod)
-        : reportRange;
-  const txGate = ledgerRangeState(txRange);
-  const allLedger = flattenClaimLedger(claims);
-  const ledgerInRange = txGate.ok ? filterLedgerRows(allLedger, { range: txRange }) : [];
-  const ledgerFiltered = txGate.ok
-    ? filterLedgerRows(allLedger, {
-        range: txRange,
-        changeType: state.txChangeType,
-        user: state.txUser,
-      })
-    : [];
-  const capped = capLedgerRows(ledgerFiltered);
-  const typeCounts = {};
-  LEDGER_CHANGE_TYPES.forEach((t) => {
-    typeCounts[t] = ledgerInRange.filter((r) => r.ledgerType === t).length;
-  });
-  const distinctClaims = new Set(ledgerFiltered.map((r) => r.claimId)).size;
-  const dayGroups = groupLedgerByDay(capped.shown);
-  const userOptions = ledgerUsers(ledgerInRange);
+  const versionGroups = claimVersionGroups(universe);
+  const versionCount = versionGroups.reduce((n, g) => n + g.versions.length, 0);
 
   const scope = describeClaimScope(universe, barFilters, { includeValue: true });
 
@@ -9219,96 +9266,60 @@ function renderReport(root, session, claims, state, onChange) {
     <div class="panel">
       <div class="panel-header">
         <h2>Claim versions</h2>
-        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export versions</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${versionGroups.length ? '' : 'disabled'}>Export versions</button>
       </div>
-      <p class="page-subtitle" style="margin:0 0 12px">Claim version history · click a version for details</p>
-      <div class="filters-bar">
-        <div class="filter-group">
-          <label for="tx-period">Ledger dates</label>
-          <select id="tx-period">
-            <option value="inherit" ${state.txPeriod === 'inherit' ? 'selected' : ''}>Match report (${esc(formatRangeLabel(reportRange))})</option>
-            <option value="yesterday" ${state.txPeriod === 'yesterday' ? 'selected' : ''}>Yesterday</option>
-            <option value="7" ${state.txPeriod === '7' ? 'selected' : ''}>Last 7 days</option>
-            <option value="custom" ${state.txPeriod === 'custom' ? 'selected' : ''}>Custom</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="tx-from">Start date</label>
-          <input id="tx-from" type="date" value="${esc(txRange.from)}" />
-        </div>
-        <div class="filter-group">
-          <label for="tx-to">End date</label>
-          <input id="tx-to" type="date" value="${esc(txRange.to)}" />
-        </div>
-        ${
-          txGate.ok
-            ? `
-        <div class="filter-group">
-          <label for="tx-type">Change type</label>
-          <select id="tx-type">
-            <option value="all" ${state.txChangeType === 'all' ? 'selected' : ''}>All types</option>
-            ${LEDGER_CHANGE_TYPES.map(
-              (t) => `<option value="${t}" ${state.txChangeType === t ? 'selected' : ''}>${t}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="tx-user">User</label>
-          <select id="tx-user">
-            <option value="all" ${state.txUser === 'all' ? 'selected' : ''}>All users</option>
-            ${userOptions
-              .map((u) => `<option value="${esc(u)}" ${state.txUser === u ? 'selected' : ''}>${esc(u)}</option>`)
-              .join('')}
-          </select>
-        </div>`
-            : ''
-        }
-      </div>
+      <p class="page-subtitle" style="margin:0 0 8px">Each claim in this snapshot has its own version history. Click a version for who changed what and use-case scores.</p>
+      <p class="scope-line">${versionGroups.length} claim${versionGroups.length === 1 ? '' : 's'} · ${versionCount} version${versionCount === 1 ? '' : 's'} · sorted by last change</p>
       ${
-        !txGate.ok
-          ? `<div class="empty-state">${
-              txGate.reason === 'too-wide'
-                ? 'Narrow the dates. Versions can show at most 31 days.'
-                : 'Set a date range to load claim versions.'
-            }</div>`
-          : `
-      <p class="scope-line">${ledgerFiltered.length} versions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
-      ${
-        capped.shown.length
-          ? `<p class="scope-line">${capped.shown.length} of ${capped.total} versions in this range.</p>`
-          : ''
-      }
-      ${
-        capped.shown.length === 0
-          ? `<div class="chart-empty">No claim versions in this range.</div>`
-          : `<div class="sample-table-wrap">
-        <table class="sample-table ledger-table version-table">
-          <thead>
-            <tr>
-              <th>Version</th>
-              <th>FNOL no.</th>
-              <th>Registration no.</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${capped.shown
-              .map(
-                (r) => `
-              <tr>
-                <td class="mono">
-                  <button type="button" class="version-link" data-open-version="${esc(r.claimId)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
-                </td>
-                <td class="mono">${esc(r.fnolNumber)}</td>
-                <td class="mono">${esc(r.registrationNo || r.claimId)}</td>
-                <td>${esc(formatDate(r.date))}</td>
-              </tr>`
-              )
-              .join('')}
-          </tbody>
-        </table>
+        empty || versionGroups.length === 0
+          ? `<div class="chart-empty">No claims in this snapshot.</div>`
+          : `<div class="version-groups">
+        ${versionGroups
+          .map(({ claim, versions, latest }) => {
+            const stage = stageDisplayName(getClaimWorkflowStage(claim));
+            return `
+          <article class="version-claim-group">
+            <div class="version-claim-head">
+              <div class="version-claim-id">
+                <a href="#/claim/${claim.id}">${formatClaimRef(claim)}</a>
+                <div class="claim-name">${esc(claim.claimant)}</div>
+              </div>
+              <div class="version-claim-meta">
+                <span><label>Stage</label>${esc(stage)}</span>
+                <span><label>Score</label><span class="mono">${formatClaimScore(claim)}</span></span>
+                <span><label>Last change</label>${esc(latest ? formatDate(latest.date) : '—')}</span>
+                <span><label>Last changed by</label>${esc(latest?.user || '—')}</span>
+              </div>
+            </div>
+            <table class="sample-table version-claim-table">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Date</th>
+                  <th>Changed by</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${versions
+                  .map(
+                    (r) => `
+                  <tr>
+                    <td class="mono">
+                      <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+                    </td>
+                    <td>${esc(formatDate(r.date))}</td>
+                    <td>${esc(r.user)}</td>
+                    <td>${esc(versionChangeSummary(r))}</td>
+                  </tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </article>`;
+          })
+          .join('')}
       </div>`
-      }`
       }
     </div>
     ${renderOpenVersionPopup(claims, state.versionKey)}
@@ -9347,23 +9358,6 @@ function renderReport(root, session, claims, state, onChange) {
   root.querySelector('[data-sample-pending]')?.addEventListener('click', () => {
     patch({ samplePendingOnly: !state.samplePendingOnly });
   });
-  root.querySelector('#tx-period')?.addEventListener('change', (e) => {
-    const txPeriod = e.target.value;
-    if (txPeriod === 'inherit') {
-      patch({ txPeriod, txFrom: range.from, txTo: range.to });
-      return;
-    }
-    const next = resolvePeriodRange(txPeriod, { from: state.txFrom, to: state.txTo });
-    patch({ txPeriod, txFrom: next.from, txTo: next.to });
-  });
-  root.querySelector('#tx-from')?.addEventListener('change', (e) =>
-    patch({ txFrom: e.target.value, txPeriod: 'custom' })
-  );
-  root.querySelector('#tx-to')?.addEventListener('change', (e) =>
-    patch({ txTo: e.target.value, txPeriod: 'custom' })
-  );
-  root.querySelector('#tx-type')?.addEventListener('change', (e) => patch({ txChangeType: e.target.value }));
-  root.querySelector('#tx-user')?.addEventListener('change', (e) => patch({ txUser: e.target.value }));
   bindVersionPopup(root, claims, patch, 'versionKey');
 
   root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
@@ -9388,17 +9382,34 @@ function renderReport(root, session, claims, state, onChange) {
   });
 
   root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
-    const header = ['Version', 'FNOL no.', 'Registration no.', 'Date'];
+    const header = [
+      'Registration no.',
+      'FNOL no.',
+      'Claimant',
+      'Stage',
+      'Score',
+      'Version',
+      'Date',
+      'Changed by',
+      'Change',
+    ];
     const rows = [
       header,
-      ...ledgerFiltered.map((r) => [
-        r.version,
-        r.fnolNumber,
-        r.registrationNo || r.claimId,
-        formatDate(r.date),
-      ]),
+      ...versionGroups.flatMap(({ claim, versions }) =>
+        versions.map((r) => [
+          claim.id,
+          claim.fnolNumber || '',
+          claim.claimant,
+          stageDisplayName(getClaimWorkflowStage(claim)),
+          formatClaimScore(claim),
+          r.version,
+          formatDate(r.date),
+          r.user,
+          versionChangeSummary(r),
+        ])
+      ),
     ];
-    downloadCsv(`claim-intel-versions-${txRange.from}-to-${txRange.to}.csv`, rows);
+    downloadCsv(`claim-intel-versions-${range.from}-to-${range.to}.csv`, rows);
   });
 }
 
