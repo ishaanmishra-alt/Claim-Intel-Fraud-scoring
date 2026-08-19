@@ -706,11 +706,14 @@ a {
 .claim-audit-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.75rem;
-  min-width: 980px;
+  font-size: 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.claim-audit-table.version-table {
+  min-width: 0;
 }
 
 .claim-audit-table th,
@@ -752,6 +755,140 @@ a {
   background: var(--green-bg);
   color: var(--green);
   font-weight: 600;
+}
+
+.audit-status.is-fail {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.audit-status.is-bypassed,
+.audit-status.is-waived {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.version-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.version-link:hover {
+  color: var(--navy-deep);
+}
+
+.modal-card-version {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px 22px 24px;
+}
+
+.version-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.version-modal-kicker {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-modal-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.version-modal-section {
+  margin-top: 16px;
+}
+
+.version-modal-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-modal-copy {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.version-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .version-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.version-detail-grid dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-detail-grid dd {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+}
+
+.version-change-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.version-change-table th,
+.version-change-table td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.version-change-table th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-uc-scroll {
+  overflow-x: auto;
+}
+
+.ledger-table.version-table {
+  min-width: 0;
 }
 
 .claim-audit-empty {

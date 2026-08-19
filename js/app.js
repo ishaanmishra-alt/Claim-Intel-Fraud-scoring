@@ -10,7 +10,7 @@ import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
-let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null };
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null, versionKey: null };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume', claimType: string }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share', claimType: 'all' };
@@ -34,6 +34,7 @@ let reportState = {
   txTo: '2026-08-11',
   txChangeType: 'all',
   txUser: 'all',
+  versionKey: null,
 };
 
 let claimFilter = 'all';

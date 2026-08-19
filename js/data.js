@@ -1321,26 +1321,84 @@ function nextAuditStamp() {
   return { date: '2026-08-14', time: `${pad2(16 + Math.floor(mins / 60))}:${pad2(mins % 60)}` };
 }
 
-function versionedAudit(entries) {
-  return entries.map((row, i) => ({
-    version: `v${i + 1}`,
-    status: row.status || 'Completed',
+export const MAX_CLAIM_VERSIONS = 6;
+const STAGE_FLOW = ['fnol', 'intimation', 'assessment', 'settlement'];
+
+export function formatUseCaseCode(id) {
+  return `UC${Number(id)}`;
+}
+
+export function formatClaimVersionLabel(index) {
+  return `V${Number(index)}`;
+}
+
+function sortVersionsChronological(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const byWhen = `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`);
+    if (byWhen) return byWhen;
+    return String(a.version || '').localeCompare(String(b.version || ''));
+  });
+}
+
+function decorateVersion(row, claim, index) {
+  return {
+    status: 'Completed',
     comments: row.comments || '',
     oldValue: row.oldValue ?? '—',
     newValue: row.newValue ?? '—',
     entity: row.entity || 'Claim',
+    field: row.field || '—',
+    action: row.action || 'Updated',
+    changeType: row.changeType || 'Update',
+    user: row.user || 'Claim Intel',
+    summary: row.summary || row.comments || row.action || 'Updated',
+    changes:
+      row.changes && row.changes.length
+        ? row.changes
+        : [
+            {
+              field: row.field || row.action || 'Change',
+              oldValue: row.oldValue ?? '—',
+              newValue: row.newValue ?? '—',
+            },
+          ],
     ...row,
-    version: `v${i + 1}`,
-  }));
+    version: formatClaimVersionLabel(index),
+    fnolNumber: row.fnolNumber || claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+    registrationNo: row.registrationNo || claim.id,
+    stage: row.stage || 'fnol',
+  };
 }
 
-function buildSeedAudit(claim) {
+function capClaimVersions(rows, claim) {
+  const sorted = sortVersionsChronological(rows);
+  const kept =
+    sorted.length <= MAX_CLAIM_VERSIONS ? sorted : [sorted[0], ...sorted.slice(-(MAX_CLAIM_VERSIONS - 1))];
+  return kept.map((row, i) => decorateVersion(row, claim, i));
+}
+
+function docChange(row) {
+  const statusLabel =
+    row.displayStatus === 'waived'
+      ? 'Waived'
+      : row.displayStatus === 'already_on_file'
+        ? 'Already on file'
+        : row.rec.filename || 'Uploaded';
+  return {
+    field: row.def.name,
+    oldValue: 'Missing',
+    newValue: statusLabel,
+  };
+}
+
+function buildSeedVersions(claim) {
   const filed = claim.filedAt;
   const handler = claim.assignedName || 'Fatima Al-Najjar';
   const salt = claim.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
   const hour = 8 + (salt % 3);
-  const rows = [];
   const stage = getClaimWorkflowStage(claim);
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
+  const rows = [];
 
   rows.push({
     date: filed,
@@ -1352,7 +1410,13 @@ function buildSeedAudit(claim) {
     field: 'Claim number',
     oldValue: '—',
     newValue: claim.id,
+    stage: 'fnol',
+    summary: `FNOL ingested for ${claim.claimant}.`,
     comments: `FNOL ingested for ${claim.claimant}.`,
+    changes: [
+      { field: 'Claim number', oldValue: '—', newValue: claim.id },
+      { field: 'FNOL number', oldValue: '—', newValue: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-') },
+    ],
   });
 
   rows.push({
@@ -1365,7 +1429,10 @@ function buildSeedAudit(claim) {
     field: 'Assigned to',
     oldValue: 'Unassigned',
     newValue: handler,
+    stage: 'fnol',
+    summary: `Routed to ${handler}.`,
     comments: 'Routed to claims handler.',
+    changes: [{ field: 'Assigned to', oldValue: 'Unassigned', newValue: handler }],
   });
 
   rows.push({
@@ -1378,49 +1445,46 @@ function buildSeedAudit(claim) {
     field: 'Claim amount',
     oldValue: '—',
     newValue: formatAuditAmount(claim.amount),
+    stage: 'fnol',
+    summary: `Reserve captured from FNOL (${formatAuditAmount(claim.amount)}).`,
     comments: 'Reserve captured from FNOL.',
+    changes: [{ field: 'Claim amount', oldValue: '—', newValue: formatAuditAmount(claim.amount) }],
   });
 
-  rows.push({
-    date: filed,
-    time: `${pad2(hour)}:24`,
-    user: handler,
-    action: 'Updated',
-    changeType: 'Status',
-    entity: 'Stage',
-    field: 'Claim stage',
-    oldValue: '—',
-    newValue: 'FNOL',
-    comments: 'Claim opened at FNOL.',
-  });
-
-  const docs = getStageDocumentRows(claim, 'fnol')
-    .concat(getStageDocumentRows(claim, 'intimation'))
-    .concat(getStageDocumentRows(claim, 'assessment'))
-    .concat(getStageDocumentRows(claim, 'settlement'))
-    .filter((row) => row.displayStatus !== 'missing');
-
-  docs.forEach((row, i) => {
-    const day = shiftDate(filed, row.def.stage === 'fnol' ? 0 : row.def.stage === 'intimation' ? 1 : 2);
-    const statusLabel =
-      row.displayStatus === 'waived'
-        ? 'Waived'
-        : row.displayStatus === 'already_on_file'
-          ? 'Already on file'
-          : row.rec.filename || 'Uploaded';
+  const fnolDocs = getStageDocumentRows(claim, 'fnol').filter((row) => row.displayStatus !== 'missing');
+  if (fnolDocs.length) {
     rows.push({
-      date: day,
-      time: `${pad2(hour + 1)}:${pad2(10 + (i % 40))}`,
-      user: row.def.stage === 'assessment' ? 'Hassan Al-Falasi' : handler,
-      action: row.displayStatus === 'waived' ? 'Waived' : 'Uploaded',
-      changeType: row.displayStatus === 'waived' ? 'Update' : 'Upload',
+      date: filed,
+      time: `${pad2(hour + 1)}:10`,
+      user: handler,
+      action: 'Uploaded',
+      changeType: 'Document',
       entity: 'Document',
-      field: row.def.name,
+      field: 'FNOL documents',
       oldValue: 'Missing',
-      newValue: statusLabel,
-      comments: row.rec.note || `Document recorded at ${stageDisplayName(row.def.stage)}.`,
+      newValue: `${fnolDocs.length} on file`,
+      stage: 'fnol',
+      summary: `${fnolDocs.length} FNOL document${fnolDocs.length === 1 ? '' : 's'} recorded.`,
+      comments: 'FNOL documents captured.',
+      changes: fnolDocs.map(docChange),
     });
-  });
+  } else {
+    rows.push({
+      date: filed,
+      time: `${pad2(hour)}:24`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Stage',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: '—',
+      newValue: 'FNOL',
+      stage: 'fnol',
+      summary: 'Claim opened at FNOL.',
+      comments: 'Claim opened at FNOL.',
+      changes: [{ field: 'Claim stage', oldValue: '—', newValue: 'FNOL' }],
+    });
+  }
 
   if (hasStageDocsComplete(claim, 'fnol') && (stage === 'intimation' || stage === 'assessment' || stage === 'settlement')) {
     rows.push({
@@ -1428,39 +1492,55 @@ function buildSeedAudit(claim) {
       time: `${pad2(hour + 1)}:05`,
       user: handler,
       action: 'Updated',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'FNOL',
       newValue: 'Registration',
+      stage: 'intimation',
+      summary: 'FNOL complete — moved to Registration.',
       comments: 'FNOL documents complete — moved to Registration.',
+      changes: [{ field: 'Claim stage', oldValue: 'FNOL', newValue: 'Registration' }],
+    });
+  } else {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:05`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Update',
+      entity: 'Claim',
+      field: 'Loss date',
+      oldValue: '—',
+      newValue: claim.lossDate,
+      stage: 'fnol',
+      summary: 'FNOL intake details confirmed.',
+      comments: 'Intake details confirmed.',
+      changes: [
+        { field: 'Loss date', oldValue: '—', newValue: claim.lossDate },
+        { field: 'Vehicle', oldValue: '—', newValue: claim.vehicle },
+      ],
     });
   }
 
   if (hasStageDocsComplete(claim, 'intimation') && (stage === 'assessment' || stage === 'settlement')) {
     rows.push({
       date: shiftDate(filed, 2),
-      time: `${pad2(hour + 2)}:16`,
-      user: 'Khalid Al-Mansouri',
-      action: 'Assigned',
-      changeType: 'Assignment',
-      entity: 'Stage',
-      field: 'Assessment',
-      oldValue: '—',
-      newValue: 'Hassan Al-Falasi',
-      comments: 'Assessor assigned after Registration.',
-    });
-    rows.push({
-      date: shiftDate(filed, 2),
       time: `${pad2(hour + 2)}:17`,
       user: handler,
       action: 'Updated',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'Registration',
       newValue: 'Assessment',
+      stage: 'assessment',
+      summary: 'Claim released to Assessment.',
       comments: 'Claim released to assessment.',
+      changes: [
+        { field: 'Claim stage', oldValue: 'Registration', newValue: 'Assessment' },
+        { field: 'Assessor', oldValue: '—', newValue: 'Hassan Al-Falasi' },
+      ],
     });
   }
 
@@ -1470,16 +1550,18 @@ function buildSeedAudit(claim) {
       time: `${pad2(hour + 2)}:48`,
       user: 'Hassan Al-Falasi',
       action: 'Submitted',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'Assessment',
       newValue: 'Settlement',
+      stage: 'settlement',
+      summary: 'Assessment submitted — claim moved to Settlement.',
       comments: 'Assessment pack submitted for further scoring.',
+      changes: [{ field: 'Claim stage', oldValue: 'Assessment', newValue: 'Settlement' }],
     });
   }
 
-  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
   rows.push({
     date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
     time: `${pad2(hour + 3)}:02`,
@@ -1487,10 +1569,13 @@ function buildSeedAudit(claim) {
     action: 'Scored',
     changeType: 'Score',
     entity: 'Score',
-    field: 'Fraud risk score',
+    field: 'Stage score',
     oldValue: '—',
     newValue: 'Published',
+    stage,
+    summary: `Stage score published · ${failed} failed check${failed === 1 ? '' : 's'}.`,
     comments: `${failed} failed check${failed === 1 ? '' : 's'}.`,
+    changes: [{ field: 'Stage score', oldValue: '—', newValue: 'Published' }],
   });
 
   if (failed >= 3) {
@@ -1504,7 +1589,10 @@ function buildSeedAudit(claim) {
       field: 'FIU flag',
       oldValue: 'Clear',
       newValue: 'Flagged',
+      stage,
+      summary: 'Escalated for investigation on repeated fails.',
       comments: 'Escalated for investigation on repeated soft fails.',
+      changes: [{ field: 'FIU flag', oldValue: 'Clear', newValue: 'Flagged' }],
     });
   }
 
@@ -1519,16 +1607,25 @@ function buildSeedAudit(claim) {
       field: 'Claim amount',
       oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
       newValue: formatAuditAmount(claim.amount),
+      stage: stage === 'fnol' ? 'fnol' : 'intimation',
+      summary: 'Reserve revised after garage estimate.',
       comments: 'Reserve revised after garage estimate.',
+      changes: [
+        {
+          field: 'Claim amount',
+          oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
+          newValue: formatAuditAmount(claim.amount),
+        },
+      ],
     });
   }
 
-  rows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
-  return versionedAudit(rows);
+  return capClaimVersions(rows, claim);
 }
 
 RAW_CLAIMS.forEach((claim) => {
-  claim.auditLog = buildSeedAudit(claim);
+  claim.versions = buildSeedVersions(claim);
+  claim.auditLog = claim.versions;
 });
 
 const EXTRA_LEDGER_EVENTS = [
@@ -1641,32 +1738,80 @@ const EXTRA_LEDGER_EVENTS = [
 EXTRA_LEDGER_EVENTS.forEach((ev) => {
   const claim = RAW_CLAIMS.find((c) => c.id === ev.id);
   if (!claim) return;
-  claim.auditLog = claim.auditLog || [];
   const { id, ...row } = ev;
   void id;
-  claim.auditLog.push({
-    ...row,
-    status: row.status || 'Completed',
-    version: `v${claim.auditLog.length + 1}`,
-  });
+  claim.versions = capClaimVersions(
+    [
+      ...(claim.versions || []),
+      {
+        ...row,
+        stage: row.stage || getClaimWorkflowStage(claim),
+        summary: row.comments || row.action,
+        changes: [{ field: row.field || row.action, oldValue: row.oldValue ?? '—', newValue: row.newValue ?? '—' }],
+      },
+    ],
+    claim
+  );
+  claim.auditLog = claim.versions;
 });
 
-export function getClaimAuditLog(claim) {
+export function getClaimVersions(claim) {
   const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
-  return [...(raw?.auditLog || [])].sort((a, b) => {
-    const byWhen = `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`);
+  const rows = raw?.versions || raw?.auditLog || [];
+  return [...rows].sort((a, b) => {
+    const byWhen = `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`);
     if (byWhen) return byWhen;
-    return parseInt(String(b.version).replace(/\D/g, ''), 10) - parseInt(String(a.version).replace(/\D/g, ''), 10);
+    return parseInt(String(a.version).replace(/\D/g, '') || '0', 10) - parseInt(String(b.version).replace(/\D/g, '') || '0', 10);
+  });
+}
+
+export function getClaimAuditLog(claim) {
+  return getClaimVersions(claim);
+}
+
+export function findClaimVersion(claim, versionId) {
+  return getClaimVersions(claim).find((row) => String(row.version) === String(versionId)) || null;
+}
+
+export function useCaseScoresForVersion(claim, version) {
+  const stage = version?.stage || 'fnol';
+  const maxIdx = Math.max(0, STAGE_FLOW.indexOf(stage));
+  const results = claim.results || [];
+  const versionTouchedBypass = /bypass/i.test(`${version?.action || ''} ${version?.summary || ''} ${version?.comments || ''}`);
+  const source = results.length
+    ? results.filter((r) => STAGE_FLOW.indexOf(r.stage) <= maxIdx)
+    : USE_CASE_LIBRARY.filter((d) => STAGE_FLOW.indexOf(d.stage) <= maxIdx).map((d) => ({
+        checkId: d.id,
+        name: d.name,
+        stage: d.stage,
+        hardFail: isCriticalUseCase(d),
+        weight: d.weight,
+        state: (claim.checks || []).find((c) => c.checkId === d.id)?.state || 'pass',
+        evidence: (claim.checks || []).find((c) => c.checkId === d.id)?.evidence || '',
+      }));
+
+  return source.map((r) => {
+    let state = r.state;
+    if (!versionTouchedBypass && state === 'bypassed') state = 'fail';
+    return {
+      checkId: r.checkId,
+      code: formatUseCaseCode(r.checkId),
+      name: r.name,
+      state,
+      hardFail: !!r.hardFail,
+      weight: r.displayWeight ?? r.weight ?? 0,
+      stage: r.stage,
+      stageName: stageDisplayName(r.stage),
+      evidence: r.evidence || '',
+    };
   });
 }
 
 export function appendClaimAudit(claimId, partial) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return;
-  if (!claim.auditLog) claim.auditLog = [];
   const stamp = nextAuditStamp();
-  claim.auditLog.push({
-    version: `v${claim.auditLog.length + 1}`,
+  const row = {
     date: stamp.date,
     time: stamp.time,
     user: 'Demo user',
@@ -1678,9 +1823,16 @@ export function appendClaimAudit(claimId, partial) {
     newValue: '—',
     status: 'Completed',
     comments: '',
+    stage: getClaimWorkflowStage(claim),
     ...partial,
-    version: `v${claim.auditLog.length + 1}`,
-  });
+  };
+  row.summary = partial.summary || partial.comments || partial.action || 'Updated';
+  row.changes =
+    partial.changes && partial.changes.length
+      ? partial.changes
+      : [{ field: row.field, oldValue: row.oldValue, newValue: row.newValue }];
+  claim.versions = capClaimVersions([...(claim.versions || claim.auditLog || []), row], claim);
+  claim.auditLog = claim.versions;
 }
 
 const CLAIM_RUNTIME_KEY = 'claim-intel-claim-runtime-v1';
@@ -1820,6 +1972,7 @@ function persistClaimRuntime(claim) {
     waivedCheckIds: claim.waivedCheckIds || [],
     bypassedCheckIds: claim.bypassedCheckIds || [],
     dispositions: claim.dispositions || {},
+    versions: claim.versions || claim.auditLog || [],
   };
   localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
 }
@@ -1837,6 +1990,10 @@ function hydrateClaimRuntime() {
     claim.waivedCheckIds = slice.waivedCheckIds || [];
     claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
+    if (Array.isArray(slice.versions) && slice.versions.length) {
+      claim.versions = capClaimVersions(slice.versions, claim);
+      claim.auditLog = claim.versions;
+    }
     if (settleCoreBypasses(claim)) persistClaimRuntime(claim);
   });
 }
@@ -1924,23 +2081,18 @@ export function requestCoreBypass(claimId, checkId, actor) {
 
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
-    action: 'Bypass requested',
-    changeType: 'Exception',
-    entity: 'Use-case',
-    field: checkCode(id),
-    oldValue: 'Fail',
-    newValue: 'Notification sent to core',
-    comments: 'Core system notified. Approval is outside this prototype.',
-  });
-  appendClaimAudit(claimId, {
-    user: 'Core system',
     action: 'Bypass approved',
     changeType: 'Exception',
     entity: 'Use-case',
     field: checkCode(id),
     oldValue: 'Fail',
     newValue: 'Bypassed',
-    comments: 'Use-case excluded from the stage. Remaining weights normalised to 100%.',
+    summary: `${checkCode(id)} bypassed after core approval.`,
+    comments: 'Notification sent to core; use-case excluded from the stage.',
+    changes: [
+      { field: checkCode(id), oldValue: 'Fail', newValue: 'Notification sent to core' },
+      { field: checkCode(id), oldValue: 'Fail', newValue: 'Bypassed' },
+    ],
   });
   persistClaimRuntime(claim);
   return {

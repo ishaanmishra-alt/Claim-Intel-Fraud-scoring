@@ -23,6 +23,7 @@ import {
   capLedgerRows,
   claimTypeLabel,
 } from '../filters.js';
+import { bindVersionPopup, renderOpenVersionPopup } from '../claim-versions-ui.js';
 
 function esc(value) {
   return String(value ?? '')
@@ -414,10 +415,10 @@ export function renderReport(root, session, claims, state, onChange) {
 
     <div class="panel">
       <div class="panel-header">
-        <h2>Transactions</h2>
-        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export transactions</button>
+        <h2>Claim versions</h2>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export versions</button>
       </div>
-      <p class="page-subtitle" style="margin:0 0 12px">Cross-claim ledger · does not change the scorecard</p>
+      <p class="page-subtitle" style="margin:0 0 12px">Claim version history · click a version for details</p>
       <div class="filters-bar">
         <div class="filter-group">
           <label for="tx-period">Ledger dates</label>
@@ -464,37 +465,27 @@ export function renderReport(root, session, claims, state, onChange) {
         !txGate.ok
           ? `<div class="empty-state">${
               txGate.reason === 'too-wide'
-                ? 'Narrow the dates. Transactions can show at most 31 days.'
-                : 'Set a date range to load the ledger.'
+                ? 'Narrow the dates. Versions can show at most 31 days.'
+                : 'Set a date range to load claim versions.'
             }</div>`
           : `
-      <p class="scope-line">${ledgerFiltered.length} transactions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
+      <p class="scope-line">${ledgerFiltered.length} versions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
       ${
         capped.shown.length
-          ? `<p class="scope-line">Last 10 transactions. Export for the full list.</p>`
+          ? `<p class="scope-line">${capped.shown.length} of ${capped.total} versions in this range.</p>`
           : ''
       }
       ${
         capped.shown.length === 0
-          ? `<div class="chart-empty">No transactions in this range.</div>`
+          ? `<div class="chart-empty">No claim versions in this range.</div>`
           : `<div class="sample-table-wrap">
-        <table class="sample-table ledger-table">
+        <table class="sample-table ledger-table version-table">
           <thead>
             <tr>
+              <th>Version</th>
+              <th>FNOL no.</th>
+              <th>Registration no.</th>
               <th>Date</th>
-              <th>Time</th>
-              <th>Claim</th>
-              <th>FNOL</th>
-              <th>Policy</th>
-              <th>Stage score</th>
-              <th>Stage</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Change type</th>
-              <th>Field</th>
-              <th>Old value</th>
-              <th>New value</th>
-              <th>Comments</th>
             </tr>
           </thead>
           <tbody>
@@ -502,20 +493,12 @@ export function renderReport(root, session, claims, state, onChange) {
               .map(
                 (r) => `
               <tr>
-                <td>${esc(formatDate(r.date))}</td>
-                <td class="mono">${esc(r.time)}</td>
-                <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
+                <td class="mono">
+                  <button type="button" class="version-link" data-open-version="${esc(r.claimId)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+                </td>
                 <td class="mono">${esc(r.fnolNumber)}</td>
-                <td class="mono">${esc(r.policyNumber)}</td>
-                <td class="mono">${formatClaimScore(r)}</td>
-                <td>${esc(r.workflowStageName)}</td>
-                <td>${esc(r.user)}</td>
-                <td>${esc(r.userAction)}</td>
-                <td><span class="ledger-chip">${esc(r.ledgerType)}</span></td>
-                <td>${esc(r.field)}</td>
-                <td>${esc(r.oldValue)}</td>
-                <td>${esc(r.newValue)}</td>
-                <td class="ledger-comment">${esc(r.comments || '—')}</td>
+                <td class="mono">${esc(r.registrationNo || r.claimId)}</td>
+                <td>${esc(formatDate(r.date))}</td>
               </tr>`
               )
               .join('')}
@@ -525,6 +508,7 @@ export function renderReport(root, session, claims, state, onChange) {
       }`
       }
     </div>
+    ${renderOpenVersionPopup(claims, state.versionKey)}
   `;
 
   root.innerHTML = renderShell(session, '#/report', content);
@@ -577,6 +561,7 @@ export function renderReport(root, session, claims, state, onChange) {
   );
   root.querySelector('#tx-type')?.addEventListener('change', (e) => patch({ txChangeType: e.target.value }));
   root.querySelector('#tx-user')?.addEventListener('change', (e) => patch({ txUser: e.target.value }));
+  bindVersionPopup(root, claims, patch, 'versionKey');
 
   root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
     const rows = [
@@ -600,41 +585,16 @@ export function renderReport(root, session, claims, state, onChange) {
   });
 
   root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
-    const header = [
-      'Date',
-      'Time',
-      'Claim',
-      'FNOL',
-      'Policy',
-      'Stage score',
-      'Stage',
-      'User',
-      'Action',
-      'Change type',
-      'Field',
-      'Old value',
-      'New value',
-      'Comments',
-    ];
+    const header = ['Version', 'FNOL no.', 'Registration no.', 'Date'];
     const rows = [
       header,
       ...ledgerFiltered.map((r) => [
-        formatDate(r.date),
-        r.time,
-        r.claimId,
+        r.version,
         r.fnolNumber,
-        r.policyNumber,
-        formatClaimScore(r),
-        r.workflowStageName,
-        r.user,
-        r.userAction,
-        r.ledgerType,
-        r.field,
-        r.oldValue,
-        r.newValue,
-        r.comments || '',
+        r.registrationNo || r.claimId,
+        formatDate(r.date),
       ]),
     ];
-    downloadCsv(`claim-intel-transactions-${txRange.from}-to-${txRange.to}.csv`, rows);
+    downloadCsv(`claim-intel-versions-${txRange.from}-to-${txRange.to}.csv`, rows);
   });
 }

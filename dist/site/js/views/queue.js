@@ -5,81 +5,19 @@ import {
   getClaimWorkflowStage,
   stageDisplayName,
   canViewClaimAudit,
-  getClaimAuditLog,
   formatClaimRef,
 } from '../data.js';
-import { formatClaimAmount, formatDate, formatClaimScore, tierLabel } from '../scoring.js';
-
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function formatAuditDate(iso) {
-  return formatDate(iso);
-}
+import { formatClaimAmount, formatClaimScore, tierLabel } from '../scoring.js';
+import { versionTableHtml, bindVersionPopup, renderOpenVersionPopup } from '../claim-versions-ui.js';
 
 function auditTableHtml(claim) {
-  const rows = getClaimAuditLog(claim);
-  if (!rows.length) {
-    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
-  }
-  return `
-    <div class="claim-audit-head">
-      <strong>Version audit</strong>
-      <span>${rows.length} change${rows.length === 1 ? '' : 's'}</span>
-    </div>
-    <div class="claim-audit-scroll">
-      <table class="claim-audit-table">
-        <thead>
-          <tr>
-            <th>Version</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>User</th>
-            <th>Action</th>
-            <th>Change type</th>
-            <th>Entity</th>
-            <th>Field</th>
-            <th>Old value</th>
-            <th>New value</th>
-            <th>Status</th>
-            <th>Comments</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (r) => `
-            <tr>
-              <td class="mono">${esc(r.version)}</td>
-              <td>${esc(formatAuditDate(r.date))}</td>
-              <td class="mono">${esc(r.time)}</td>
-              <td>${esc(r.user)}</td>
-              <td>${esc(r.action)}</td>
-              <td>${esc(r.changeType)}</td>
-              <td>${esc(r.entity)}</td>
-              <td>${esc(r.field)}</td>
-              <td>${esc(r.oldValue)}</td>
-              <td>${esc(r.newValue)}</td>
-              <td><span class="audit-status">${esc(r.status)}</span></td>
-              <td class="audit-comment">${esc(r.comments)}</td>
-            </tr>`
-            )
-            .join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  return versionTableHtml(claim);
 }
 
 export function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
   const canAudit = canViewClaimAudit(session.role);
-  const { scope, sort, stage = 'all', auditClaimId = null } = state;
+  const { scope, sort, stage = 'all', auditClaimId = null, versionKey = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
   const scoped = isSurveyor || scope === 'all' ? pool : mine;
@@ -217,6 +155,7 @@ export function renderQueue(root, session, claims, state, onChange) {
               .join('')
       }
     </div>
+    ${canAudit ? renderOpenVersionPopup(claims, versionKey) : ''}
   `;
 
   root.innerHTML = renderShell(session, '#/queue', content);
@@ -235,7 +174,7 @@ export function renderQueue(root, session, claims, state, onChange) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.auditToggle;
-      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id });
+      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
     });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
@@ -243,4 +182,7 @@ export function renderQueue(root, session, claims, state, onChange) {
       location.hash = `#/claim/${btn.dataset.claimId}`;
     });
   });
+  if (canAudit) {
+    bindVersionPopup(root, claims, (partial) => onChange({ ...state, ...partial }), 'versionKey');
+  }
 }

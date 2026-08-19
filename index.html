@@ -718,11 +718,14 @@ a {
 .claim-audit-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.75rem;
-  min-width: 980px;
+  font-size: 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.claim-audit-table.version-table {
+  min-width: 0;
 }
 
 .claim-audit-table th,
@@ -764,6 +767,140 @@ a {
   background: var(--green-bg);
   color: var(--green);
   font-weight: 600;
+}
+
+.audit-status.is-fail {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.audit-status.is-bypassed,
+.audit-status.is-waived {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.version-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.version-link:hover {
+  color: var(--navy-deep);
+}
+
+.modal-card-version {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px 22px 24px;
+}
+
+.version-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.version-modal-kicker {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-modal-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.version-modal-section {
+  margin-top: 16px;
+}
+
+.version-modal-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-modal-copy {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.version-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .version-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.version-detail-grid dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-detail-grid dd {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+}
+
+.version-change-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.version-change-table th,
+.version-change-table td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.version-change-table th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-uc-scroll {
+  overflow-x: auto;
+}
+
+.ledger-table.version-table {
+  min-width: 0;
 }
 
 .claim-audit-empty {
@@ -3095,6 +3232,7 @@ button.stage-chip.is-active {
 }
 
 
+
   </style>
 </head>
 <body>
@@ -4427,26 +4565,84 @@ function nextAuditStamp() {
   return { date: '2026-08-14', time: `${pad2(16 + Math.floor(mins / 60))}:${pad2(mins % 60)}` };
 }
 
-function versionedAudit(entries) {
-  return entries.map((row, i) => ({
-    version: `v${i + 1}`,
-    status: row.status || 'Completed',
+const MAX_CLAIM_VERSIONS = 6;
+const STAGE_FLOW = ['fnol', 'intimation', 'assessment', 'settlement'];
+
+function formatUseCaseCode(id) {
+  return `UC${Number(id)}`;
+}
+
+function formatClaimVersionLabel(index) {
+  return `V${Number(index)}`;
+}
+
+function sortVersionsChronological(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const byWhen = `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`);
+    if (byWhen) return byWhen;
+    return String(a.version || '').localeCompare(String(b.version || ''));
+  });
+}
+
+function decorateVersion(row, claim, index) {
+  return {
+    status: 'Completed',
     comments: row.comments || '',
     oldValue: row.oldValue ?? '—',
     newValue: row.newValue ?? '—',
     entity: row.entity || 'Claim',
+    field: row.field || '—',
+    action: row.action || 'Updated',
+    changeType: row.changeType || 'Update',
+    user: row.user || 'Claim Intel',
+    summary: row.summary || row.comments || row.action || 'Updated',
+    changes:
+      row.changes && row.changes.length
+        ? row.changes
+        : [
+            {
+              field: row.field || row.action || 'Change',
+              oldValue: row.oldValue ?? '—',
+              newValue: row.newValue ?? '—',
+            },
+          ],
     ...row,
-    version: `v${i + 1}`,
-  }));
+    version: formatClaimVersionLabel(index),
+    fnolNumber: row.fnolNumber || claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+    registrationNo: row.registrationNo || claim.id,
+    stage: row.stage || 'fnol',
+  };
 }
 
-function buildSeedAudit(claim) {
+function capClaimVersions(rows, claim) {
+  const sorted = sortVersionsChronological(rows);
+  const kept =
+    sorted.length <= MAX_CLAIM_VERSIONS ? sorted : [sorted[0], ...sorted.slice(-(MAX_CLAIM_VERSIONS - 1))];
+  return kept.map((row, i) => decorateVersion(row, claim, i));
+}
+
+function docChange(row) {
+  const statusLabel =
+    row.displayStatus === 'waived'
+      ? 'Waived'
+      : row.displayStatus === 'already_on_file'
+        ? 'Already on file'
+        : row.rec.filename || 'Uploaded';
+  return {
+    field: row.def.name,
+    oldValue: 'Missing',
+    newValue: statusLabel,
+  };
+}
+
+function buildSeedVersions(claim) {
   const filed = claim.filedAt;
   const handler = claim.assignedName || 'Fatima Al-Najjar';
   const salt = claim.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
   const hour = 8 + (salt % 3);
-  const rows = [];
   const stage = getClaimWorkflowStage(claim);
+  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
+  const rows = [];
 
   rows.push({
     date: filed,
@@ -4458,7 +4654,13 @@ function buildSeedAudit(claim) {
     field: 'Claim number',
     oldValue: '—',
     newValue: claim.id,
+    stage: 'fnol',
+    summary: `FNOL ingested for ${claim.claimant}.`,
     comments: `FNOL ingested for ${claim.claimant}.`,
+    changes: [
+      { field: 'Claim number', oldValue: '—', newValue: claim.id },
+      { field: 'FNOL number', oldValue: '—', newValue: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-') },
+    ],
   });
 
   rows.push({
@@ -4471,7 +4673,10 @@ function buildSeedAudit(claim) {
     field: 'Assigned to',
     oldValue: 'Unassigned',
     newValue: handler,
+    stage: 'fnol',
+    summary: `Routed to ${handler}.`,
     comments: 'Routed to claims handler.',
+    changes: [{ field: 'Assigned to', oldValue: 'Unassigned', newValue: handler }],
   });
 
   rows.push({
@@ -4484,49 +4689,46 @@ function buildSeedAudit(claim) {
     field: 'Claim amount',
     oldValue: '—',
     newValue: formatAuditAmount(claim.amount),
+    stage: 'fnol',
+    summary: `Reserve captured from FNOL (${formatAuditAmount(claim.amount)}).`,
     comments: 'Reserve captured from FNOL.',
+    changes: [{ field: 'Claim amount', oldValue: '—', newValue: formatAuditAmount(claim.amount) }],
   });
 
-  rows.push({
-    date: filed,
-    time: `${pad2(hour)}:24`,
-    user: handler,
-    action: 'Updated',
-    changeType: 'Status',
-    entity: 'Stage',
-    field: 'Claim stage',
-    oldValue: '—',
-    newValue: 'FNOL',
-    comments: 'Claim opened at FNOL.',
-  });
-
-  const docs = getStageDocumentRows(claim, 'fnol')
-    .concat(getStageDocumentRows(claim, 'intimation'))
-    .concat(getStageDocumentRows(claim, 'assessment'))
-    .concat(getStageDocumentRows(claim, 'settlement'))
-    .filter((row) => row.displayStatus !== 'missing');
-
-  docs.forEach((row, i) => {
-    const day = shiftDate(filed, row.def.stage === 'fnol' ? 0 : row.def.stage === 'intimation' ? 1 : 2);
-    const statusLabel =
-      row.displayStatus === 'waived'
-        ? 'Waived'
-        : row.displayStatus === 'already_on_file'
-          ? 'Already on file'
-          : row.rec.filename || 'Uploaded';
+  const fnolDocs = getStageDocumentRows(claim, 'fnol').filter((row) => row.displayStatus !== 'missing');
+  if (fnolDocs.length) {
     rows.push({
-      date: day,
-      time: `${pad2(hour + 1)}:${pad2(10 + (i % 40))}`,
-      user: row.def.stage === 'assessment' ? 'Hassan Al-Falasi' : handler,
-      action: row.displayStatus === 'waived' ? 'Waived' : 'Uploaded',
-      changeType: row.displayStatus === 'waived' ? 'Update' : 'Upload',
+      date: filed,
+      time: `${pad2(hour + 1)}:10`,
+      user: handler,
+      action: 'Uploaded',
+      changeType: 'Document',
       entity: 'Document',
-      field: row.def.name,
+      field: 'FNOL documents',
       oldValue: 'Missing',
-      newValue: statusLabel,
-      comments: row.rec.note || `Document recorded at ${stageDisplayName(row.def.stage)}.`,
+      newValue: `${fnolDocs.length} on file`,
+      stage: 'fnol',
+      summary: `${fnolDocs.length} FNOL document${fnolDocs.length === 1 ? '' : 's'} recorded.`,
+      comments: 'FNOL documents captured.',
+      changes: fnolDocs.map(docChange),
     });
-  });
+  } else {
+    rows.push({
+      date: filed,
+      time: `${pad2(hour)}:24`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Stage',
+      entity: 'Stage',
+      field: 'Claim stage',
+      oldValue: '—',
+      newValue: 'FNOL',
+      stage: 'fnol',
+      summary: 'Claim opened at FNOL.',
+      comments: 'Claim opened at FNOL.',
+      changes: [{ field: 'Claim stage', oldValue: '—', newValue: 'FNOL' }],
+    });
+  }
 
   if (hasStageDocsComplete(claim, 'fnol') && (stage === 'intimation' || stage === 'assessment' || stage === 'settlement')) {
     rows.push({
@@ -4534,39 +4736,55 @@ function buildSeedAudit(claim) {
       time: `${pad2(hour + 1)}:05`,
       user: handler,
       action: 'Updated',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'FNOL',
       newValue: 'Registration',
+      stage: 'intimation',
+      summary: 'FNOL complete — moved to Registration.',
       comments: 'FNOL documents complete — moved to Registration.',
+      changes: [{ field: 'Claim stage', oldValue: 'FNOL', newValue: 'Registration' }],
+    });
+  } else {
+    rows.push({
+      date: shiftDate(filed, 1),
+      time: `${pad2(hour + 1)}:05`,
+      user: handler,
+      action: 'Updated',
+      changeType: 'Update',
+      entity: 'Claim',
+      field: 'Loss date',
+      oldValue: '—',
+      newValue: claim.lossDate,
+      stage: 'fnol',
+      summary: 'FNOL intake details confirmed.',
+      comments: 'Intake details confirmed.',
+      changes: [
+        { field: 'Loss date', oldValue: '—', newValue: claim.lossDate },
+        { field: 'Vehicle', oldValue: '—', newValue: claim.vehicle },
+      ],
     });
   }
 
   if (hasStageDocsComplete(claim, 'intimation') && (stage === 'assessment' || stage === 'settlement')) {
     rows.push({
       date: shiftDate(filed, 2),
-      time: `${pad2(hour + 2)}:16`,
-      user: 'Khalid Al-Mansouri',
-      action: 'Assigned',
-      changeType: 'Assignment',
-      entity: 'Stage',
-      field: 'Assessment',
-      oldValue: '—',
-      newValue: 'Hassan Al-Falasi',
-      comments: 'Assessor assigned after Registration.',
-    });
-    rows.push({
-      date: shiftDate(filed, 2),
       time: `${pad2(hour + 2)}:17`,
       user: handler,
       action: 'Updated',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'Registration',
       newValue: 'Assessment',
+      stage: 'assessment',
+      summary: 'Claim released to Assessment.',
       comments: 'Claim released to assessment.',
+      changes: [
+        { field: 'Claim stage', oldValue: 'Registration', newValue: 'Assessment' },
+        { field: 'Assessor', oldValue: '—', newValue: 'Hassan Al-Falasi' },
+      ],
     });
   }
 
@@ -4576,16 +4794,18 @@ function buildSeedAudit(claim) {
       time: `${pad2(hour + 2)}:48`,
       user: 'Hassan Al-Falasi',
       action: 'Submitted',
-      changeType: 'Status',
+      changeType: 'Stage',
       entity: 'Stage',
       field: 'Claim stage',
       oldValue: 'Assessment',
       newValue: 'Settlement',
+      stage: 'settlement',
+      summary: 'Assessment submitted — claim moved to Settlement.',
       comments: 'Assessment pack submitted for further scoring.',
+      changes: [{ field: 'Claim stage', oldValue: 'Assessment', newValue: 'Settlement' }],
     });
   }
 
-  const failed = (claim.checks || []).filter((c) => c.state === 'fail' || c.state === 'cant_evaluate').length;
   rows.push({
     date: shiftDate(filed, claim.surveyorSubmitted ? 3 : stage === 'fnol' ? 0 : 1),
     time: `${pad2(hour + 3)}:02`,
@@ -4593,10 +4813,13 @@ function buildSeedAudit(claim) {
     action: 'Scored',
     changeType: 'Score',
     entity: 'Score',
-    field: 'Fraud risk score',
+    field: 'Stage score',
     oldValue: '—',
     newValue: 'Published',
+    stage,
+    summary: `Stage score published · ${failed} failed check${failed === 1 ? '' : 's'}.`,
     comments: `${failed} failed check${failed === 1 ? '' : 's'}.`,
+    changes: [{ field: 'Stage score', oldValue: '—', newValue: 'Published' }],
   });
 
   if (failed >= 3) {
@@ -4610,7 +4833,10 @@ function buildSeedAudit(claim) {
       field: 'FIU flag',
       oldValue: 'Clear',
       newValue: 'Flagged',
+      stage,
+      summary: 'Escalated for investigation on repeated fails.',
       comments: 'Escalated for investigation on repeated soft fails.',
+      changes: [{ field: 'FIU flag', oldValue: 'Clear', newValue: 'Flagged' }],
     });
   }
 
@@ -4625,16 +4851,25 @@ function buildSeedAudit(claim) {
       field: 'Claim amount',
       oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
       newValue: formatAuditAmount(claim.amount),
+      stage: stage === 'fnol' ? 'fnol' : 'intimation',
+      summary: 'Reserve revised after garage estimate.',
       comments: 'Reserve revised after garage estimate.',
+      changes: [
+        {
+          field: 'Claim amount',
+          oldValue: formatAuditAmount(Math.round(claim.amount * 0.86)),
+          newValue: formatAuditAmount(claim.amount),
+        },
+      ],
     });
   }
 
-  rows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
-  return versionedAudit(rows);
+  return capClaimVersions(rows, claim);
 }
 
 RAW_CLAIMS.forEach((claim) => {
-  claim.auditLog = buildSeedAudit(claim);
+  claim.versions = buildSeedVersions(claim);
+  claim.auditLog = claim.versions;
 });
 
 const EXTRA_LEDGER_EVENTS = [
@@ -4747,32 +4982,80 @@ const EXTRA_LEDGER_EVENTS = [
 EXTRA_LEDGER_EVENTS.forEach((ev) => {
   const claim = RAW_CLAIMS.find((c) => c.id === ev.id);
   if (!claim) return;
-  claim.auditLog = claim.auditLog || [];
   const { id, ...row } = ev;
   void id;
-  claim.auditLog.push({
-    ...row,
-    status: row.status || 'Completed',
-    version: `v${claim.auditLog.length + 1}`,
-  });
+  claim.versions = capClaimVersions(
+    [
+      ...(claim.versions || []),
+      {
+        ...row,
+        stage: row.stage || getClaimWorkflowStage(claim),
+        summary: row.comments || row.action,
+        changes: [{ field: row.field || row.action, oldValue: row.oldValue ?? '—', newValue: row.newValue ?? '—' }],
+      },
+    ],
+    claim
+  );
+  claim.auditLog = claim.versions;
 });
 
-function getClaimAuditLog(claim) {
+function getClaimVersions(claim) {
   const raw = RAW_CLAIMS.find((c) => c.id === claim?.id) || claim;
-  return [...(raw?.auditLog || [])].sort((a, b) => {
-    const byWhen = `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`);
+  const rows = raw?.versions || raw?.auditLog || [];
+  return [...rows].sort((a, b) => {
+    const byWhen = `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`);
     if (byWhen) return byWhen;
-    return parseInt(String(b.version).replace(/\D/g, ''), 10) - parseInt(String(a.version).replace(/\D/g, ''), 10);
+    return parseInt(String(a.version).replace(/\D/g, '') || '0', 10) - parseInt(String(b.version).replace(/\D/g, '') || '0', 10);
+  });
+}
+
+function getClaimAuditLog(claim) {
+  return getClaimVersions(claim);
+}
+
+function findClaimVersion(claim, versionId) {
+  return getClaimVersions(claim).find((row) => String(row.version) === String(versionId)) || null;
+}
+
+function useCaseScoresForVersion(claim, version) {
+  const stage = version?.stage || 'fnol';
+  const maxIdx = Math.max(0, STAGE_FLOW.indexOf(stage));
+  const results = claim.results || [];
+  const versionTouchedBypass = /bypass/i.test(`${version?.action || ''} ${version?.summary || ''} ${version?.comments || ''}`);
+  const source = results.length
+    ? results.filter((r) => STAGE_FLOW.indexOf(r.stage) <= maxIdx)
+    : USE_CASE_LIBRARY.filter((d) => STAGE_FLOW.indexOf(d.stage) <= maxIdx).map((d) => ({
+        checkId: d.id,
+        name: d.name,
+        stage: d.stage,
+        hardFail: isCriticalUseCase(d),
+        weight: d.weight,
+        state: (claim.checks || []).find((c) => c.checkId === d.id)?.state || 'pass',
+        evidence: (claim.checks || []).find((c) => c.checkId === d.id)?.evidence || '',
+      }));
+
+  return source.map((r) => {
+    let state = r.state;
+    if (!versionTouchedBypass && state === 'bypassed') state = 'fail';
+    return {
+      checkId: r.checkId,
+      code: formatUseCaseCode(r.checkId),
+      name: r.name,
+      state,
+      hardFail: !!r.hardFail,
+      weight: r.displayWeight ?? r.weight ?? 0,
+      stage: r.stage,
+      stageName: stageDisplayName(r.stage),
+      evidence: r.evidence || '',
+    };
   });
 }
 
 function appendClaimAudit(claimId, partial) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return;
-  if (!claim.auditLog) claim.auditLog = [];
   const stamp = nextAuditStamp();
-  claim.auditLog.push({
-    version: `v${claim.auditLog.length + 1}`,
+  const row = {
     date: stamp.date,
     time: stamp.time,
     user: 'Demo user',
@@ -4784,9 +5067,16 @@ function appendClaimAudit(claimId, partial) {
     newValue: '—',
     status: 'Completed',
     comments: '',
+    stage: getClaimWorkflowStage(claim),
     ...partial,
-    version: `v${claim.auditLog.length + 1}`,
-  });
+  };
+  row.summary = partial.summary || partial.comments || partial.action || 'Updated';
+  row.changes =
+    partial.changes && partial.changes.length
+      ? partial.changes
+      : [{ field: row.field, oldValue: row.oldValue, newValue: row.newValue }];
+  claim.versions = capClaimVersions([...(claim.versions || claim.auditLog || []), row], claim);
+  claim.auditLog = claim.versions;
 }
 
 const CLAIM_RUNTIME_KEY = 'claim-intel-claim-runtime-v1';
@@ -4926,6 +5216,7 @@ function persistClaimRuntime(claim) {
     waivedCheckIds: claim.waivedCheckIds || [],
     bypassedCheckIds: claim.bypassedCheckIds || [],
     dispositions: claim.dispositions || {},
+    versions: claim.versions || claim.auditLog || [],
   };
   localStorage.setItem(CLAIM_RUNTIME_KEY, JSON.stringify(store));
 }
@@ -4943,6 +5234,10 @@ function hydrateClaimRuntime() {
     claim.waivedCheckIds = slice.waivedCheckIds || [];
     claim.bypassedCheckIds = slice.bypassedCheckIds || [];
     claim.dispositions = slice.dispositions || {};
+    if (Array.isArray(slice.versions) && slice.versions.length) {
+      claim.versions = capClaimVersions(slice.versions, claim);
+      claim.auditLog = claim.versions;
+    }
     if (settleCoreBypasses(claim)) persistClaimRuntime(claim);
   });
 }
@@ -5030,23 +5325,18 @@ function requestCoreBypass(claimId, checkId, actor) {
 
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
-    action: 'Bypass requested',
-    changeType: 'Exception',
-    entity: 'Use-case',
-    field: checkCode(id),
-    oldValue: 'Fail',
-    newValue: 'Notification sent to core',
-    comments: 'Core system notified. Approval is outside this prototype.',
-  });
-  appendClaimAudit(claimId, {
-    user: 'Core system',
     action: 'Bypass approved',
     changeType: 'Exception',
     entity: 'Use-case',
     field: checkCode(id),
     oldValue: 'Fail',
     newValue: 'Bypassed',
-    comments: 'Use-case excluded from the stage. Remaining weights normalised to 100%.',
+    summary: `${checkCode(id)} bypassed after core approval.`,
+    comments: 'Notification sent to core; use-case excluded from the stage.',
+    changes: [
+      { field: checkCode(id), oldValue: 'Fail', newValue: 'Notification sent to core' },
+      { field: checkCode(id), oldValue: 'Fail', newValue: 'Bypassed' },
+    ],
   });
   persistClaimRuntime(claim);
   return {
@@ -5242,9 +5532,7 @@ const TREND_HISTORY = [
   { date: '2026-08-04', redPct: 20, yellowPct: 30, greenPct: 50, volume: 53 },
 ];
 
-
 /* ===== js/state.js ===== */
-
 const SESSION_KEY = 'claim-intel-session';
 const WEIGHTS_KEY = 'claim-intel-weights-v4';
 const CONFIG_KEY = 'claim-intel-config-v6';
@@ -5530,10 +5818,8 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
   return `Version ${version.number} (${start} – ${end})${scheduled}`;
 }
 
-
 /* ===== js/scoring.js ===== */
-
-
+const getStoreWeights = getWeights;
 function daysBetween(fromIso, toIso) {
   const a = new Date(`${fromIso}T12:00:00`);
   const b = new Date(`${toIso}T12:00:00`);
@@ -5977,11 +6263,7 @@ function withVisibleStages(scored, stageIds) {
   };
 }
 
-
-
 /* ===== js/filters.js ===== */
-
-
 /** Prototype “today” for Dashboard and Report (not the config version date). */
 const PROTOTYPE_TODAY = '2026-08-11';
 
@@ -6005,7 +6287,7 @@ const CLAIM_TYPE_OPTIONS = [
 const LEDGER_CHANGE_TYPES = ['Score', 'Document', 'Exception', 'Stage', 'Assignment', 'Review'];
 
 const TX_MAX_DAYS = 31;
-const TX_LIST_CAP = 10;
+const TX_LIST_CAP = 24;
 
 function claimTypeLabel(id) {
   return CLAIM_TYPE_OPTIONS.find((t) => t.id === id)?.label || id || '—';
@@ -6162,7 +6444,8 @@ function flattenClaimLedger(claims) {
       rows.push({
         ...entry,
         claimId: claim.id,
-        fnolNumber: claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+        fnolNumber: entry.fnolNumber || claim.fnolNumber || claim.id.replace(/^CLM-/, 'FNOL-'),
+        registrationNo: entry.registrationNo || claim.id,
         policyNumber: claim.policyNumber || '—',
         score: claim.score,
         forcedRed: !!claim.forcedRed,
@@ -6206,8 +6489,6 @@ function ledgerRangeState(range) {
 function capLedgerRows(rows, cap = TX_LIST_CAP) {
   return { shown: rows.slice(0, cap), total: rows.length, cap };
 }
-
-
 
 /* ===== js/components.js ===== */
 function brandIcon(size = 22) {
@@ -6318,12 +6599,206 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
   `;
 }
 
+/* ===== js/claim-versions-ui.js ===== */
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function stateLabel(state) {
+  if (state === 'pass') return 'Pass';
+  if (state === 'fail') return 'Fail';
+  if (state === 'bypassed') return 'Bypassed';
+  if (state === 'waived') return 'Waived';
+  return state || '—';
+}
+
+function versionTableHtml(claim, { emptyMessage = 'No version history recorded for this claim.' } = {}) {
+  const rows = getClaimVersions(claim);
+  if (!rows.length) {
+    return `<div class="claim-audit-empty">${esc(emptyMessage)}</div>`;
+  }
+  return `
+    <div class="claim-audit-head">
+      <strong>Claim versions</strong>
+      <span>${rows.length} version${rows.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="claim-audit-scroll">
+      <table class="claim-audit-table version-table">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>FNOL no.</th>
+            <th>Registration no.</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `
+            <tr>
+              <td class="mono">
+                <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+              </td>
+              <td class="mono">${esc(r.fnolNumber)}</td>
+              <td class="mono">${esc(r.registrationNo)}</td>
+              <td>${esc(formatDate(r.date))}</td>
+            </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function versionPopupHtml(claim, versionId) {
+  const version = findClaimVersion(claim, versionId);
+  if (!claim || !version) return '';
+  const scores = useCaseScoresForVersion(claim, version);
+  const stageName = stageDisplayName(version.stage);
+  const changes = version.changes?.length
+    ? version.changes
+    : [{ field: version.field, oldValue: version.oldValue, newValue: version.newValue }];
+
+  return `
+    <div class="modal-backdrop version-modal-backdrop" data-action="close-version-modal">
+      <div class="modal-card modal-card-version" role="dialog" aria-modal="true" aria-labelledby="version-modal-title" onclick="event.stopPropagation()">
+        <div class="version-modal-head">
+          <div>
+            <p class="version-modal-kicker">${esc(version.version)} · ${esc(formatDate(version.date))}</p>
+            <h2 id="version-modal-title">${esc(formatClaimRef(claim))}</h2>
+          </div>
+          <button type="button" class="icon-btn" data-action="close-version-modal" aria-label="Close">${iconClose()}</button>
+        </div>
+
+        <section class="version-modal-section">
+          <h3>Claim details</h3>
+          <dl class="version-detail-grid">
+            <div><dt>Registration no.</dt><dd class="mono">${esc(version.registrationNo || claim.id)}</dd></div>
+            <div><dt>FNOL no.</dt><dd class="mono">${esc(version.fnolNumber || claim.fnolNumber)}</dd></div>
+            <div><dt>Claimant</dt><dd>${esc(claim.claimant)}</dd></div>
+            <div><dt>Vehicle</dt><dd>${esc(claim.vehicle)}</dd></div>
+            <div><dt>Stage at this version</dt><dd>${esc(stageName)}</dd></div>
+            <div><dt>Stage score</dt><dd class="mono">${
+              version.stage && (claim.stageScores || []).find((s) => s.stageId === version.stage)
+                ? formatStageScore((claim.stageScores || []).find((s) => s.stageId === version.stage))
+                : formatClaimScore(claim)
+            }</dd></div>
+            <div><dt>Amount</dt><dd>${formatClaimAmount(claim) === '—' ? formatAED(claim.amount) : formatClaimAmount(claim)}</dd></div>
+            <div><dt>Branch</dt><dd>${esc(claim.branch)}</dd></div>
+          </dl>
+        </section>
+
+        <section class="version-modal-section">
+          <h3>Who made the change</h3>
+          <p class="version-modal-copy"><strong>${esc(version.user)}</strong> · ${esc(version.action || 'Updated')} · ${esc(formatDate(version.date))} ${esc(version.time || '')}</p>
+        </section>
+
+        <section class="version-modal-section">
+          <h3>What changed</h3>
+          <p class="version-modal-copy">${esc(version.summary || version.comments || '—')}</p>
+          <table class="version-change-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Old value</th>
+                <th>New value</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${changes
+                .map(
+                  (c) => `
+                <tr>
+                  <td>${esc(c.field || '—')}</td>
+                  <td>${esc(c.oldValue ?? '—')}</td>
+                  <td>${esc(c.newValue ?? '—')}</td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </section>
+
+        <section class="version-modal-section">
+          <h3>Use-case scoring</h3>
+          <p class="version-modal-copy">UC results for stages up to ${esc(stageName)} at this version.</p>
+          <div class="version-uc-scroll">
+            <table class="version-change-table">
+              <thead>
+                <tr>
+                  <th>Use-case</th>
+                  <th>Name</th>
+                  <th>Result</th>
+                  <th>Weight</th>
+                  <th>Stage</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  scores.length
+                    ? scores
+                        .map(
+                          (r) => `
+                  <tr>
+                    <td class="mono">${esc(r.code)}</td>
+                    <td>${esc(r.name)}${r.hardFail ? ' <span class="tag critical">Critical</span>' : ''}</td>
+                    <td><span class="audit-status is-${esc(r.state)}">${esc(stateLabel(r.state))}</span></td>
+                    <td class="mono">${r.hardFail ? 'Pass / fail' : `${Number(r.weight) || 0}%`}</td>
+                    <td>${esc(r.stageName)}</td>
+                  </tr>`
+                        )
+                        .join('')
+                    : `<tr><td colspan="5">No use-cases scored at this version.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  `;
+}
+
+function bindVersionPopup(root, claims, onChange, stateKey = 'versionKey') {
+  const close = () => onChange({ [stateKey]: null });
+  root.querySelectorAll('[data-open-version]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange({ [stateKey]: `${btn.dataset.openVersion}|${btn.dataset.version}` });
+    });
+  });
+  root.querySelectorAll('[data-action="close-version-modal"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    });
+  });
+}
+
+function parseVersionKey(key) {
+  if (!key) return null;
+  const idx = String(key).indexOf('|');
+  if (idx < 0) return null;
+  return { claimId: key.slice(0, idx), version: key.slice(idx + 1) };
+}
+
+function renderOpenVersionPopup(claims, versionKey) {
+  const parsed = parseVersionKey(versionKey);
+  if (!parsed) return '';
+  const claim = claims.find((c) => c.id === parsed.claimId);
+  if (!claim) return '';
+  return versionPopupHtml(claim, parsed.version);
+}
 
 /* ===== js/views/login.js ===== */
-
-
-
-
 function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
     <div class="login-page">
@@ -6437,81 +6912,15 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   });
 }
 
-
 /* ===== js/views/queue.js ===== */
-
-
-
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function formatAuditDate(iso) {
-  return formatDate(iso);
-}
-
 function auditTableHtml(claim) {
-  const rows = getClaimAuditLog(claim);
-  if (!rows.length) {
-    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
-  }
-  return `
-    <div class="claim-audit-head">
-      <strong>Version audit</strong>
-      <span>${rows.length} change${rows.length === 1 ? '' : 's'}</span>
-    </div>
-    <div class="claim-audit-scroll">
-      <table class="claim-audit-table">
-        <thead>
-          <tr>
-            <th>Version</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>User</th>
-            <th>Action</th>
-            <th>Change type</th>
-            <th>Entity</th>
-            <th>Field</th>
-            <th>Old value</th>
-            <th>New value</th>
-            <th>Status</th>
-            <th>Comments</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (r) => `
-            <tr>
-              <td class="mono">${esc(r.version)}</td>
-              <td>${esc(formatAuditDate(r.date))}</td>
-              <td class="mono">${esc(r.time)}</td>
-              <td>${esc(r.user)}</td>
-              <td>${esc(r.action)}</td>
-              <td>${esc(r.changeType)}</td>
-              <td>${esc(r.entity)}</td>
-              <td>${esc(r.field)}</td>
-              <td>${esc(r.oldValue)}</td>
-              <td>${esc(r.newValue)}</td>
-              <td><span class="audit-status">${esc(r.status)}</span></td>
-              <td class="audit-comment">${esc(r.comments)}</td>
-            </tr>`
-            )
-            .join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  return versionTableHtml(claim);
 }
 
 function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
   const canAudit = canViewClaimAudit(session.role);
-  const { scope, sort, stage = 'all', auditClaimId = null } = state;
+  const { scope, sort, stage = 'all', auditClaimId = null, versionKey = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
   const scoped = isSurveyor || scope === 'all' ? pool : mine;
@@ -6649,6 +7058,7 @@ function renderQueue(root, session, claims, state, onChange) {
               .join('')
       }
     </div>
+    ${canAudit ? renderOpenVersionPopup(claims, versionKey) : ''}
   `;
 
   root.innerHTML = renderShell(session, '#/queue', content);
@@ -6667,7 +7077,7 @@ function renderQueue(root, session, claims, state, onChange) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.auditToggle;
-      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id });
+      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
     });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
@@ -6675,13 +7085,12 @@ function renderQueue(root, session, claims, state, onChange) {
       location.hash = `#/claim/${btn.dataset.claimId}`;
     });
   });
+  if (canAudit) {
+    bindVersionPopup(root, claims, (partial) => onChange({ ...state, ...partial }), 'versionKey');
+  }
 }
 
-
 /* ===== js/views/claim.js ===== */
-
-
-
 function stateIcon(state) {
   if (state === 'pass') return iconCheck();
   if (state === 'fail') return iconX();
@@ -7201,12 +7610,7 @@ function renderClaimDetail(
   });
 }
 
-
 /* ===== js/views/dashboard.js ===== */
-
-
-
-
 let chartInstance = null;
 
 function destroyChart() {
@@ -7544,13 +7948,7 @@ function renderDashboard(root, session, claims, state, onChange) {
   }
 }
 
-
-
 /* ===== js/views/config.js ===== */
-
-
-
-
 const SCORING_TABS = CLAIM_STAGES.map((s) => ({
   id: s.id,
   label: `${s.name} scoring`,
@@ -8429,12 +8827,7 @@ function bindConfigEvents(root, session, currentUseCases) {
   );
 }
 
-
 /* ===== js/views/report.js ===== */
-
-
-
-
 function esc(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -8825,10 +9218,10 @@ function renderReport(root, session, claims, state, onChange) {
 
     <div class="panel">
       <div class="panel-header">
-        <h2>Transactions</h2>
-        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export transactions</button>
+        <h2>Claim versions</h2>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${txGate.ok && capped.shown.length ? '' : 'disabled'}>Export versions</button>
       </div>
-      <p class="page-subtitle" style="margin:0 0 12px">Cross-claim ledger · does not change the scorecard</p>
+      <p class="page-subtitle" style="margin:0 0 12px">Claim version history · click a version for details</p>
       <div class="filters-bar">
         <div class="filter-group">
           <label for="tx-period">Ledger dates</label>
@@ -8875,37 +9268,27 @@ function renderReport(root, session, claims, state, onChange) {
         !txGate.ok
           ? `<div class="empty-state">${
               txGate.reason === 'too-wide'
-                ? 'Narrow the dates. Transactions can show at most 31 days.'
-                : 'Set a date range to load the ledger.'
+                ? 'Narrow the dates. Versions can show at most 31 days.'
+                : 'Set a date range to load claim versions.'
             }</div>`
           : `
-      <p class="scope-line">${ledgerFiltered.length} transactions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
+      <p class="scope-line">${ledgerFiltered.length} versions · ${distinctClaims} distinct claims · ${LEDGER_CHANGE_TYPES.map((t) => `${typeCounts[t]} ${t.toLowerCase()}`).join(' · ')}</p>
       ${
         capped.shown.length
-          ? `<p class="scope-line">Last 10 transactions. Export for the full list.</p>`
+          ? `<p class="scope-line">${capped.shown.length} of ${capped.total} versions in this range.</p>`
           : ''
       }
       ${
         capped.shown.length === 0
-          ? `<div class="chart-empty">No transactions in this range.</div>`
+          ? `<div class="chart-empty">No claim versions in this range.</div>`
           : `<div class="sample-table-wrap">
-        <table class="sample-table ledger-table">
+        <table class="sample-table ledger-table version-table">
           <thead>
             <tr>
+              <th>Version</th>
+              <th>FNOL no.</th>
+              <th>Registration no.</th>
               <th>Date</th>
-              <th>Time</th>
-              <th>Claim</th>
-              <th>FNOL</th>
-              <th>Policy</th>
-              <th>Stage score</th>
-              <th>Stage</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Change type</th>
-              <th>Field</th>
-              <th>Old value</th>
-              <th>New value</th>
-              <th>Comments</th>
             </tr>
           </thead>
           <tbody>
@@ -8913,20 +9296,12 @@ function renderReport(root, session, claims, state, onChange) {
               .map(
                 (r) => `
               <tr>
-                <td>${esc(formatDate(r.date))}</td>
-                <td class="mono">${esc(r.time)}</td>
-                <td><a class="ledger-claim" href="#/claim/${r.claimId}">${esc(r.claimId)}</a></td>
+                <td class="mono">
+                  <button type="button" class="version-link" data-open-version="${esc(r.claimId)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+                </td>
                 <td class="mono">${esc(r.fnolNumber)}</td>
-                <td class="mono">${esc(r.policyNumber)}</td>
-                <td class="mono">${formatClaimScore(r)}</td>
-                <td>${esc(r.workflowStageName)}</td>
-                <td>${esc(r.user)}</td>
-                <td>${esc(r.userAction)}</td>
-                <td><span class="ledger-chip">${esc(r.ledgerType)}</span></td>
-                <td>${esc(r.field)}</td>
-                <td>${esc(r.oldValue)}</td>
-                <td>${esc(r.newValue)}</td>
-                <td class="ledger-comment">${esc(r.comments || '—')}</td>
+                <td class="mono">${esc(r.registrationNo || r.claimId)}</td>
+                <td>${esc(formatDate(r.date))}</td>
               </tr>`
               )
               .join('')}
@@ -8936,6 +9311,7 @@ function renderReport(root, session, claims, state, onChange) {
       }`
       }
     </div>
+    ${renderOpenVersionPopup(claims, state.versionKey)}
   `;
 
   root.innerHTML = renderShell(session, '#/report', content);
@@ -8988,6 +9364,7 @@ function renderReport(root, session, claims, state, onChange) {
   );
   root.querySelector('#tx-type')?.addEventListener('change', (e) => patch({ txChangeType: e.target.value }));
   root.querySelector('#tx-user')?.addEventListener('change', (e) => patch({ txUser: e.target.value }));
+  bindVersionPopup(root, claims, patch, 'versionKey');
 
   root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
     const rows = [
@@ -9011,59 +9388,25 @@ function renderReport(root, session, claims, state, onChange) {
   });
 
   root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
-    const header = [
-      'Date',
-      'Time',
-      'Claim',
-      'FNOL',
-      'Policy',
-      'Stage score',
-      'Stage',
-      'User',
-      'Action',
-      'Change type',
-      'Field',
-      'Old value',
-      'New value',
-      'Comments',
-    ];
+    const header = ['Version', 'FNOL no.', 'Registration no.', 'Date'];
     const rows = [
       header,
       ...ledgerFiltered.map((r) => [
-        formatDate(r.date),
-        r.time,
-        r.claimId,
+        r.version,
         r.fnolNumber,
-        r.policyNumber,
-        formatClaimScore(r),
-        r.workflowStageName,
-        r.user,
-        r.userAction,
-        r.ledgerType,
-        r.field,
-        r.oldValue,
-        r.newValue,
-        r.comments || '',
+        r.registrationNo || r.claimId,
+        formatDate(r.date),
       ]),
     ];
-    downloadCsv(`claim-intel-transactions-${txRange.from}-to-${txRange.to}.csv`, rows);
+    downloadCsv(`claim-intel-versions-${txRange.from}-to-${txRange.to}.csv`, rows);
   });
 }
 
-
 /* ===== js/app.js ===== */
-
-
-
-
-
-
-
-
 const root = document.getElementById('app');
 
 /** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
-let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null };
+let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null, versionKey: null };
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume', claimType: string }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share', claimType: 'all' };
@@ -9087,6 +9430,7 @@ let reportState = {
   txTo: '2026-08-11',
   txChangeType: 'all',
   txUser: 'all',
+  versionKey: null,
 };
 
 let claimFilter = 'all';
@@ -9236,7 +9580,6 @@ if (!location.hash) {
 }
 
 window.addEventListener('load', render);
-
 
 })();
 
