@@ -9,8 +9,15 @@ import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
 
 const root = document.getElementById('app');
 
-/** @type {{ scope: 'mine'|'all', sort: 'risk'|'deadline', stage: string }} */
-let queueState = { scope: 'mine', sort: 'risk', stage: 'all', auditClaimId: null, versionKey: null };
+/** @type {{ period: string, from: string, to: string, stage: string }} */
+let queueState = {
+  period: '30',
+  from: '2026-07-13',
+  to: '2026-08-11',
+  stage: 'all',
+  auditClaimId: null,
+  versionKey: null,
+};
 
 /** @type {{ period: string, branch: string, chartMode: 'share'|'volume', claimType: string }} */
 let dashState = { period: '30', branch: 'All branches', chartMode: 'share', claimType: 'all' };
@@ -21,14 +28,10 @@ let reportState = {
   branch: 'All branches',
   claimType: 'all',
   stage: 'all',
-  tier: 'all',
   from: '2026-08-05',
   to: '2026-08-11',
   ucStage: 'all',
   ucHardFailOnly: false,
-  sampleCheckId: null,
-  sampleTier: 'red',
-  samplePendingOnly: false,
   txPeriod: 'inherit',
   txFrom: '2026-08-05',
   txTo: '2026-08-11',

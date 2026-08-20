@@ -19,13 +19,12 @@ function esc(value) {
 function stateLabel(state) {
   if (state === 'pass') return 'Pass';
   if (state === 'fail') return 'Fail';
-  if (state === 'bypassed') return 'Bypassed';
-  if (state === 'waived') return 'Waived';
+  if (state === 'bypassed' || state === 'waived') return 'Bypassed';
   return state || '—';
 }
 
 export function versionTableHtml(claim, { emptyMessage = 'No version history recorded for this claim.' } = {}) {
-  const rows = getClaimVersions(claim);
+  const rows = [...getClaimVersions(claim)].reverse();
   if (!rows.length) {
     return `<div class="claim-audit-empty">${esc(emptyMessage)}</div>`;
   }
@@ -103,16 +102,13 @@ export function versionPopupHtml(claim, versionId) {
         </section>
 
         <section class="version-modal-section">
-          <h3>Who made the change</h3>
-          <p class="version-modal-copy"><strong>${esc(version.user)}</strong> · ${esc(version.action || 'Updated')} · ${esc(formatDate(version.date))} ${esc(version.time || '')}</p>
-        </section>
-
-        <section class="version-modal-section">
-          <h3>What changed</h3>
-          <p class="version-modal-copy">${esc(version.summary || version.comments || '—')}</p>
+          <h3>Changes</h3>
           <table class="version-change-table">
             <thead>
               <tr>
+                <th>Changed by</th>
+                <th>Action</th>
+                <th>Date</th>
                 <th>Field</th>
                 <th>Old value</th>
                 <th>New value</th>
@@ -123,7 +119,10 @@ export function versionPopupHtml(claim, versionId) {
                 .map(
                   (c) => `
                 <tr>
-                  <td>${esc(c.field || '—')}</td>
+                  <td>${esc(version.user)}</td>
+                  <td>${esc(version.action || 'Updated')}</td>
+                  <td>${esc(formatDate(version.date))}${version.time ? ` ${esc(version.time)}` : ''}</td>
+                  <td>${esc(c.field || version.summary || '—')}</td>
                   <td>${esc(c.oldValue ?? '—')}</td>
                   <td>${esc(c.newValue ?? '—')}</td>
                 </tr>`
@@ -174,7 +173,7 @@ export function versionPopupHtml(claim, versionId) {
 }
 
 export function versionHistoryTableHtml(claim) {
-  const rows = getClaimVersions(claim);
+  const rows = [...getClaimVersions(claim)].reverse();
   if (!rows.length) {
     return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
   }

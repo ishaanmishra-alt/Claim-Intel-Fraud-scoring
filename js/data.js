@@ -1258,7 +1258,7 @@ const DOCUMENT_SEEDS = {
       status: 'waived',
       filename: null,
       thumb: null,
-      note: 'No dashcam fitted — waived at FNOL.',
+      note: 'No dashcam fitted — bypassed at FNOL.',
       count: 0,
     },
     ...MISSING_SURVEYOR_DOCS,
@@ -1380,7 +1380,7 @@ function capClaimVersions(rows, claim) {
 function docChange(row) {
   const statusLabel =
     row.displayStatus === 'waived'
-      ? 'Waived'
+      ? 'Bypassed'
       : row.displayStatus === 'already_on_file'
         ? 'Already on file'
         : row.rec.filename || 'Uploaded';
@@ -1652,7 +1652,7 @@ const EXTRA_LEDGER_EVENTS = [
     entity: 'Use-case',
     field: '#08',
     oldValue: 'Reported 18 days after loss',
-    newValue: 'Pending waive',
+    newValue: 'Pending bypass',
     comments: 'Customer was overseas; delay explained.',
   },
   {
@@ -1678,7 +1678,7 @@ const EXTRA_LEDGER_EVENTS = [
     entity: 'Use-case',
     field: '#10',
     oldValue: 'Fail',
-    newValue: 'Waived',
+    newValue: 'Bypassed',
     comments: 'Network garage confirmed after the fact.',
   },
   {
@@ -2125,10 +2125,10 @@ export function proposeCheckException(claimId, payload, actor) {
 
   const hardFail = !!payload.hardFail;
   if (type === 'reject' && hardFail && actor?.role === 'claim_user') {
-    return { ok: false, message: 'Claim Users cannot waive a hard-fail. Resolve the data or refer to FIU.' };
+    return { ok: false, message: 'Claim Users cannot bypass a hard-fail. Resolve the data or refer to FIU.' };
   }
   if (type === 'reject' && hardFail && !isCheckerRole(actor?.role)) {
-    return { ok: false, message: 'Only Claim Head or FIU can waive a hard-fail.' };
+    return { ok: false, message: 'Only Claim Head or FIU can bypass a hard-fail.' };
   }
 
   const proposedFields = type === 'resolve' ? { ...(payload.proposedFields || {}) } : {};
@@ -2183,7 +2183,7 @@ export function proposeCheckException(claimId, payload, actor) {
       type === 'resolve'
         ? fieldSummary(proposedFields)
         : type === 'reject'
-          ? 'Pending waive'
+          ? 'Pending bypass'
           : type === 'bypass'
             ? 'Pending bypass'
             : exception.disposition,
@@ -2265,7 +2265,7 @@ export function decideCheckException(claimId, exceptionId, decision, comment, ac
       exception.type === 'resolve'
         ? fieldSummary(exception.proposedFields)
         : exception.type === 'reject'
-          ? 'Waived'
+          ? 'Bypassed'
           : exception.type === 'bypass'
             ? 'Bypassed'
           : exception.disposition === 'refer'

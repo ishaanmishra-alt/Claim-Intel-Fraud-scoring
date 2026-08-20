@@ -1313,6 +1313,10 @@ a {
   align-items: flex-end;
 }
 
+.filter-group {
+  min-width: 160px;
+}
+
 .filter-group label {
   display: block;
   font-size: 0.75rem;
@@ -1321,12 +1325,28 @@ a {
   margin-bottom: 6px;
 }
 
-.filter-group input[type="date"] {
+.filter-group select,
+.filter-group input[type="date"],
+.filter-group input[type="search"] {
+  display: block;
+  width: 100%;
+  min-width: 160px;
+  height: 40px;
   padding: 8px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.queue-filters {
+  margin-bottom: 16px;
+}
+
+.usecase-fail-table .check-code {
+  margin-right: 8px;
 }
 
 .scope-line {

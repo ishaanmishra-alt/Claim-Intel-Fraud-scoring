@@ -83,7 +83,7 @@ function requiredTag(def) {
 function docStatusLabel(status) {
   if (status === 'uploaded') return 'Uploaded';
   if (status === 'rejected') return 'Rejected';
-  if (status === 'waived') return 'Waived';
+  if (status === 'waived' || status === 'bypassed') return 'Bypassed';
   if (status === 'already_on_file') return 'Already on file';
   return 'Missing';
 }
@@ -94,7 +94,7 @@ function docThumb(row) {
     return `<div class="doc-chip on-file" title="Already on file">On file</div>`;
   }
   if (displayStatus === 'waived') {
-    return `<div class="doc-chip waived">Waived</div>`;
+    return `<div class="doc-chip waived">Bypassed</div>`;
   }
   if (displayStatus === 'missing') {
     return `<div class="doc-chip missing">${def.kind === 'pdf' ? 'PDF' : 'IMG'}</div>`;

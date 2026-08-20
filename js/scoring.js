@@ -177,7 +177,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
   const passPct = options.stagePassPct || getStagePassPct();
 
   const waivedIds = new Set(claim.waivedCheckIds || []);
-  const bypassedIds = new Set(claim.bypassedCheckIds || []);
+  const bypassedIds = new Set([...(claim.bypassedCheckIds || []), ...waivedIds]);
   const dispositions = claim.dispositions || {};
 
   const results = claim.checks
@@ -192,9 +192,6 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
       if (bypassedIds.has(c.checkId)) {
         state = 'bypassed';
         evidence = `${evaluated.evidence} · Bypassed — excluded from this stage. Remaining weights are normalised to 100%.`;
-      } else if (waivedIds.has(c.checkId)) {
-        state = 'waived';
-        evidence = `${evaluated.evidence} · Waived as a false positive — data already correct.`;
       } else {
         const missingDocs = missingRequiredDocsForCheck(claim, c.checkId);
         if (missingDocs.length && state !== 'fail') {
@@ -221,8 +218,8 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
         riskCategory: meta?.riskCategory || def.riskCategory,
         hardFail,
         weight,
-        waived: state === 'waived',
         bypassed: state === 'bypassed',
+        waived: false,
         disposition,
       };
     });
@@ -294,7 +291,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
     score: contextScore,
     tier,
     forcedRed,
-    hasOverride: waivedIds.size > 0 || bypassedIds.size > 0,
+    hasOverride: bypassedIds.size > 0,
     hardFails,
     results: visibleResults,
     stageScores,

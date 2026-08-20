@@ -9,29 +9,34 @@ import {
 } from '../data.js';
 import { formatClaimAmount, formatClaimScore, tierLabel } from '../scoring.js';
 import { versionTableHtml, bindVersionPopup, renderOpenVersionPopup } from '../claim-versions-ui.js';
+import { DAY_RANGE_PRESETS, resolvePeriodRange, filterClaimUniverse } from '../filters.js';
 
 function auditTableHtml(claim) {
   return versionTableHtml(claim);
 }
 
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function renderQueue(root, session, claims, state, onChange) {
-  const isSurveyor = session.role === 'surveyor';
-  const isClaimUser = session.role === 'claim_user';
   const canAudit = canViewClaimAudit(session.role);
-  const { scope, sort, stage = 'all', auditClaimId = null, versionKey = null } = state;
-  const pool = claims;
-  const mine = pool.filter((c) => c.assignedTo === session.userId);
-  const scoped = isSurveyor || isClaimUser || scope === 'all' ? pool : mine;
-  const list = stage === 'all' ? scoped : scoped.filter((c) => getClaimWorkflowStage(c) === stage);
+  const { stage = 'all', period = '30', from, to, auditClaimId = null, versionKey = null } = state;
+  const range = resolvePeriodRange(period, { from, to });
+  const list = filterClaimUniverse(claims, {
+    period,
+    from: range.from,
+    to: range.to,
+    stage,
+  });
 
   const sorted = [...list].sort((a, b) => {
-    if (sort === 'deadline') {
-      if (a.dueInDays !== b.dueInDays) return a.dueInDays - b.dueInDays;
-      return a.score - b.score;
-    }
-    const tierRank = { red: 0, yellow: 1, green: 2 };
-    if (tierRank[a.tier] !== tierRank[b.tier]) return tierRank[a.tier] - tierRank[b.tier];
-    if (a.score !== b.score) return a.score - b.score;
+    const byFiled = String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
+    if (byFiled) return byFiled;
     return a.dueInDays - b.dueInDays;
   });
 
@@ -41,28 +46,12 @@ export function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = isSurveyor || isClaimUser ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
-  const subtitle =
-    isSurveyor || isClaimUser
-      ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
-      : scope === 'mine'
-        ? `${list.length} assigned to you · already scored`
-        : `${list.length} claims in portfolio · already scored`;
-
   const content = `
     <div class="page-header">
       <div>
-        <h1>${title} <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
-        <p class="page-subtitle">${subtitle}</p>
+        <h1>Claims <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
+        <p class="page-subtitle">${list.length} claim${list.length === 1 ? '' : 's'} in the selected date range</p>
       </div>
-      ${
-        isSurveyor || isClaimUser
-          ? ''
-          : `<div class="segmented" role="group" aria-label="Claim scope">
-        <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
-        <button type="button" data-scope="all" class="${scope === 'all' ? 'active' : ''}">All claims</button>
-      </div>`
-      }
     </div>
 
     <div class="tier-strip">
@@ -71,25 +60,30 @@ export function renderQueue(root, session, claims, state, onChange) {
       <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
     </div>
 
-    <div class="toolbar">
-      ${
-        isClaimUser
-          ? ''
-          : `<div>
-        <span class="toolbar-label">Sort</span>
-        <div class="segmented" role="group" aria-label="Sort mode">
-          <button type="button" data-sort="risk" class="${sort === 'risk' ? 'active' : ''}">Highest risk</button>
-          <button type="button" data-sort="deadline" class="${sort === 'deadline' ? 'active' : ''}">Deadline</button>
-        </div>
-      </div>`
-      }
-      <div>
-        <span class="toolbar-label">Claim stage</span>
-        <select id="queue-stage-filter" aria-label="Filter by claim stage">
+    <div class="filters-bar queue-filters">
+      <div class="filter-group">
+        <label for="queue-period">Date range</label>
+        <select id="queue-period">
+          ${DAY_RANGE_PRESETS.map(
+            (p) => `<option value="${p.id}" ${period === p.id ? 'selected' : ''}>${p.label}</option>`
+          ).join('')}
+          <option value="custom" ${period === 'custom' ? 'selected' : ''}>Custom</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="queue-from">Start date</label>
+        <input id="queue-from" type="date" value="${esc(from || range.from)}" />
+      </div>
+      <div class="filter-group">
+        <label for="queue-to">End date</label>
+        <input id="queue-to" type="date" value="${esc(to || range.to)}" />
+      </div>
+      <div class="filter-group">
+        <label for="queue-stage-filter">Claim stage</label>
+        <select id="queue-stage-filter">
           <option value="all" ${stage === 'all' ? 'selected' : ''}>All stages</option>
           ${WORKFLOW_STAGES.map(
-            (s) =>
-              `<option value="${s.id}" ${stage === s.id ? 'selected' : ''}>${s.name}</option>`
+            (s) => `<option value="${s.id}" ${stage === s.id ? 'selected' : ''}>${s.name}</option>`
           ).join('')}
         </select>
       </div>
@@ -125,7 +119,7 @@ export function renderQueue(root, session, claims, state, onChange) {
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
-                  ${(c.bypassedCheckIds || []).length ? `<span class="tag override">Bypassed</span>` : ''}
+                  ${c.hasOverride ? `<span class="tag override">Bypassed</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
@@ -167,11 +161,16 @@ export function renderQueue(root, session, claims, state, onChange) {
   root.innerHTML = renderShell(session, '#/queue', content);
   root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
 
-  root.querySelectorAll('[data-scope]').forEach((btn) => {
-    btn.addEventListener('click', () => onChange({ ...state, scope: btn.dataset.scope }));
+  root.querySelector('#queue-period')?.addEventListener('change', (e) => {
+    const nextPeriod = e.target.value;
+    const nextRange = resolvePeriodRange(nextPeriod, { from: state.from, to: state.to });
+    onChange({ ...state, period: nextPeriod, from: nextRange.from, to: nextRange.to });
   });
-  root.querySelectorAll('[data-sort]').forEach((btn) => {
-    btn.addEventListener('click', () => onChange({ ...state, sort: btn.dataset.sort }));
+  root.querySelector('#queue-from')?.addEventListener('change', (e) => {
+    onChange({ ...state, from: e.target.value, period: 'custom' });
+  });
+  root.querySelector('#queue-to')?.addEventListener('change', (e) => {
+    onChange({ ...state, to: e.target.value, period: 'custom' });
   });
   root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
     onChange({ ...state, stage: e.target.value });

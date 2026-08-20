@@ -262,7 +262,7 @@ export function renderDashboard(root, session, claims, state, onChange) {
             <div class="bar-track"><div class="bar-fill red" style="width:${st.rate}%"></div></div>
             <p class="stage-fail-top-uc">${
               st.top && st.top.fail
-                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail})`
+                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail} claims)`
                 : 'No fails in period'
             }</p>
           </div>
@@ -288,12 +288,12 @@ export function renderDashboard(root, session, claims, state, onChange) {
               <span class="check-code">${row.code}</span>
               <div>
                 <strong>${row.name}</strong>
-                <small>${row.stageName} · ${row.failRate}% fail rate</small>
+                <small>${row.stageName} · ${row.fail} of ${row.total} claims failed (${row.failRate}%)</small>
               </div>
             </div>
             <div class="usecase-fail-bar-wrap">
               <div class="bar-track"><div class="bar-fill red" style="width:${Math.round((row.fail / maxFails) * 100)}%"></div></div>
-              <strong>${row.fail}</strong>
+              <strong>${row.fail} claims</strong>
             </div>
           </div>
         `

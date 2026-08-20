@@ -13,6 +13,15 @@ export const PERIOD_PRESETS = [
   { id: 'custom', label: 'Custom' },
 ];
 
+export const DAY_RANGE_PRESETS = [
+  { id: '7', label: 'Last 7 days' },
+  { id: '30', label: 'Last 30 days' },
+  { id: '60', label: 'Last 60 days' },
+  { id: '90', label: 'Last 90 days' },
+  { id: '180', label: 'Last 180 days' },
+  { id: '365', label: 'Last 365 days' },
+];
+
 export const CLAIM_TYPE_OPTIONS = [
   { id: 'all', label: 'All types' },
   { id: 'own_damage', label: 'Own damage' },
@@ -64,8 +73,10 @@ export function resolvePeriodRange(period, { from, to, today = PROTOTYPE_TODAY }
     const y = addDays(today, -1);
     return { from: y, to: y };
   }
-  if (period === '7') return { from: addDays(today, -6), to: today };
-  if (period === '30') return { from: addDays(today, -29), to: today };
+  const days = Number(period);
+  if (Number.isFinite(days) && days > 0) {
+    return { from: addDays(today, -(days - 1)), to: today };
+  }
   if (period === 'mtd') return { from: startOfMonth(today), to: today };
   if (period === 'quarter') return { from: startOfQuarter(today), to: today };
   return { from: addDays(today, -6), to: today };
@@ -124,7 +135,10 @@ export function snapshotMetrics(claims) {
   const red = claims.filter((c) => c.tier === 'red');
   const failed = claims.filter((c) => (c.summary?.failCount || c.summary?.softFailCount || 0) > 0);
   const hardFails = claims.reduce((n, c) => n + (c.hardFails?.length || 0), 0);
-  const waived = claims.reduce((n, c) => n + (c.waivedCheckIds?.length || 0), 0);
+  const bypassed = claims.reduce(
+    (n, c) => n + (c.bypassedCheckIds?.length || 0) + (c.waivedCheckIds?.length || 0),
+    0
+  );
   const pending = claims.reduce((n, c) => n + getPendingExceptions(c).length, 0);
   return {
     count,
@@ -137,7 +151,8 @@ export function snapshotMetrics(claims) {
     cantEvalCount: 0,
     cantEvalRate: 0,
     hardFails,
-    waived,
+    bypassed,
+    waived: bypassed,
     pending,
   };
 }
