@@ -8,6 +8,7 @@ import {
   missingRequiredDocsForCheck,
   uploadedDocsForCheck,
   getClaimWorkflowStage,
+  hasStageDocsComplete,
 } from './data.js';
 import { getActiveUseCases, getWeights as getStoreWeights, getStagePassPct } from './state.js';
 
@@ -228,12 +229,11 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
 
   attachNormalizedWeights(results);
 
-  const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scored = results.filter((r) => !isExcludedFromScore(r));
-  const failed = scored.filter((r) => r.state === 'fail');
-  const passed = scored.filter((r) => r.state === 'pass');
+  const stageScores = [];
+  let heldAtStage = null;
+  let holdReason = null;
 
-  const stageScores = CLAIM_STAGES.map((stage) => {
+  for (const stage of CLAIM_STAGES) {
     const stageResults = results.filter((r) => r.stage === stage.id);
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
     const weighted = scoreWeightedGroup(stageResults);
@@ -241,7 +241,7 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
     const score = criticalFailed ? 0 : weighted.evaluable === 0 ? 100 : weighted.score;
     const mark = Number(passPct[stage.id] ?? DEFAULT_STAGE_PASS[stage.id] ?? 70);
     const passedStage = !criticalFailed && score >= mark;
-    return {
+    const row = {
       stageId: stage.id,
       stageName: stage.name,
       score,
@@ -258,7 +258,31 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
       passed: passedStage,
       criticalFailed,
     };
-  }).filter((s) => s.checkCount > 0);
+    if (stageResults.length > 0) stageScores.push(row);
+
+    if (criticalFailed) {
+      heldAtStage = stage.id;
+      holdReason = 'critical';
+      break;
+    }
+    if (!hasStageDocsComplete(claim, stage.id)) {
+      heldAtStage = stage.id;
+      holdReason = 'docs';
+      break;
+    }
+    if (stage.id === 'assessment' && !claim.surveyorSubmitted) {
+      heldAtStage = stage.id;
+      holdReason = 'surveyor';
+      break;
+    }
+  }
+
+  const scoredStageIds = new Set(stageScores.map((s) => s.stageId));
+  const visibleResults = results.filter((r) => scoredStageIds.has(r.stage));
+  const hardFails = visibleResults.filter((r) => r.hardFail && r.state === 'fail');
+  const scored = visibleResults.filter((r) => !isExcludedFromScore(r));
+  const failed = scored.filter((r) => r.state === 'fail');
+  const passed = scored.filter((r) => r.state === 'pass');
 
   const workflowStage = getClaimWorkflowStage(claim, stageScores);
   const currentStage = stageScores.find((s) => s.stageId === workflowStage) || stageScores[0] || null;
@@ -272,9 +296,11 @@ export function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = nu
     forcedRed,
     hasOverride: waivedIds.size > 0 || bypassedIds.size > 0,
     hardFails,
-    results,
+    results: visibleResults,
     stageScores,
     workflowStage,
+    heldAtStage,
+    holdReason,
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failed.filter((r) => !r.hardFail).length,

@@ -54,7 +54,9 @@ function exceptionBlockHtml(result, session) {
   if (result.state === 'bypassed') {
     bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
-      `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
+      session.role === 'claim_user'
+        ? `<p class="exception-note">Excluded from this stage.</p>`
+        : `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
   }
   const buttons = [];
@@ -108,19 +110,23 @@ function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
   const rows = getStageDocumentRows(claim, stageId);
   if (!rows.length) return '';
   return `
-    <div class="doc-checklist">
-      <div class="doc-checklist-label">Documents</div>
+    <details class="doc-disclosure">
+      <summary>Documents</summary>
+      <div class="doc-checklist">
       ${rows
         .map((row) => {
-          const clickable =
-            !readOnly && (row.displayStatus === 'missing' || row.displayStatus === 'rejected');
+          const needsAttention =
+            row.displayStatus === 'missing' || row.displayStatus === 'rejected';
+          const clickable = !readOnly && needsAttention;
           const statusNote =
             row.displayStatus === 'already_on_file'
               ? 'Captured at an earlier stage — not requested again.'
               : row.rec.note || '';
           return `
             <${clickable ? 'button type="button"' : 'div'}
-              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}"
+              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}${
+                needsAttention ? ' is-highlight' : ''
+              }"
               ${clickable ? `data-action="upload-doc" data-doc-id="${row.def.id}"` : ''}
             >
               <div class="doc-row-main">
@@ -139,8 +145,25 @@ function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
           `;
         })
         .join('')}
-    </div>
+      </div>
+    </details>
   `;
+}
+
+function stageHoldMessage(claim, stageId) {
+  const scored = (claim.stageScores || []).some((s) => s.stageId === stageId);
+  if (scored) return '';
+  const heldName = stageDisplayName(claim.heldAtStage || claim.workflowStage);
+  if (claim.holdReason === 'critical') {
+    return `This stage is not scored. A critical use-case failed at ${heldName}. The claim cannot move on unless that check is bypassed and approved.`;
+  }
+  if (claim.holdReason === 'docs') {
+    return `This stage is not scored until required ${heldName} documents are on file.`;
+  }
+  if (claim.holdReason === 'surveyor') {
+    return `This stage is not scored until Assessment is submitted.`;
+  }
+  return `This stage is not scored yet. The claim is still at ${heldName}.`;
 }
 
 function claimInfoDrawer(claim) {
@@ -215,21 +238,24 @@ export function renderClaimDetail(
   }
 
   const isSurveyor = session.role === 'surveyor';
-  const isClaimUser = session.role === 'claim_user' || isSurveyor;
-  const stageTab = isSurveyor ? selectedStage || 'assessment' : null;
+  const isClaimUser = session.role === 'claim_user';
+  const hideAssigned = isClaimUser || isSurveyor;
+  const hideWeights = isClaimUser;
+  const stageTab = isSurveyor ? selectedStage || 'assessment' : selectedStage || 'all';
   const surveyorCanWork =
     isSurveyor &&
     stageTab === 'assessment' &&
     hasPassedPriorStages(claim, ['fnol', 'intimation']) &&
     !claim.surveyorSubmitted;
   const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
-
-  const displayStages = isSurveyor
-    ? CLAIM_STAGES.filter((s) => !stageTab || s.id === stageTab)
-    : CLAIM_STAGES;
-  const stageResults = stageTab
-    ? claim.results.filter((r) => r.stage === stageTab)
-    : claim.results;
+  const displayStages =
+    stageTab && stageTab !== 'all'
+      ? CLAIM_STAGES.filter((s) => s.id === stageTab)
+      : CLAIM_STAGES;
+  const stageResults =
+    stageTab && stageTab !== 'all'
+      ? (claim.results || []).filter((r) => r.stage === stageTab)
+      : claim.results || [];
   const sorted = sortChecksForDisplay(stageResults);
   const counts = {
     all: stageResults.length,
@@ -285,7 +311,7 @@ export function renderClaimDetail(
           <div class="value">${formatClaimAmount(claim)}</div>
         </div>
         ${
-          isClaimUser
+          hideAssigned
             ? ''
             : `<div class="meta-item">
           <label>Assigned to</label>
@@ -362,13 +388,20 @@ export function renderClaimDetail(
       </div>
     </div>
 
-    <div class="stage-chips ${isSurveyor ? 'is-tabs' : ''}">
-      ${(isSurveyor ? CLAIM_STAGES : claim.stageScores || [])
-        .map((st) => {
-          const stageId = st.stageId || st.id;
+    <div class="stage-chips is-tabs">
+      ${
+        isSurveyor
+          ? ''
+          : `<button type="button" class="stage-chip ${stageTab === 'all' ? 'is-active' : ''}" data-stage-tab="all">
+          <span class="stage-chip-name">All</span>
+        </button>`
+      }
+      ${CLAIM_STAGES.map((st) => {
+          const stageId = st.id;
           const stageScore = (claim.stageScores || []).find((x) => x.stageId === stageId);
           const docs = getStageDocCompleteness(claim, stageId);
-          const active = isSurveyor && stageTab === stageId;
+          const active = stageTab === stageId;
+          const held = !stageScore && claim.heldAtStage && claim.heldAtStage !== stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
           ${stageScore ? `<span class="score-circle xs ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>` : ''}
@@ -377,15 +410,14 @@ export function renderClaimDetail(
               ? stageScore.criticalFailed
                 ? `<span class="doc-complete-chip">Fail</span>`
                 : `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>`
-              : ''
+              : held
+                ? `<span class="doc-complete-chip">Held</span>`
+                : ''
           }
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
-          return isSurveyor
-            ? `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`
-            : `<div class="stage-chip">${inner}</div>`;
-        })
-        .join('')}
+          return `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`;
+        }).join('')}
     </div>
 
     <div class="result-filters">
@@ -410,14 +442,15 @@ export function renderClaimDetail(
                 );
                 const stageHasCritical = (claim.results || []).some((r) => r.stage === stage.id && r.hardFail);
                 const hints = [];
-                if (stageHasCritical) {
+                if (!hideWeights && stageHasCritical) {
                   hints.push(
                     'Critical use-cases are pass / fail only. If they pass, remaining use-cases in this stage share 100%.'
                   );
                 }
-                if (stageHasExcluded) {
+                if (!hideWeights && stageHasExcluded) {
                   hints.push('Bypassed use-cases are excluded. Remaining weights in this stage are normalised to 100%.');
                 }
+                const holdNote = stageHoldMessage(claim, stage.id);
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
@@ -434,16 +467,17 @@ export function renderClaimDetail(
                   }
                 </div>
               </div>
+              ${holdNote ? `<p class="stage-hold-note">${holdNote}</p>` : ''}
               <div class="checks-list">
                 ${
                   items.length === 0
-                    ? filter === 'all'
+                    ? filter === 'all' || holdNote
                       ? ''
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
                           return `
-                  <div class="check-row ${r.state}">
+                  <div class="check-row ${r.state}${hideWeights ? ' no-weight' : ''}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
                     <div class="check-body">
                       <div class="check-name">
@@ -454,7 +488,7 @@ export function renderClaimDetail(
                       <p class="evidence">${r.evidence}</p>
                       ${exceptionBlockHtml(r, session)}
                     </div>
-                    <div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>
+                    ${hideWeights ? '' : `<div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>`}
                   </div>
                 `;
                         })
@@ -463,7 +497,7 @@ export function renderClaimDetail(
               </div>
               ${hints.map((h) => `<p class="stage-norm-hint">${h}</p>`).join('')}
               ${documentChecklistHtml(claim, stage.id, {
-                readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
+                readOnly: isClaimUser || (isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted)),
               })}
               ${
                 stage.id === 'assessment' && surveyorCanWork

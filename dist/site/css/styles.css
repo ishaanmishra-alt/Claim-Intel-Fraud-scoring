@@ -575,7 +575,7 @@ a {
 .claims-list-head,
 .claim-row {
   display: grid;
-  grid-template-columns: 56px 1fr auto auto 110px auto;
+  grid-template-columns: 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
   align-items: center;
   gap: 16px;
 }
@@ -590,19 +590,23 @@ a {
 }
 
 .claims-list.has-audit .claims-list-head {
-  grid-template-columns: 32px 56px 1fr auto auto 110px auto;
+  grid-template-columns: 32px 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
 }
 
-.claims-list-head span:nth-last-child(4) {
+.claims-list-head .h-amount,
+.claim-amount {
   text-align: right;
 }
 
-.claims-list-head span:nth-last-child(3),
-.claims-list-head span:nth-last-child(2) {
+.claims-list-head .h-risk,
+.claim-tier,
+.claims-list-head .h-stage,
+.claim-stage-cell {
   text-align: center;
 }
 
-.claims-list-head span:nth-last-child(1) {
+.claims-list-head .h-due,
+.due-badge {
   text-align: right;
 }
 
@@ -891,72 +895,20 @@ a {
   min-width: 0;
 }
 
-.version-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.version-claim-scroll {
+  max-height: min(560px, 70vh);
+  overflow: auto;
 }
 
-.version-claim-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
+.version-claim-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fbf9;
 }
 
-.version-claim-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px 24px;
-  padding: 12px 14px;
-  background: var(--surface-muted);
-  border-bottom: 1px solid var(--border);
-}
-
-.version-claim-id a {
-  font-weight: 700;
-  color: var(--navy-deep);
-  font-size: 0.92rem;
-}
-
-.version-claim-id .claim-name {
-  margin-top: 2px;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.version-claim-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 20px;
-  align-items: baseline;
-}
-
-.version-claim-meta span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.85rem;
-}
-
-.version-claim-meta label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.version-claim-table {
-  margin: 0;
-  min-width: 0;
-  border: 0;
-}
-
-.version-claim-table th:last-child,
-.version-claim-table td:last-child {
-  white-space: normal;
+.version-modal-backdrop {
+  z-index: 90;
 }
 
 .claim-audit-empty {
@@ -1258,6 +1210,10 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.check-row.no-weight {
+  grid-template-columns: 28px 1fr;
 }
 
 .check-row.fail {
@@ -2970,6 +2926,44 @@ button.stage-chip.is-active {
   white-space: nowrap;
 }
 
+.doc-disclosure {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.doc-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 14px;
+}
+
+.doc-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-disclosure > summary::after {
+  content: '▸';
+  float: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.doc-disclosure[open] > summary::after {
+  content: '▾';
+}
+
+.doc-disclosure .doc-checklist {
+  margin-top: 0;
+  padding: 0 10px 10px;
+}
+
 .doc-checklist {
   margin-top: 10px;
   display: flex;
@@ -2984,6 +2978,17 @@ button.stage-chip.is-active {
   text-transform: uppercase;
   color: var(--text-muted);
   padding: 2px 2px 0;
+}
+
+.stage-hold-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: var(--amber-bg, #fff6e5);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
 }
 
 .doc-row {
@@ -3016,6 +3021,14 @@ button.stage-chip.is-active {
 
 .doc-row.rejected {
   border-left: 3px solid var(--red);
+}
+
+.doc-row.is-highlight.missing {
+  background: var(--amber-bg, #fff8eb);
+}
+
+.doc-row.is-highlight.rejected {
+  background: var(--red-bg, #fff1f1);
 }
 
 .doc-row.uploaded,

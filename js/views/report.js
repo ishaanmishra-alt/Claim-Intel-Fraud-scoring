@@ -19,7 +19,7 @@ import {
   snapshotMetrics,
   claimTypeLabel,
 } from '../filters.js';
-import { bindVersionPopup, renderOpenVersionPopup } from '../claim-versions-ui.js';
+import { bindVersionPopup, renderOpenVersionPopup, versionHistoryModalHtml } from '../claim-versions-ui.js';
 
 function esc(value) {
   return String(value ?? '')
@@ -80,6 +80,8 @@ function sampleCaption(state, shown, total) {
 function versionChangeSummary(version) {
   return version?.summary || version?.comments || version?.action || '—';
 }
+
+let keepVersionSearchFocus = false;
 
 function claimVersionGroups(claims) {
   return [...claims]
@@ -153,7 +155,16 @@ export function renderReport(root, session, claims, state, onChange) {
 
   const sample = exceptionSample(universe, state);
   const versionGroups = claimVersionGroups(universe);
-  const versionCount = versionGroups.reduce((n, g) => n + g.versions.length, 0);
+  const versionQuery = String(state.versionQuery || '').trim().toLowerCase();
+  const visibleGroups = versionQuery
+    ? versionGroups.filter(({ claim }) => {
+        const blob = `${claim.id} ${claim.fnolNumber || ''} ${claim.claimant || ''} ${claim.branch || ''}`.toLowerCase();
+        return blob.includes(versionQuery);
+      })
+    : versionGroups;
+  const historyClaim = state.historyClaimId
+    ? claims.find((c) => c.id === state.historyClaimId) || null
+    : null;
 
   const scope = describeClaimScope(universe, barFilters, { includeValue: true });
 
@@ -393,60 +404,69 @@ export function renderReport(root, session, claims, state, onChange) {
         <h2>Claim versions</h2>
         <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${versionGroups.length ? '' : 'disabled'}>Export versions</button>
       </div>
-      <p class="page-subtitle" style="margin:0 0 8px">Each claim in this snapshot has its own version history. Click a version for who changed what and use-case scores.</p>
-      <p class="scope-line">${versionGroups.length} claim${versionGroups.length === 1 ? '' : 's'} · ${versionCount} version${versionCount === 1 ? '' : 's'} · sorted by last change</p>
+      <p class="page-subtitle" style="margin:0 0 12px">One row per claim. Open versions to inspect V0–V5 without listing every change on the page.</p>
+      <div class="filters-bar" style="margin-bottom:12px">
+        <div class="filter-group" style="min-width:240px;flex:1">
+          <label for="version-search">Find claim</label>
+          <input id="version-search" type="search" placeholder="Registration, FNOL, or claimant" value="${esc(state.versionQuery || '')}" />
+        </div>
+      </div>
+      <p class="scope-line">${visibleGroups.length} of ${versionGroups.length} claim${versionGroups.length === 1 ? '' : 's'} · sorted by last change</p>
       ${
         empty || versionGroups.length === 0
           ? `<div class="chart-empty">No claims in this snapshot.</div>`
-          : `<div class="version-groups">
-        ${versionGroups
-          .map(({ claim, versions, latest }) => {
-            const stage = stageDisplayName(getClaimWorkflowStage(claim));
-            return `
-          <article class="version-claim-group">
-            <div class="version-claim-head">
-              <div class="version-claim-id">
-                <a href="#/claim/${claim.id}">${formatClaimRef(claim)}</a>
-                <div class="claim-name">${esc(claim.claimant)}</div>
-              </div>
-              <div class="version-claim-meta">
-                <span><label>Stage</label>${esc(stage)}</span>
-                <span><label>Score</label><span class="mono">${formatClaimScore(claim)}</span></span>
-                <span><label>Last change</label>${esc(latest ? formatDate(latest.date) : '—')}</span>
-                <span><label>Last changed by</label>${esc(latest?.user || '—')}</span>
-              </div>
-            </div>
-            <table class="sample-table version-claim-table">
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Date</th>
-                  <th>Changed by</th>
-                  <th>Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${versions
-                  .map(
-                    (r) => `
-                  <tr>
-                    <td class="mono">
-                      <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
-                    </td>
-                    <td>${esc(formatDate(r.date))}</td>
-                    <td>${esc(r.user)}</td>
-                    <td>${esc(versionChangeSummary(r))}</td>
-                  </tr>`
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          </article>`;
-          })
-          .join('')}
+          : visibleGroups.length === 0
+            ? `<div class="chart-empty">No claims match that search.</div>`
+            : `<div class="sample-table-wrap version-claim-scroll">
+        <table class="sample-table version-claim-table">
+          <thead>
+            <tr>
+              <th>Claim</th>
+              <th>Claimant</th>
+              <th>Stage</th>
+              <th>Score</th>
+              <th>Latest version</th>
+              <th>Last change</th>
+              <th>Changed by</th>
+              <th>Versions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visibleGroups
+              .map(({ claim, versions, latest }) => {
+                const stage = stageDisplayName(getClaimWorkflowStage(claim));
+                const first = versions[0]?.version || 'V0';
+                const last = latest?.version || first;
+                const rangeLabel = first === last ? last : `${first}–${last}`;
+                return `
+              <tr>
+                <td>
+                  <a href="#/claim/${claim.id}">${formatClaimRef(claim)}</a>
+                </td>
+                <td>${esc(claim.claimant)}</td>
+                <td>${esc(stage)}</td>
+                <td class="mono">${formatClaimScore(claim)}</td>
+                <td class="mono">
+                  ${
+                    latest
+                      ? `<button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(latest.version)}">${esc(latest.version)}</button>`
+                      : '—'
+                  }
+                </td>
+                <td>${esc(latest ? formatDate(latest.date) : '—')}</td>
+                <td>${esc(latest?.user || '—')}</td>
+                <td>
+                  <button type="button" class="btn btn-sm btn-secondary" data-open-history="${esc(claim.id)}">${esc(rangeLabel)}</button>
+                </td>
+              </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
       </div>`
       }
     </div>
+    ${historyClaim ? versionHistoryModalHtml(historyClaim) : ''}
     ${renderOpenVersionPopup(claims, state.versionKey)}
   `;
 
@@ -483,7 +503,38 @@ export function renderReport(root, session, claims, state, onChange) {
   root.querySelector('[data-sample-pending]')?.addEventListener('click', () => {
     patch({ samplePendingOnly: !state.samplePendingOnly });
   });
+  root.querySelector('#version-search')?.addEventListener('input', (e) => {
+    keepVersionSearchFocus = true;
+    patch({ versionQuery: e.target.value });
+  });
+  root.querySelectorAll('[data-open-history]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      patch({ historyClaimId: btn.dataset.openHistory, versionKey: null });
+    });
+  });
+  root.querySelectorAll('[data-action="close-history-modal"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      patch({ historyClaimId: null, versionKey: null });
+    });
+  });
   bindVersionPopup(root, claims, patch, 'versionKey');
+  if (keepVersionSearchFocus) {
+    keepVersionSearchFocus = false;
+    const search = root.querySelector('#version-search');
+    if (search) {
+      search.focus();
+      const end = search.value.length;
+      try {
+        search.setSelectionRange(end, end);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
     const rows = [

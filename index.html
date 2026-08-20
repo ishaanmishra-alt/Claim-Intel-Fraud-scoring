@@ -587,7 +587,7 @@ a {
 .claims-list-head,
 .claim-row {
   display: grid;
-  grid-template-columns: 56px 1fr auto auto 110px auto;
+  grid-template-columns: 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
   align-items: center;
   gap: 16px;
 }
@@ -602,19 +602,23 @@ a {
 }
 
 .claims-list.has-audit .claims-list-head {
-  grid-template-columns: 32px 56px 1fr auto auto 110px auto;
+  grid-template-columns: 32px 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
 }
 
-.claims-list-head span:nth-last-child(4) {
+.claims-list-head .h-amount,
+.claim-amount {
   text-align: right;
 }
 
-.claims-list-head span:nth-last-child(3),
-.claims-list-head span:nth-last-child(2) {
+.claims-list-head .h-risk,
+.claim-tier,
+.claims-list-head .h-stage,
+.claim-stage-cell {
   text-align: center;
 }
 
-.claims-list-head span:nth-last-child(1) {
+.claims-list-head .h-due,
+.due-badge {
   text-align: right;
 }
 
@@ -903,72 +907,20 @@ a {
   min-width: 0;
 }
 
-.version-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.version-claim-scroll {
+  max-height: min(560px, 70vh);
+  overflow: auto;
 }
 
-.version-claim-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
+.version-claim-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fbf9;
 }
 
-.version-claim-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px 24px;
-  padding: 12px 14px;
-  background: var(--surface-muted);
-  border-bottom: 1px solid var(--border);
-}
-
-.version-claim-id a {
-  font-weight: 700;
-  color: var(--navy-deep);
-  font-size: 0.92rem;
-}
-
-.version-claim-id .claim-name {
-  margin-top: 2px;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.version-claim-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 20px;
-  align-items: baseline;
-}
-
-.version-claim-meta span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.85rem;
-}
-
-.version-claim-meta label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.version-claim-table {
-  margin: 0;
-  min-width: 0;
-  border: 0;
-}
-
-.version-claim-table th:last-child,
-.version-claim-table td:last-child {
-  white-space: normal;
+.version-modal-backdrop {
+  z-index: 90;
 }
 
 .claim-audit-empty {
@@ -1270,6 +1222,10 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.check-row.no-weight {
+  grid-template-columns: 28px 1fr;
 }
 
 .check-row.fail {
@@ -2982,6 +2938,44 @@ button.stage-chip.is-active {
   white-space: nowrap;
 }
 
+.doc-disclosure {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.doc-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 14px;
+}
+
+.doc-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-disclosure > summary::after {
+  content: '▸';
+  float: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.doc-disclosure[open] > summary::after {
+  content: '▾';
+}
+
+.doc-disclosure .doc-checklist {
+  margin-top: 0;
+  padding: 0 10px 10px;
+}
+
 .doc-checklist {
   margin-top: 10px;
   display: flex;
@@ -2996,6 +2990,17 @@ button.stage-chip.is-active {
   text-transform: uppercase;
   color: var(--text-muted);
   padding: 2px 2px 0;
+}
+
+.stage-hold-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: var(--amber-bg, #fff6e5);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
 }
 
 .doc-row {
@@ -3028,6 +3033,14 @@ button.stage-chip.is-active {
 
 .doc-row.rejected {
   border-left: 3px solid var(--red);
+}
+
+.doc-row.is-highlight.missing {
+  background: var(--amber-bg, #fff8eb);
+}
+
+.doc-row.is-highlight.rejected {
+  background: var(--red-bg, #fff1f1);
 }
 
 .doc-row.uploaded,
@@ -3298,7 +3311,6 @@ button.stage-chip.is-active {
   margin-left: 6px;
   vertical-align: middle;
 }
-
 
 
   </style>
@@ -6105,12 +6117,11 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
 
   attachNormalizedWeights(results);
 
-  const hardFails = results.filter((r) => r.hardFail && r.state === 'fail');
-  const scored = results.filter((r) => !isExcludedFromScore(r));
-  const failed = scored.filter((r) => r.state === 'fail');
-  const passed = scored.filter((r) => r.state === 'pass');
+  const stageScores = [];
+  let heldAtStage = null;
+  let holdReason = null;
 
-  const stageScores = CLAIM_STAGES.map((stage) => {
+  for (const stage of CLAIM_STAGES) {
     const stageResults = results.filter((r) => r.stage === stage.id);
     const stageHardFails = stageResults.filter((r) => r.hardFail && r.state === 'fail');
     const weighted = scoreWeightedGroup(stageResults);
@@ -6118,7 +6129,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
     const score = criticalFailed ? 0 : weighted.evaluable === 0 ? 100 : weighted.score;
     const mark = Number(passPct[stage.id] ?? DEFAULT_STAGE_PASS[stage.id] ?? 70);
     const passedStage = !criticalFailed && score >= mark;
-    return {
+    const row = {
       stageId: stage.id,
       stageName: stage.name,
       score,
@@ -6135,7 +6146,31 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
       passed: passedStage,
       criticalFailed,
     };
-  }).filter((s) => s.checkCount > 0);
+    if (stageResults.length > 0) stageScores.push(row);
+
+    if (criticalFailed) {
+      heldAtStage = stage.id;
+      holdReason = 'critical';
+      break;
+    }
+    if (!hasStageDocsComplete(claim, stage.id)) {
+      heldAtStage = stage.id;
+      holdReason = 'docs';
+      break;
+    }
+    if (stage.id === 'assessment' && !claim.surveyorSubmitted) {
+      heldAtStage = stage.id;
+      holdReason = 'surveyor';
+      break;
+    }
+  }
+
+  const scoredStageIds = new Set(stageScores.map((s) => s.stageId));
+  const visibleResults = results.filter((r) => scoredStageIds.has(r.stage));
+  const hardFails = visibleResults.filter((r) => r.hardFail && r.state === 'fail');
+  const scored = visibleResults.filter((r) => !isExcludedFromScore(r));
+  const failed = scored.filter((r) => r.state === 'fail');
+  const passed = scored.filter((r) => r.state === 'pass');
 
   const workflowStage = getClaimWorkflowStage(claim, stageScores);
   const currentStage = stageScores.find((s) => s.stageId === workflowStage) || stageScores[0] || null;
@@ -6149,9 +6184,11 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
     forcedRed,
     hasOverride: waivedIds.size > 0 || bypassedIds.size > 0,
     hardFails,
-    results,
+    results: visibleResults,
     stageScores,
     workflowStage,
+    heldAtStage,
+    holdReason,
     summary: {
       hardFailCount: hardFails.length,
       softFailCount: failed.filter((r) => !r.hardFail).length,
@@ -6833,6 +6870,61 @@ function versionPopupHtml(claim, versionId) {
   `;
 }
 
+function versionHistoryTableHtml(claim) {
+  const rows = getClaimVersions(claim);
+  if (!rows.length) {
+    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
+  }
+  return `
+    <table class="claim-audit-table version-table">
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Date</th>
+          <th>Changed by</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map((r) => {
+            const change = r.summary || r.comments || r.action || '—';
+            return `
+          <tr>
+            <td class="mono">
+              <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+            </td>
+            <td>${esc(formatDate(r.date))}</td>
+            <td>${esc(r.user)}</td>
+            <td>${esc(change)}</td>
+          </tr>`;
+          })
+          .join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function versionHistoryModalHtml(claim) {
+  if (!claim) return '';
+  return `
+    <div class="modal-backdrop history-modal-backdrop" data-action="close-history-modal">
+      <div class="modal-card modal-card-version" role="dialog" aria-modal="true" aria-labelledby="history-modal-title" onclick="event.stopPropagation()">
+        <div class="version-modal-head">
+          <div>
+            <p class="version-modal-kicker">${esc(getClaimVersions(claim).length)} versions</p>
+            <h2 id="history-modal-title">${esc(formatClaimRef(claim))}</h2>
+            <p class="version-modal-copy" style="margin:4px 0 0">${esc(claim.claimant)}</p>
+          </div>
+          <button type="button" class="icon-btn" data-action="close-history-modal" aria-label="Close">${iconClose()}</button>
+        </div>
+        <p class="version-modal-copy">Click a version to see claim details, who changed what, and use-case scores.</p>
+        ${versionHistoryTableHtml(claim)}
+      </div>
+    </div>
+  `;
+}
+
 function bindVersionPopup(root, claims, onChange, stateKey = 'versionKey') {
   const close = () => onChange({ [stateKey]: null });
   root.querySelectorAll('[data-open-version]').forEach((btn) => {
@@ -6987,11 +7079,12 @@ function auditTableHtml(claim) {
 
 function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
+  const isClaimUser = session.role === 'claim_user';
   const canAudit = canViewClaimAudit(session.role);
   const { scope, sort, stage = 'all', auditClaimId = null, versionKey = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
-  const scoped = isSurveyor || scope === 'all' ? pool : mine;
+  const scoped = isSurveyor || isClaimUser || scope === 'all' ? pool : mine;
   const list = stage === 'all' ? scoped : scoped.filter((c) => getClaimWorkflowStage(c) === stage);
 
   const sorted = [...list].sort((a, b) => {
@@ -7011,12 +7104,13 @@ function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = isSurveyor ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
-  const subtitle = isSurveyor
-    ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
-    : scope === 'mine'
-      ? `${list.length} assigned to you · already scored`
-      : `${list.length} claims in portfolio · already scored`;
+  const title = isSurveyor || isClaimUser ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
+  const subtitle =
+    isSurveyor || isClaimUser
+      ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
+      : scope === 'mine'
+        ? `${list.length} assigned to you · already scored`
+        : `${list.length} claims in portfolio · already scored`;
 
   const content = `
     <div class="page-header">
@@ -7025,7 +7119,7 @@ function renderQueue(root, session, claims, state, onChange) {
         <p class="page-subtitle">${subtitle}</p>
       </div>
       ${
-        isSurveyor
+        isSurveyor || isClaimUser
           ? ''
           : `<div class="segmented" role="group" aria-label="Claim scope">
         <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
@@ -7041,13 +7135,17 @@ function renderQueue(root, session, claims, state, onChange) {
     </div>
 
     <div class="toolbar">
-      <div>
+      ${
+        isClaimUser
+          ? ''
+          : `<div>
         <span class="toolbar-label">Sort</span>
         <div class="segmented" role="group" aria-label="Sort mode">
           <button type="button" data-sort="risk" class="${sort === 'risk' ? 'active' : ''}">Highest risk</button>
           <button type="button" data-sort="deadline" class="${sort === 'deadline' ? 'active' : ''}">Deadline</button>
         </div>
-      </div>
+      </div>`
+      }
       <div>
         <span class="toolbar-label">Claim stage</span>
         <select id="queue-stage-filter" aria-label="Filter by claim stage">
@@ -7062,13 +7160,13 @@ function renderQueue(root, session, claims, state, onChange) {
 
     <div class="claims-list ${canAudit ? 'has-audit' : ''}">
       <div class="claims-list-head" aria-hidden="true">
-        ${canAudit ? '<span class="audit-col"></span>' : ''}
-        <span></span>
-        <span>Claim</span>
-        <span>Amount</span>
-        <span>Risk</span>
-        <span>Claim Stage</span>
-        <span>Deadline</span>
+        ${canAudit ? '<span class="h-audit"></span>' : ''}
+        <span class="h-score"></span>
+        <span class="h-claim">Claim</span>
+        <span class="h-amount">Amount</span>
+        <span class="h-risk">Risk</span>
+        <span class="h-stage">Claim Stage</span>
+        <span class="h-due">Deadline</span>
       </div>
       ${
         sorted.length === 0
@@ -7197,7 +7295,9 @@ function exceptionBlockHtml(result, session) {
   if (result.state === 'bypassed') {
     bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
-      `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
+      session.role === 'claim_user'
+        ? `<p class="exception-note">Excluded from this stage.</p>`
+        : `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
   }
   const buttons = [];
@@ -7251,19 +7351,23 @@ function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
   const rows = getStageDocumentRows(claim, stageId);
   if (!rows.length) return '';
   return `
-    <div class="doc-checklist">
-      <div class="doc-checklist-label">Documents</div>
+    <details class="doc-disclosure">
+      <summary>Documents</summary>
+      <div class="doc-checklist">
       ${rows
         .map((row) => {
-          const clickable =
-            !readOnly && (row.displayStatus === 'missing' || row.displayStatus === 'rejected');
+          const needsAttention =
+            row.displayStatus === 'missing' || row.displayStatus === 'rejected';
+          const clickable = !readOnly && needsAttention;
           const statusNote =
             row.displayStatus === 'already_on_file'
               ? 'Captured at an earlier stage — not requested again.'
               : row.rec.note || '';
           return `
             <${clickable ? 'button type="button"' : 'div'}
-              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}"
+              class="doc-row ${row.displayStatus}${clickable ? ' is-action' : ''}${
+                needsAttention ? ' is-highlight' : ''
+              }"
               ${clickable ? `data-action="upload-doc" data-doc-id="${row.def.id}"` : ''}
             >
               <div class="doc-row-main">
@@ -7282,8 +7386,25 @@ function documentChecklistHtml(claim, stageId, { readOnly = false } = {}) {
           `;
         })
         .join('')}
-    </div>
+      </div>
+    </details>
   `;
+}
+
+function stageHoldMessage(claim, stageId) {
+  const scored = (claim.stageScores || []).some((s) => s.stageId === stageId);
+  if (scored) return '';
+  const heldName = stageDisplayName(claim.heldAtStage || claim.workflowStage);
+  if (claim.holdReason === 'critical') {
+    return `This stage is not scored. A critical use-case failed at ${heldName}. The claim cannot move on unless that check is bypassed and approved.`;
+  }
+  if (claim.holdReason === 'docs') {
+    return `This stage is not scored until required ${heldName} documents are on file.`;
+  }
+  if (claim.holdReason === 'surveyor') {
+    return `This stage is not scored until Assessment is submitted.`;
+  }
+  return `This stage is not scored yet. The claim is still at ${heldName}.`;
 }
 
 function claimInfoDrawer(claim) {
@@ -7358,21 +7479,24 @@ function renderClaimDetail(
   }
 
   const isSurveyor = session.role === 'surveyor';
-  const isClaimUser = session.role === 'claim_user' || isSurveyor;
-  const stageTab = isSurveyor ? selectedStage || 'assessment' : null;
+  const isClaimUser = session.role === 'claim_user';
+  const hideAssigned = isClaimUser || isSurveyor;
+  const hideWeights = isClaimUser;
+  const stageTab = isSurveyor ? selectedStage || 'assessment' : selectedStage || 'all';
   const surveyorCanWork =
     isSurveyor &&
     stageTab === 'assessment' &&
     hasPassedPriorStages(claim, ['fnol', 'intimation']) &&
     !claim.surveyorSubmitted;
   const surveyorSubmitted = isSurveyor && !!claim.surveyorSubmitted;
-
-  const displayStages = isSurveyor
-    ? CLAIM_STAGES.filter((s) => !stageTab || s.id === stageTab)
-    : CLAIM_STAGES;
-  const stageResults = stageTab
-    ? claim.results.filter((r) => r.stage === stageTab)
-    : claim.results;
+  const displayStages =
+    stageTab && stageTab !== 'all'
+      ? CLAIM_STAGES.filter((s) => s.id === stageTab)
+      : CLAIM_STAGES;
+  const stageResults =
+    stageTab && stageTab !== 'all'
+      ? (claim.results || []).filter((r) => r.stage === stageTab)
+      : claim.results || [];
   const sorted = sortChecksForDisplay(stageResults);
   const counts = {
     all: stageResults.length,
@@ -7428,7 +7552,7 @@ function renderClaimDetail(
           <div class="value">${formatClaimAmount(claim)}</div>
         </div>
         ${
-          isClaimUser
+          hideAssigned
             ? ''
             : `<div class="meta-item">
           <label>Assigned to</label>
@@ -7505,13 +7629,20 @@ function renderClaimDetail(
       </div>
     </div>
 
-    <div class="stage-chips ${isSurveyor ? 'is-tabs' : ''}">
-      ${(isSurveyor ? CLAIM_STAGES : claim.stageScores || [])
-        .map((st) => {
-          const stageId = st.stageId || st.id;
+    <div class="stage-chips is-tabs">
+      ${
+        isSurveyor
+          ? ''
+          : `<button type="button" class="stage-chip ${stageTab === 'all' ? 'is-active' : ''}" data-stage-tab="all">
+          <span class="stage-chip-name">All</span>
+        </button>`
+      }
+      ${CLAIM_STAGES.map((st) => {
+          const stageId = st.id;
           const stageScore = (claim.stageScores || []).find((x) => x.stageId === stageId);
           const docs = getStageDocCompleteness(claim, stageId);
-          const active = isSurveyor && stageTab === stageId;
+          const active = stageTab === stageId;
+          const held = !stageScore && claim.heldAtStage && claim.heldAtStage !== stageId;
           const inner = `
           <span class="stage-chip-name">${stageDisplayName(stageId)}</span>
           ${stageScore ? `<span class="score-circle xs ${stageScore.tier}${stageScore.criticalFailed ? ' is-fail-text' : ''}">${formatStageScore(stageScore)}</span>` : ''}
@@ -7520,15 +7651,14 @@ function renderClaimDetail(
               ? stageScore.criticalFailed
                 ? `<span class="doc-complete-chip">Fail</span>`
                 : `<span class="doc-complete-chip">${stageScore.passed ? 'Pass' : 'Fail'} at ${stageScore.passMark}%</span>`
-              : ''
+              : held
+                ? `<span class="doc-complete-chip">Held</span>`
+                : ''
           }
           ${docs.total ? `<span class="doc-complete-chip">${docs.done}/${docs.total} docs</span>` : ''}
         `;
-          return isSurveyor
-            ? `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`
-            : `<div class="stage-chip">${inner}</div>`;
-        })
-        .join('')}
+          return `<button type="button" class="stage-chip ${active ? 'is-active' : ''}" data-stage-tab="${stageId}">${inner}</button>`;
+        }).join('')}
     </div>
 
     <div class="result-filters">
@@ -7553,14 +7683,15 @@ function renderClaimDetail(
                 );
                 const stageHasCritical = (claim.results || []).some((r) => r.stage === stage.id && r.hardFail);
                 const hints = [];
-                if (stageHasCritical) {
+                if (!hideWeights && stageHasCritical) {
                   hints.push(
                     'Critical use-cases are pass / fail only. If they pass, remaining use-cases in this stage share 100%.'
                   );
                 }
-                if (stageHasExcluded) {
+                if (!hideWeights && stageHasExcluded) {
                   hints.push('Bypassed use-cases are excluded. Remaining weights in this stage are normalised to 100%.');
                 }
+                const holdNote = stageHoldMessage(claim, stage.id);
                 return `
             <section class="stage-block">
               <div class="stage-block-header">
@@ -7577,16 +7708,17 @@ function renderClaimDetail(
                   }
                 </div>
               </div>
+              ${holdNote ? `<p class="stage-hold-note">${holdNote}</p>` : ''}
               <div class="checks-list">
                 ${
                   items.length === 0
-                    ? filter === 'all'
+                    ? filter === 'all' || holdNote
                       ? ''
                       : `<div class="empty-checks">No checks in this result state.</div>`
                     : items
                         .map((r) => {
                           return `
-                  <div class="check-row ${r.state}">
+                  <div class="check-row ${r.state}${hideWeights ? ' no-weight' : ''}">
                     <div class="check-state-icon ${r.state}">${stateIcon(r.state)}</div>
                     <div class="check-body">
                       <div class="check-name">
@@ -7597,7 +7729,7 @@ function renderClaimDetail(
                       <p class="evidence">${r.evidence}</p>
                       ${exceptionBlockHtml(r, session)}
                     </div>
-                    <div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>
+                    ${hideWeights ? '' : `<div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>`}
                   </div>
                 `;
                         })
@@ -7606,7 +7738,7 @@ function renderClaimDetail(
               </div>
               ${hints.map((h) => `<p class="stage-norm-hint">${h}</p>`).join('')}
               ${documentChecklistHtml(claim, stage.id, {
-                readOnly: isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted),
+                readOnly: isClaimUser || (isSurveyor && (stage.id !== 'assessment' || surveyorSubmitted)),
               })}
               ${
                 stage.id === 'assessment' && surveyorCanWork
@@ -8956,6 +9088,8 @@ function versionChangeSummary(version) {
   return version?.summary || version?.comments || version?.action || '—';
 }
 
+let keepVersionSearchFocus = false;
+
 function claimVersionGroups(claims) {
   return [...claims]
     .map((claim) => {
@@ -9028,7 +9162,16 @@ function renderReport(root, session, claims, state, onChange) {
 
   const sample = exceptionSample(universe, state);
   const versionGroups = claimVersionGroups(universe);
-  const versionCount = versionGroups.reduce((n, g) => n + g.versions.length, 0);
+  const versionQuery = String(state.versionQuery || '').trim().toLowerCase();
+  const visibleGroups = versionQuery
+    ? versionGroups.filter(({ claim }) => {
+        const blob = `${claim.id} ${claim.fnolNumber || ''} ${claim.claimant || ''} ${claim.branch || ''}`.toLowerCase();
+        return blob.includes(versionQuery);
+      })
+    : versionGroups;
+  const historyClaim = state.historyClaimId
+    ? claims.find((c) => c.id === state.historyClaimId) || null
+    : null;
 
   const scope = describeClaimScope(universe, barFilters, { includeValue: true });
 
@@ -9268,60 +9411,69 @@ function renderReport(root, session, claims, state, onChange) {
         <h2>Claim versions</h2>
         <button type="button" class="btn btn-sm btn-secondary" data-action="export-tx" ${versionGroups.length ? '' : 'disabled'}>Export versions</button>
       </div>
-      <p class="page-subtitle" style="margin:0 0 8px">Each claim in this snapshot has its own version history. Click a version for who changed what and use-case scores.</p>
-      <p class="scope-line">${versionGroups.length} claim${versionGroups.length === 1 ? '' : 's'} · ${versionCount} version${versionCount === 1 ? '' : 's'} · sorted by last change</p>
+      <p class="page-subtitle" style="margin:0 0 12px">One row per claim. Open versions to inspect V0–V5 without listing every change on the page.</p>
+      <div class="filters-bar" style="margin-bottom:12px">
+        <div class="filter-group" style="min-width:240px;flex:1">
+          <label for="version-search">Find claim</label>
+          <input id="version-search" type="search" placeholder="Registration, FNOL, or claimant" value="${esc(state.versionQuery || '')}" />
+        </div>
+      </div>
+      <p class="scope-line">${visibleGroups.length} of ${versionGroups.length} claim${versionGroups.length === 1 ? '' : 's'} · sorted by last change</p>
       ${
         empty || versionGroups.length === 0
           ? `<div class="chart-empty">No claims in this snapshot.</div>`
-          : `<div class="version-groups">
-        ${versionGroups
-          .map(({ claim, versions, latest }) => {
-            const stage = stageDisplayName(getClaimWorkflowStage(claim));
-            return `
-          <article class="version-claim-group">
-            <div class="version-claim-head">
-              <div class="version-claim-id">
-                <a href="#/claim/${claim.id}">${formatClaimRef(claim)}</a>
-                <div class="claim-name">${esc(claim.claimant)}</div>
-              </div>
-              <div class="version-claim-meta">
-                <span><label>Stage</label>${esc(stage)}</span>
-                <span><label>Score</label><span class="mono">${formatClaimScore(claim)}</span></span>
-                <span><label>Last change</label>${esc(latest ? formatDate(latest.date) : '—')}</span>
-                <span><label>Last changed by</label>${esc(latest?.user || '—')}</span>
-              </div>
-            </div>
-            <table class="sample-table version-claim-table">
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Date</th>
-                  <th>Changed by</th>
-                  <th>Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${versions
-                  .map(
-                    (r) => `
-                  <tr>
-                    <td class="mono">
-                      <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
-                    </td>
-                    <td>${esc(formatDate(r.date))}</td>
-                    <td>${esc(r.user)}</td>
-                    <td>${esc(versionChangeSummary(r))}</td>
-                  </tr>`
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          </article>`;
-          })
-          .join('')}
+          : visibleGroups.length === 0
+            ? `<div class="chart-empty">No claims match that search.</div>`
+            : `<div class="sample-table-wrap version-claim-scroll">
+        <table class="sample-table version-claim-table">
+          <thead>
+            <tr>
+              <th>Claim</th>
+              <th>Claimant</th>
+              <th>Stage</th>
+              <th>Score</th>
+              <th>Latest version</th>
+              <th>Last change</th>
+              <th>Changed by</th>
+              <th>Versions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visibleGroups
+              .map(({ claim, versions, latest }) => {
+                const stage = stageDisplayName(getClaimWorkflowStage(claim));
+                const first = versions[0]?.version || 'V0';
+                const last = latest?.version || first;
+                const rangeLabel = first === last ? last : `${first}–${last}`;
+                return `
+              <tr>
+                <td>
+                  <a href="#/claim/${claim.id}">${formatClaimRef(claim)}</a>
+                </td>
+                <td>${esc(claim.claimant)}</td>
+                <td>${esc(stage)}</td>
+                <td class="mono">${formatClaimScore(claim)}</td>
+                <td class="mono">
+                  ${
+                    latest
+                      ? `<button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(latest.version)}">${esc(latest.version)}</button>`
+                      : '—'
+                  }
+                </td>
+                <td>${esc(latest ? formatDate(latest.date) : '—')}</td>
+                <td>${esc(latest?.user || '—')}</td>
+                <td>
+                  <button type="button" class="btn btn-sm btn-secondary" data-open-history="${esc(claim.id)}">${esc(rangeLabel)}</button>
+                </td>
+              </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
       </div>`
       }
     </div>
+    ${historyClaim ? versionHistoryModalHtml(historyClaim) : ''}
     ${renderOpenVersionPopup(claims, state.versionKey)}
   `;
 
@@ -9358,7 +9510,38 @@ function renderReport(root, session, claims, state, onChange) {
   root.querySelector('[data-sample-pending]')?.addEventListener('click', () => {
     patch({ samplePendingOnly: !state.samplePendingOnly });
   });
+  root.querySelector('#version-search')?.addEventListener('input', (e) => {
+    keepVersionSearchFocus = true;
+    patch({ versionQuery: e.target.value });
+  });
+  root.querySelectorAll('[data-open-history]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      patch({ historyClaimId: btn.dataset.openHistory, versionKey: null });
+    });
+  });
+  root.querySelectorAll('[data-action="close-history-modal"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      patch({ historyClaimId: null, versionKey: null });
+    });
+  });
   bindVersionPopup(root, claims, patch, 'versionKey');
+  if (keepVersionSearchFocus) {
+    keepVersionSearchFocus = false;
+    const search = root.querySelector('#version-search');
+    if (search) {
+      search.focus();
+      const end = search.value.length;
+      try {
+        search.setSelectionRange(end, end);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   root.querySelector('[data-action="export-report"]')?.addEventListener('click', () => {
     const rows = [
@@ -9442,6 +9625,8 @@ let reportState = {
   txChangeType: 'all',
   txUser: 'all',
   versionKey: null,
+  historyClaimId: null,
+  versionQuery: '',
 };
 
 let claimFilter = 'all';
@@ -9508,7 +9693,7 @@ function render() {
       lastClaimId = id;
       claimFilter = 'all';
       claimDrawerOpen = false;
-      claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+      claimStageTab = session.role === 'surveyor' ? 'assessment' : 'all';
       claimExceptionPanel = null;
       claimExceptionNotice = null;
     }

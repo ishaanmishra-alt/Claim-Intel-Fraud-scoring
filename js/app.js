@@ -35,6 +35,8 @@ let reportState = {
   txChangeType: 'all',
   txUser: 'all',
   versionKey: null,
+  historyClaimId: null,
+  versionQuery: '',
 };
 
 let claimFilter = 'all';
@@ -101,7 +103,7 @@ function render() {
       lastClaimId = id;
       claimFilter = 'all';
       claimDrawerOpen = false;
-      claimStageTab = session.role === 'surveyor' ? 'assessment' : null;
+      claimStageTab = session.role === 'surveyor' ? 'assessment' : 'all';
       claimExceptionPanel = null;
       claimExceptionNotice = null;
     }

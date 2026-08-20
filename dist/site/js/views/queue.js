@@ -16,11 +16,12 @@ function auditTableHtml(claim) {
 
 export function renderQueue(root, session, claims, state, onChange) {
   const isSurveyor = session.role === 'surveyor';
+  const isClaimUser = session.role === 'claim_user';
   const canAudit = canViewClaimAudit(session.role);
   const { scope, sort, stage = 'all', auditClaimId = null, versionKey = null } = state;
   const pool = claims;
   const mine = pool.filter((c) => c.assignedTo === session.userId);
-  const scoped = isSurveyor || scope === 'all' ? pool : mine;
+  const scoped = isSurveyor || isClaimUser || scope === 'all' ? pool : mine;
   const list = stage === 'all' ? scoped : scoped.filter((c) => getClaimWorkflowStage(c) === stage);
 
   const sorted = [...list].sort((a, b) => {
@@ -40,12 +41,13 @@ export function renderQueue(root, session, claims, state, onChange) {
     green: list.filter((c) => c.tier === 'green').length,
   };
 
-  const title = isSurveyor ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
-  const subtitle = isSurveyor
-    ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
-    : scope === 'mine'
-      ? `${list.length} assigned to you · already scored`
-      : `${list.length} claims in portfolio · already scored`;
+  const title = isSurveyor || isClaimUser ? 'Claims' : scope === 'mine' ? 'My claims' : 'All claims';
+  const subtitle =
+    isSurveyor || isClaimUser
+      ? `${list.length} claim${list.length === 1 ? '' : 's'} · filter by claim stage`
+      : scope === 'mine'
+        ? `${list.length} assigned to you · already scored`
+        : `${list.length} claims in portfolio · already scored`;
 
   const content = `
     <div class="page-header">
@@ -54,7 +56,7 @@ export function renderQueue(root, session, claims, state, onChange) {
         <p class="page-subtitle">${subtitle}</p>
       </div>
       ${
-        isSurveyor
+        isSurveyor || isClaimUser
           ? ''
           : `<div class="segmented" role="group" aria-label="Claim scope">
         <button type="button" data-scope="mine" class="${scope === 'mine' ? 'active' : ''}">My claims</button>
@@ -70,13 +72,17 @@ export function renderQueue(root, session, claims, state, onChange) {
     </div>
 
     <div class="toolbar">
-      <div>
+      ${
+        isClaimUser
+          ? ''
+          : `<div>
         <span class="toolbar-label">Sort</span>
         <div class="segmented" role="group" aria-label="Sort mode">
           <button type="button" data-sort="risk" class="${sort === 'risk' ? 'active' : ''}">Highest risk</button>
           <button type="button" data-sort="deadline" class="${sort === 'deadline' ? 'active' : ''}">Deadline</button>
         </div>
-      </div>
+      </div>`
+      }
       <div>
         <span class="toolbar-label">Claim stage</span>
         <select id="queue-stage-filter" aria-label="Filter by claim stage">
@@ -91,13 +97,13 @@ export function renderQueue(root, session, claims, state, onChange) {
 
     <div class="claims-list ${canAudit ? 'has-audit' : ''}">
       <div class="claims-list-head" aria-hidden="true">
-        ${canAudit ? '<span class="audit-col"></span>' : ''}
-        <span></span>
-        <span>Claim</span>
-        <span>Amount</span>
-        <span>Risk</span>
-        <span>Claim Stage</span>
-        <span>Deadline</span>
+        ${canAudit ? '<span class="h-audit"></span>' : ''}
+        <span class="h-score"></span>
+        <span class="h-claim">Claim</span>
+        <span class="h-amount">Amount</span>
+        <span class="h-risk">Risk</span>
+        <span class="h-stage">Claim Stage</span>
+        <span class="h-due">Deadline</span>
       </div>
       ${
         sorted.length === 0

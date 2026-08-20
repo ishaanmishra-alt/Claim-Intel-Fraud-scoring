@@ -173,6 +173,61 @@ export function versionPopupHtml(claim, versionId) {
   `;
 }
 
+export function versionHistoryTableHtml(claim) {
+  const rows = getClaimVersions(claim);
+  if (!rows.length) {
+    return `<div class="claim-audit-empty">No version history recorded for this claim.</div>`;
+  }
+  return `
+    <table class="claim-audit-table version-table">
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Date</th>
+          <th>Changed by</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map((r) => {
+            const change = r.summary || r.comments || r.action || '—';
+            return `
+          <tr>
+            <td class="mono">
+              <button type="button" class="version-link" data-open-version="${esc(claim.id)}" data-version="${esc(r.version)}">${esc(r.version)}</button>
+            </td>
+            <td>${esc(formatDate(r.date))}</td>
+            <td>${esc(r.user)}</td>
+            <td>${esc(change)}</td>
+          </tr>`;
+          })
+          .join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+export function versionHistoryModalHtml(claim) {
+  if (!claim) return '';
+  return `
+    <div class="modal-backdrop history-modal-backdrop" data-action="close-history-modal">
+      <div class="modal-card modal-card-version" role="dialog" aria-modal="true" aria-labelledby="history-modal-title" onclick="event.stopPropagation()">
+        <div class="version-modal-head">
+          <div>
+            <p class="version-modal-kicker">${esc(getClaimVersions(claim).length)} versions</p>
+            <h2 id="history-modal-title">${esc(formatClaimRef(claim))}</h2>
+            <p class="version-modal-copy" style="margin:4px 0 0">${esc(claim.claimant)}</p>
+          </div>
+          <button type="button" class="icon-btn" data-action="close-history-modal" aria-label="Close">${iconClose()}</button>
+        </div>
+        <p class="version-modal-copy">Click a version to see claim details, who changed what, and use-case scores.</p>
+        ${versionHistoryTableHtml(claim)}
+      </div>
+    </div>
+  `;
+}
+
 export function bindVersionPopup(root, claims, onChange, stateKey = 'versionKey') {
   const close = () => onChange({ [stateKey]: null });
   root.querySelectorAll('[data-open-version]').forEach((btn) => {
