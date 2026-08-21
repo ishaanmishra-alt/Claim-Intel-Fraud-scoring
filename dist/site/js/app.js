@@ -4,17 +4,26 @@ import { renderClaimDetail } from './views/claim.js';
 import { renderDashboard, destroyChart } from './views/dashboard.js';
 import { renderConfig } from './views/config.js';
 import { renderReport } from './views/report.js';
+import { renderAudit } from './views/audit.js';
 import { getSession, clearSession, getWeights } from './state.js';
 import { scoreAllClaims, canAccess, homeRouteForRole } from './scoring.js';
 
 const root = document.getElementById('app');
 
-/** @type {{ period: string, from: string, to: string, stage: string }} */
+/** @type {object} */
 let queueState = {
   period: '30',
   from: '2026-07-13',
   to: '2026-08-11',
   stage: 'all',
+  query: '',
+  tier: 'all',
+  sortKey: 'filed',
+  sortDir: 'desc',
+  garage: '',
+  assignedTo: '',
+  attention: '',
+  branch: 'All branches',
   auditClaimId: null,
   versionKey: null,
 };
@@ -42,6 +51,15 @@ let reportState = {
   versionQuery: '',
 };
 
+let auditState = {
+  period: '30',
+  from: '2026-07-13',
+  to: '2026-08-11',
+  changeType: 'all',
+  user: 'all',
+  query: '',
+};
+
 let claimFilter = 'all';
 let claimDrawerOpen = false;
 let claimStageTab = null;
@@ -54,9 +72,27 @@ let configFeedback = null;
 
 function parseRoute() {
   const hash = location.hash || '#/login';
-  const path = hash.replace(/^#/, '') || '/login';
-  const parts = path.split('/').filter(Boolean);
-  return { parts, path };
+  const raw = hash.replace(/^#/, '') || '/login';
+  const [pathPart, queryString] = raw.split('?');
+  const parts = (pathPart || '/login').split('/').filter(Boolean);
+  const params = new URLSearchParams(queryString || '');
+  return { parts, path: pathPart, params };
+}
+
+function applyQueueLaunch(params) {
+  if (![...params.keys()].length) return false;
+  queueState = {
+    ...queueState,
+    tier: params.get('tier') || 'all',
+    stage: params.get('stage') || queueState.stage,
+    query: params.get('q') || '',
+    branch: params.get('branch') || 'All branches',
+    garage: params.get('garage') || '',
+    assignedTo: params.get('assignedTo') || '',
+    attention: params.get('attention') || '',
+    period: params.get('period') || queueState.period,
+  };
+  return true;
 }
 
 function bindGlobalActions() {
@@ -72,7 +108,7 @@ function bindGlobalActions() {
 
 function render() {
   const session = getSession();
-  const { parts } = parseRoute();
+  const { parts, params } = parseRoute();
   const route = parts[0] || 'login';
 
   if (!session && route !== 'login') {
@@ -95,6 +131,9 @@ function render() {
 
   if (route === 'queue') {
     destroyChart();
+    if (applyQueueLaunch(params)) {
+      history.replaceState(null, '', `${location.pathname}${location.search}#/queue`);
+    }
     renderQueue(root, session, claims, queueState, (next) => {
       queueState = next;
       render();
@@ -148,6 +187,16 @@ function render() {
     }
     renderReport(root, session, claims, reportState, (next) => {
       reportState = next;
+      render();
+    });
+  } else if (route === 'audit') {
+    destroyChart();
+    if (!canAccess(session.role, 'audit')) {
+      location.hash = '#/queue';
+      return;
+    }
+    renderAudit(root, session, claims, auditState, (next) => {
+      auditState = next;
       render();
     });
   } else if (route === 'config') {

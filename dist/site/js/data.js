@@ -750,6 +750,7 @@ export function mockUploadClaimDocument(claimId, docId, actor) {
     newValue: claim.documents[docId].filename,
     comments: `Document captured at ${stageDisplayName(def.stage)}.`,
   });
+  persistClaimRuntime(claim);
   return claim.documents[docId];
 }
 
@@ -1944,6 +1945,14 @@ export function getPendingExceptions(claim) {
   return (claim?.exceptions || []).filter((e) => e.status === 'pending');
 }
 
+export function getPendingBypasses(claim) {
+  return (claim?.exceptions || []).filter((e) => e.type === 'bypass' && e.status === 'pending');
+}
+
+export function hasPendingBypass(claim) {
+  return getPendingBypasses(claim).length > 0;
+}
+
 export function latestExceptionForCheck(claim, checkId) {
   const id = Number(checkId);
   const list = (claim?.exceptions || []).filter((e) => e.checkId === id);
@@ -2022,15 +2031,6 @@ function actorSnapshot(actor) {
 
 function settleCoreBypasses(claim) {
   let changed = false;
-  (claim.exceptions || []).forEach((ex) => {
-    if (ex.type === 'bypass' && ex.status === 'pending') {
-      ex.status = 'approved';
-      ex.decidedBy = { userId: 'core', name: 'Core system', role: 'core' };
-      ex.decidedAt = ex.decidedAt || '2026-08-14';
-      ex.decisionComment = ex.decisionComment || 'Approved in the core system.';
-      changed = true;
-    }
-  });
   const ids = new Set(claim.bypassedCheckIds || []);
   (claim.exceptions || []).forEach((ex) => {
     if (ex.type === 'bypass' && ex.status === 'approved' && !ids.has(ex.checkId)) {
@@ -2043,9 +2043,8 @@ function settleCoreBypasses(claim) {
 }
 
 /**
- * Claim User Bypass sends a notification to the core system (out of scope).
- * This prototype applies the approved bypass immediately so scoring can be demoed:
- * the use-case drops out and remaining stage weights are normalised to 100%.
+ * Request Bypass notifies the core system (out of scope). Scoring does not change
+ * until core approves; the use-case stays Failed with status In approval.
  */
 export function requestCoreBypass(claimId, checkId, actor) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
@@ -2054,51 +2053,49 @@ export function requestCoreBypass(claimId, checkId, actor) {
   if ((claim.bypassedCheckIds || []).includes(id)) {
     return { ok: false, message: 'This use-case is already bypassed.' };
   }
+  const existing = latestExceptionForCheck(claim, id);
+  if (existing?.type === 'bypass' && existing.status === 'pending') {
+    return { ok: false, message: 'A bypass request is already in approval with the core system.' };
+  }
 
   const stamp = nextAuditStamp();
   const exception = {
     id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
     checkId: id,
     type: 'bypass',
-    status: 'approved',
-    comment: 'Bypass notification sent to the core system.',
+    status: 'pending',
+    comment: 'Bypass requested — waiting for core system approval.',
     proposedFields: {},
     previousFields: {},
     hardFail: false,
     disposition: null,
     requestedBy: actorSnapshot(actor),
     requestedAt: stamp.date,
-    decidedBy: { userId: 'core', name: 'Core system', role: 'core' },
-    decidedAt: stamp.date,
-    decisionComment: 'Approved in the core system.',
+    decidedBy: null,
+    decidedAt: null,
+    decisionComment: '',
   };
   claim.exceptions = claim.exceptions || [];
   claim.exceptions.push(exception);
-  const ids = new Set(claim.bypassedCheckIds || []);
-  ids.add(id);
-  claim.bypassedCheckIds = [...ids];
   persistClaimRuntime(claim);
 
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
-    action: 'Bypass approved',
-    changeType: 'Exception',
+    action: 'Bypass requested',
+    changeType: 'Bypass',
     entity: 'Use-case',
     field: checkCode(id),
     oldValue: 'Fail',
-    newValue: 'Bypassed',
-    summary: `${checkCode(id)} bypassed after core approval.`,
-    comments: 'Notification sent to core; use-case excluded from the stage.',
-    changes: [
-      { field: checkCode(id), oldValue: 'Fail', newValue: 'Notification sent to core' },
-      { field: checkCode(id), oldValue: 'Fail', newValue: 'Bypassed' },
-    ],
+    newValue: 'In approval',
+    summary: `${checkCode(id)} bypass requested; waiting for core approval.`,
+    comments: 'Sent to the core system. Scoring is unchanged until core approves.',
+    changes: [{ field: checkCode(id), oldValue: 'Fail', newValue: 'In approval' }],
   });
   persistClaimRuntime(claim);
   return {
     ok: true,
     message:
-      'A bypass notification was sent to the core system. This prototype shows the claim after core approval — that use-case is out of the stage score, and remaining weights in the stage are normalised to 100%.',
+      'Bypass requested. This use-case is In approval until the core system approves. Scoring stays unchanged until then.',
   };
 }
 
@@ -2278,6 +2275,56 @@ export function decideCheckException(claimId, exceptionId, decision, comment, ac
 }
 
 hydrateClaimRuntime();
+
+function seedDemoPendingBypasses() {
+  const seeds = [
+    { id: 'CLM-2026-08433', checkId: 11, user: 'Fatima Al-Najjar' },
+    { id: 'CLM-2026-08315', checkId: 10, user: 'Fatima Al-Najjar' },
+  ];
+  seeds.forEach((seed) => {
+    const claim = RAW_CLAIMS.find((c) => c.id === seed.id);
+    if (!claim || hasPendingBypass(claim)) return;
+    const existing = latestExceptionForCheck(claim, seed.checkId);
+    if (existing?.type === 'bypass') return;
+    claim.exceptions = claim.exceptions || [];
+    claim.exceptions.push({
+      id: `ex-${claim.id}-seed-bypass`,
+      checkId: seed.checkId,
+      type: 'bypass',
+      status: 'pending',
+      comment: 'Bypass requested — waiting for core system approval.',
+      proposedFields: {},
+      previousFields: {},
+      hardFail: false,
+      disposition: null,
+      requestedBy: { userId: 'u-fatima', name: seed.user, role: 'claim_user' },
+      requestedAt: '2026-08-10',
+      decidedBy: null,
+      decidedAt: null,
+      decisionComment: '',
+    });
+    const alreadyLogged = (claim.versions || claim.auditLog || []).some(
+      (v) => v.action === 'Bypass requested' && String(v.field) === checkCode(seed.checkId)
+    );
+    if (!alreadyLogged) {
+      appendClaimAudit(claim.id, {
+        user: seed.user,
+        date: '2026-08-10',
+        time: '11:20',
+        action: 'Bypass requested',
+        changeType: 'Bypass',
+        entity: 'Use-case',
+        field: checkCode(seed.checkId),
+        oldValue: 'Fail',
+        newValue: 'In approval',
+        comments: 'Sent to the core system. Scoring is unchanged until core approves.',
+      });
+    }
+    persistClaimRuntime(claim);
+  });
+}
+
+seedDemoPendingBypasses();
 
 export const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },

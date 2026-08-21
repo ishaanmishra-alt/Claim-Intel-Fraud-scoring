@@ -6,6 +6,7 @@ import {
   stageDisplayName,
   canViewClaimAudit,
   formatClaimRef,
+  hasPendingBypass,
 } from '../data.js';
 import { formatClaimAmount, formatClaimScore, tierLabel } from '../scoring.js';
 import { versionTableHtml, bindVersionPopup, renderOpenVersionPopup } from '../claim-versions-ui.js';
@@ -23,41 +24,106 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
+const STAGE_ORDER = Object.fromEntries(WORKFLOW_STAGES.map((s, i) => [s.id, i]));
+const TIER_ORDER = { red: 0, yellow: 1, green: 2 };
+
+function sortArrows(active, dir) {
+  return `<span class="sort-arrows" aria-hidden="true"><span class="sort-up${
+    active && dir === 'asc' ? ' is-on' : ''
+  }">▲</span><span class="sort-down${active && dir === 'desc' ? ' is-on' : ''}">▼</span></span>`;
+}
+
+function sortHead(key, label, state, alignClass = '') {
+  const active = state.sortKey === key;
+  const dir = active ? state.sortDir : null;
+  return `<button type="button" class="col-sort ${alignClass} ${active ? `is-active is-${dir}` : ''}" data-sort-key="${key}">${label}${sortArrows(active, dir)}</button>`;
+}
+
+function compareClaims(a, b, key) {
+  if (key === 'score') {
+    if (a.forcedRed !== b.forcedRed) return Number(b.forcedRed) - Number(a.forcedRed);
+    return (a.score || 0) - (b.score || 0);
+  }
+  if (key === 'claim') return String(a.id).localeCompare(String(b.id));
+  if (key === 'amount') return (a.amount || 0) - (b.amount || 0);
+  if (key === 'risk') return (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9);
+  if (key === 'stage') {
+    return (STAGE_ORDER[getClaimWorkflowStage(a)] ?? 9) - (STAGE_ORDER[getClaimWorkflowStage(b)] ?? 9);
+  }
+  if (key === 'deadline') return (a.dueInDays || 0) - (b.dueInDays || 0);
+  return String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
+}
+
+let keepQueueSearchFocus = false;
+
 export function renderQueue(root, session, claims, state, onChange) {
   const canAudit = canViewClaimAudit(session.role);
-  const { stage = 'all', period = '30', from, to, auditClaimId = null, versionKey = null } = state;
+  const {
+    stage = 'all',
+    period = '30',
+    from,
+    to,
+    query = '',
+    tier = 'all',
+    sortKey = 'filed',
+    sortDir = 'desc',
+    garage = '',
+    assignedTo = '',
+    attention = '',
+    branch = 'All branches',
+    auditClaimId = null,
+    versionKey = null,
+  } = state;
   const range = resolvePeriodRange(period, { from, to });
-  const list = filterClaimUniverse(claims, {
+  const sharedFilters = {
     period,
     from: range.from,
     to: range.to,
     stage,
-  });
+    query,
+    garage,
+    assignedTo,
+    attention,
+    branch,
+  };
+  const baseList = filterClaimUniverse(claims, { ...sharedFilters, tier: 'all' });
+  const list = filterClaimUniverse(claims, { ...sharedFilters, tier });
 
   const sorted = [...list].sort((a, b) => {
-    const byFiled = String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
-    if (byFiled) return byFiled;
-    return a.dueInDays - b.dueInDays;
+    const cmp = compareClaims(a, b, sortKey);
+    if (cmp) return sortDir === 'asc' ? cmp : -cmp;
+    return String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
   });
 
   const counts = {
-    red: list.filter((c) => c.tier === 'red').length,
-    yellow: list.filter((c) => c.tier === 'yellow').length,
-    green: list.filter((c) => c.tier === 'green').length,
+    all: baseList.length,
+    red: baseList.filter((c) => c.tier === 'red').length,
+    yellow: baseList.filter((c) => c.tier === 'yellow').length,
+    green: baseList.filter((c) => c.tier === 'green').length,
   };
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Claims <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
-        <p class="page-subtitle">${list.length} claim${list.length === 1 ? '' : 's'} in the selected date range</p>
+        <p class="page-subtitle">${list.length} claim${list.length === 1 ? '' : 's'} in this view</p>
       </div>
     </div>
 
-    <div class="tier-strip">
-      <div class="tier-stat"><span class="dot red"></span><strong>${counts.red}</strong> High risk</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Medium risk</div>
-      <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
+    <div class="queue-priority-filters">
+      <div class="filter-group queue-search-group">
+        <label for="queue-search">Search</label>
+        <input id="queue-search" type="search" placeholder="Claim, FNOL, claimant, garage…" value="${esc(query)}" />
+      </div>
+      <div class="filter-group">
+        <span class="toolbar-label" style="margin:0 0 6px;display:block">Risk band</span>
+        <div class="tier-strip is-filter" role="group" aria-label="Risk band">
+          <button type="button" class="tier-stat ${tier === 'all' ? 'is-active' : ''}" data-tier="all">All <strong>${counts.all}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'red' ? 'is-active' : ''}" data-tier="red"><span class="dot red"></span>High risk <strong>${counts.red}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'yellow' ? 'is-active' : ''}" data-tier="yellow"><span class="dot yellow"></span>Medium <strong>${counts.yellow}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'green' ? 'is-active' : ''}" data-tier="green"><span class="dot green"></span>Pass <strong>${counts.green}</strong></button>
+        </div>
+      </div>
     </div>
 
     <div class="filters-bar queue-filters">
@@ -88,16 +154,29 @@ export function renderQueue(root, session, claims, state, onChange) {
         </select>
       </div>
     </div>
+    ${
+      garage || assignedTo || attention || (branch && branch !== 'All branches')
+        ? `<p class="scope-line">${[
+            branch && branch !== 'All branches' ? esc(branch) : '',
+            garage ? esc(garage) : '',
+            assignedTo ? esc(assignedTo) : '',
+            attention === 'aging' ? 'Aging high-risk' : '',
+            attention === 'bypass' ? 'Bypass in approval' : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')} · <button type="button" class="linkish" data-clear-launch>Clear launch filter</button></p>`
+        : ''
+    }
 
     <div class="claims-list ${canAudit ? 'has-audit' : ''}">
-      <div class="claims-list-head" aria-hidden="true">
+      <div class="claims-list-head">
         ${canAudit ? '<span class="h-audit"></span>' : ''}
-        <span class="h-score"></span>
-        <span class="h-claim">Claim</span>
-        <span class="h-amount">Amount</span>
-        <span class="h-risk">Risk</span>
-        <span class="h-stage">Claim Stage</span>
-        <span class="h-due">Deadline</span>
+        <span class="h-score">${sortHead('score', 'Score', state)}</span>
+        <span class="h-claim">${sortHead('claim', 'Claim', state)}</span>
+        <span class="h-amount">${sortHead('amount', 'Amount', state, 'is-right')}</span>
+        <span class="h-risk">${sortHead('risk', 'Risk', state, 'is-center')}</span>
+        <span class="h-stage">${sortHead('stage', 'Claim Stage', state, 'is-center')}</span>
+        <span class="h-due">${sortHead('deadline', 'Deadline', state, 'is-right')}</span>
       </div>
       ${
         sorted.length === 0
@@ -113,13 +192,15 @@ export function renderQueue(root, session, claims, state, onChange) {
                       : `due in ${c.dueInDays}d`;
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
+                const pending = hasPendingBypass(c);
                 const row = `
               <div class="score-circle sm ${c.tier}${c.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(c)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
-                  ${c.hasOverride ? `<span class="tag override">Bypassed</span>` : ''}
+                  ${pending ? `<span class="tag pending">In approval</span>` : ''}
+                  ${!pending && c.hasOverride ? `<span class="tag override">Bypassed</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
@@ -161,25 +242,59 @@ export function renderQueue(root, session, claims, state, onChange) {
   root.innerHTML = renderShell(session, '#/queue', content);
   root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
 
+  const patch = (partial) => onChange({ ...state, ...partial });
+  root.querySelector('#queue-search')?.addEventListener('input', (e) => {
+    keepQueueSearchFocus = true;
+    patch({ query: e.target.value });
+  });
+  if (keepQueueSearchFocus) {
+    keepQueueSearchFocus = false;
+    const search = root.querySelector('#queue-search');
+    if (search) {
+      search.focus();
+      const end = search.value.length;
+      try {
+        search.setSelectionRange(end, end);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  root.querySelectorAll('[data-tier]').forEach((btn) => {
+    btn.addEventListener('click', () => patch({ tier: btn.dataset.tier }));
+  });
+  root.querySelectorAll('[data-sort-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.sortKey;
+      if (state.sortKey === key) {
+        patch({ sortDir: state.sortDir === 'desc' ? 'asc' : 'desc' });
+      } else {
+        patch({ sortKey: key, sortDir: 'desc' });
+      }
+    });
+  });
   root.querySelector('#queue-period')?.addEventListener('change', (e) => {
     const nextPeriod = e.target.value;
     const nextRange = resolvePeriodRange(nextPeriod, { from: state.from, to: state.to });
-    onChange({ ...state, period: nextPeriod, from: nextRange.from, to: nextRange.to });
+    patch({ period: nextPeriod, from: nextRange.from, to: nextRange.to });
   });
   root.querySelector('#queue-from')?.addEventListener('change', (e) => {
-    onChange({ ...state, from: e.target.value, period: 'custom' });
+    patch({ from: e.target.value, period: 'custom' });
   });
   root.querySelector('#queue-to')?.addEventListener('change', (e) => {
-    onChange({ ...state, to: e.target.value, period: 'custom' });
+    patch({ to: e.target.value, period: 'custom' });
   });
   root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
-    onChange({ ...state, stage: e.target.value });
+    patch({ stage: e.target.value });
+  });
+  root.querySelector('[data-clear-launch]')?.addEventListener('click', () => {
+    patch({ garage: '', assignedTo: '', attention: '', branch: 'All branches' });
   });
   root.querySelectorAll('[data-audit-toggle]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.auditToggle;
-      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
+      patch({ auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
     });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
@@ -188,6 +303,6 @@ export function renderQueue(root, session, claims, state, onChange) {
     });
   });
   if (canAudit) {
-    bindVersionPopup(root, claims, (partial) => onChange({ ...state, ...partial }), 'versionKey');
+    bindVersionPopup(root, claims, (partial) => patch(partial), 'versionKey');
   }
 }

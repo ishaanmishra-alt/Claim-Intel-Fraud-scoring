@@ -436,6 +436,7 @@ export function canAccess(role, feature) {
     claim: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
     dashboard: ['claim_head', 'admin', 'fiu'],
     report: ['claim_head', 'admin', 'fiu'],
+    audit: ['claim_head', 'admin', 'fiu'],
     config: ['admin', 'fiu'],
   };
   return (matrix[feature] || []).includes(role);

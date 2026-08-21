@@ -16,6 +16,8 @@ import {
   describeClaimScope,
   resolvePeriodRange,
   snapshotMetrics,
+  previousPeriodRange,
+  formatRangeLabel,
 } from '../filters.js';
 import { bindVersionPopup, renderOpenVersionPopup, versionHistoryModalHtml } from '../claim-versions-ui.js';
 
@@ -33,14 +35,39 @@ function csvEscape(value) {
 }
 
 function downloadCsv(filename, rows) {
-  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const csv = rows.map((r) => r.map(csvEscape).join(','));
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadPdf(title, bodyHtml) {
+  const w = window.open('', '_blank', 'noopener,noreferrer');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${esc(title)}</title>
+    <style>
+      body { font-family: "IBM Plex Sans", system-ui, sans-serif; color: #16303d; padding: 28px; }
+      h1 { font-size: 1.25rem; margin: 0 0 6px; }
+      p { color: #6b7f8a; font-size: 0.85rem; margin: 0 0 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #d5e8df; padding: 7px 8px; text-align: left; font-size: 12px; }
+      th { background: #e8fff6; }
+    </style>
+  </head><body>${bodyHtml}</body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function popCell(delta) {
+  if (delta == null || !Number.isFinite(delta)) return `<span class="muted">n/a</span>`;
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+  return `<span class="pop is-${dir}">${arrow} ${Math.abs(delta)} pt${Math.abs(delta) === 1 ? '' : 's'}</span>`;
 }
 
 function versionChangeSummary(version) {
@@ -117,6 +144,16 @@ export function renderReport(root, session, claims, state, onChange) {
   }
   if (state.ucHardFailOnly) failStats = failStats.filter((s) => s.hardFail);
   const ranked = failStats.filter((s) => s.fail > 0).slice(0, 15);
+  const prevRange = previousPeriodRange(range);
+  const prevUniverse = prevRange
+    ? filterClaimUniverse(claims, { ...barFilters, period: 'custom', from: prevRange.from, to: prevRange.to })
+    : [];
+  const prevById = Object.fromEntries(useCaseFailStats(prevUniverse).map((s) => [s.checkId, s]));
+  const rankedWithPop = ranked.map((row) => {
+    const prev = prevById[row.checkId];
+    const delta = prev && prev.total ? row.failRate - prev.failRate : null;
+    return { ...row, prevRate: prev ? prev.failRate : null, delta };
+  });
 
   const versionGroups = claimVersionGroups(universe);
   const versionQuery = String(state.versionQuery || '').trim().toLowerCase();
@@ -138,7 +175,10 @@ export function renderReport(root, session, claims, state, onChange) {
         <h1>Report</h1>
         <p class="page-subtitle">Filtered management snapshot · prototype today ${formatDate('2026-08-11')}</p>
       </div>
-      <button type="button" class="btn btn-secondary" data-action="export-report">Export report</button>
+      <div class="header-actions">
+        <button type="button" class="btn btn-secondary" data-action="export-report">Export CSV</button>
+        <button type="button" class="btn btn-primary" data-action="export-report-pdf">Export PDF</button>
+      </div>
     </div>
 
     <div class="report-sticky-bar">
@@ -275,7 +315,11 @@ export function renderReport(root, session, claims, state, onChange) {
     <div class="panel">
       <div class="panel-header">
         <h2>Use-case fail ranking</h2>
-        <button type="button" class="btn btn-sm btn-ghost" data-action="reset-uc">Reset section</button>
+        <div class="header-actions">
+          <button type="button" class="btn btn-sm btn-ghost" data-action="reset-uc">Reset section</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="export-ranking-csv" ${rankedWithPop.length ? '' : 'disabled'}>CSV</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="export-ranking-pdf" ${rankedWithPop.length ? '' : 'disabled'}>PDF</button>
+        </div>
       </div>
       <div class="section-chips">
         <button type="button" class="chip ${state.ucStage === 'all' ? 'active' : ''}" data-uc-stage="all">All stages</button>
@@ -286,9 +330,10 @@ export function renderReport(root, session, claims, state, onChange) {
         <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Critical only</button>
       </div>
       ${
-        ranked.length === 0
+        rankedWithPop.length === 0
           ? `<div class="chart-empty">No failed use-cases in this slice.</div>`
-          : `<div class="sample-table-wrap">
+          : `<p class="scope-line">Fail rate vs ${prevRange ? formatRangeLabel(prevRange) : 'prior period'} (${prevUniverse.length} claims)</p>
+        <div class="sample-table-wrap">
         <table class="sample-table usecase-fail-table">
           <thead>
             <tr>
@@ -297,11 +342,12 @@ export function renderReport(root, session, claims, state, onChange) {
               <th>Stage</th>
               <th>Failed claims</th>
               <th>Fail rate</th>
+              <th>vs last period</th>
               <th>Severity</th>
             </tr>
           </thead>
           <tbody>
-            ${ranked
+            ${rankedWithPop
               .map(
                 (row, i) => `
               <tr>
@@ -313,6 +359,7 @@ export function renderReport(root, session, claims, state, onChange) {
                 <td>${esc(row.stageName)}</td>
                 <td class="mono">${row.fail} of ${row.total}</td>
                 <td class="mono">${row.failRate}%</td>
+                <td>${popCell(row.delta)}</td>
                 <td>${row.hardFail ? '<span class="tag critical">Critical</span>' : 'Standard'}</td>
               </tr>`
               )
@@ -464,13 +511,72 @@ export function renderReport(root, session, claims, state, onChange) {
       ['Scorecard', 'Scope', scope],
       ...byStage.map((st) => ['By stage', st.name, `${st.count} · ${st.highRiskPct}% high risk`]),
       ...byType.map((t) => ['By type', t.label, `${t.count} · ${formatAED(t.value)}`]),
-      ...ranked.map((row) => [
+      ...rankedWithPop.map((row) => [
         'Use-case fail ranking',
         `${row.code} ${row.name}`,
-        `${row.fail} of ${row.total} claims failed (${row.failRate}%) · ${row.stageName}${row.hardFail ? ' · Critical' : ''}`,
+        `${row.fail} of ${row.total} claims failed (${row.failRate}%) · vs last period ${
+          row.delta == null ? 'n/a' : `${row.delta > 0 ? '+' : ''}${row.delta} pts`
+        } · ${row.stageName}${row.hardFail ? ' · Critical' : ''}`,
       ]),
     ];
     downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
+  });
+
+  const rankingCsvRows = [
+    ['Rank', 'Use-case code', 'Use-case', 'Stage', 'Failed claims', 'Total', 'Fail rate %', 'vs last period (pts)', 'Severity'],
+    ...rankedWithPop.map((row, i) => [
+      i + 1,
+      row.code,
+      row.name,
+      row.stageName,
+      row.fail,
+      row.total,
+      row.failRate,
+      row.delta == null ? 'n/a' : row.delta,
+      row.hardFail ? 'Critical' : 'Standard',
+    ]),
+  ];
+
+  root.querySelector('[data-action="export-ranking-csv"]')?.addEventListener('click', () => {
+    downloadCsv(`claim-intel-fail-ranking-${range.from}-to-${range.to}.csv`, rankingCsvRows);
+  });
+
+  const rankingTableHtml = `
+    <h1>Use-case fail ranking</h1>
+    <p>${esc(scope)} · vs ${prevRange ? formatRangeLabel(prevRange) : 'prior period'}</p>
+    <table>
+      <thead><tr><th>Rank</th><th>Use-case</th><th>Stage</th><th>Failed</th><th>Fail rate</th><th>vs last period</th><th>Severity</th></tr></thead>
+      <tbody>
+        ${rankedWithPop
+          .map(
+            (row, i) => `<tr><td>${i + 1}</td><td>${row.code} ${esc(row.name)}</td><td>${esc(row.stageName)}</td>
+            <td>${row.fail} of ${row.total}</td><td>${row.failRate}%</td>
+            <td>${row.delta == null ? 'n/a' : `${row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '•'} ${Math.abs(row.delta)} pts`}</td>
+            <td>${row.hardFail ? 'Critical' : 'Standard'}</td></tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>`;
+
+  root.querySelector('[data-action="export-ranking-pdf"]')?.addEventListener('click', () => {
+    downloadPdf('Use-case fail ranking', rankingTableHtml);
+  });
+
+  root.querySelector('[data-action="export-report-pdf"]')?.addEventListener('click', () => {
+    downloadPdf(
+      'Claim Intel report',
+      `<h1>Claim Intel report</h1><p>${esc(scope)}</p>
+      <table>
+        <tbody>
+          <tr><th>Claims scored</th><td>${metrics.count}</td></tr>
+          <tr><th>Total value</th><td>${formatAED(metrics.value)}</td></tr>
+          <tr><th>High-risk rate</th><td>${metrics.highRiskRate}%</td></tr>
+          <tr><th>Critical fails</th><td>${metrics.hardFails}</td></tr>
+          <tr><th>Bypassed</th><td>${metrics.bypassed}</td></tr>
+        </tbody>
+      </table>
+      ${rankingTableHtml}`
+    );
   });
 
   root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {

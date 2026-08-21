@@ -520,6 +520,156 @@ a {
   margin-bottom: 16px;
 }
 
+.tier-strip.is-filter {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  gap: 8px;
+}
+
+.tier-strip.is-filter .tier-stat {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tier-strip.is-filter .tier-stat.is-active {
+  border-color: var(--navy);
+  background: var(--navy-soft);
+  color: var(--navy-deep);
+}
+
+.queue-priority-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.queue-search-group {
+  flex: 1;
+  min-width: 240px;
+}
+
+.queue-search-group input {
+  width: 100%;
+}
+
+.col-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.col-sort.is-right { margin-left: auto; }
+.col-sort.is-center { margin-inline: auto; }
+
+.sort-arrows {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 0.55;
+  font-size: 0.55rem;
+  opacity: 0.35;
+}
+
+.sort-arrows .is-on {
+  opacity: 1;
+  color: var(--navy-deep);
+}
+
+.col-sort.is-active {
+  color: var(--navy-deep);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--navy);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.stat-tile.is-link,
+.compose-row.is-link,
+.attention-row,
+.trend-banner {
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-tile.is-link {
+  display: block;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.stat-tile.is-link:hover,
+.compose-row.is-link:hover,
+.attention-row:hover {
+  border-color: var(--navy);
+}
+
+.compose-row.is-link {
+  display: grid;
+}
+
+.dash-concentrate,
+.dash-attention {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px 28px;
+}
+
+.attention-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.trend-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  margin-bottom: 12px;
+}
+
+.trend-banner.is-up { border-color: var(--red-border); background: var(--red-bg); }
+.trend-banner.is-down { border-color: var(--green-border); background: var(--green-bg); }
+
+.pop.is-up { color: var(--red); font-weight: 600; }
+.pop.is-down { color: var(--green); font-weight: 600; }
+.pop.is-flat, .muted { color: var(--text-muted); }
+
+.audit-scroll { max-height: 640px; overflow: auto; }
+
 .tier-stat {
   display: flex;
   align-items: center;
@@ -587,7 +737,7 @@ a {
 .claims-list-head,
 .claim-row {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
+  grid-template-columns: 4.75rem minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
   align-items: center;
   gap: 16px;
 }
@@ -602,7 +752,7 @@ a {
 }
 
 .claims-list.has-audit .claims-list-head {
-  grid-template-columns: 32px 56px minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
+  grid-template-columns: 32px 4.75rem minmax(0, 1fr) 7.5rem 5.75rem 7.25rem 6.75rem;
 }
 
 .claims-list-head .h-amount,
@@ -1035,6 +1185,12 @@ a {
   background: var(--mint-soft);
   color: var(--accent-text);
   border: 1px solid var(--accent);
+}
+
+.tag.pending {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid var(--amber-border);
 }
 
 .claim-amount {
@@ -4094,6 +4250,7 @@ function mockUploadClaimDocument(claimId, docId, actor) {
     newValue: claim.documents[docId].filename,
     comments: `Document captured at ${stageDisplayName(def.stage)}.`,
   });
+  persistClaimRuntime(claim);
   return claim.documents[docId];
 }
 
@@ -5288,6 +5445,14 @@ function getPendingExceptions(claim) {
   return (claim?.exceptions || []).filter((e) => e.status === 'pending');
 }
 
+function getPendingBypasses(claim) {
+  return (claim?.exceptions || []).filter((e) => e.type === 'bypass' && e.status === 'pending');
+}
+
+function hasPendingBypass(claim) {
+  return getPendingBypasses(claim).length > 0;
+}
+
 function latestExceptionForCheck(claim, checkId) {
   const id = Number(checkId);
   const list = (claim?.exceptions || []).filter((e) => e.checkId === id);
@@ -5366,15 +5531,6 @@ function actorSnapshot(actor) {
 
 function settleCoreBypasses(claim) {
   let changed = false;
-  (claim.exceptions || []).forEach((ex) => {
-    if (ex.type === 'bypass' && ex.status === 'pending') {
-      ex.status = 'approved';
-      ex.decidedBy = { userId: 'core', name: 'Core system', role: 'core' };
-      ex.decidedAt = ex.decidedAt || '2026-08-14';
-      ex.decisionComment = ex.decisionComment || 'Approved in the core system.';
-      changed = true;
-    }
-  });
   const ids = new Set(claim.bypassedCheckIds || []);
   (claim.exceptions || []).forEach((ex) => {
     if (ex.type === 'bypass' && ex.status === 'approved' && !ids.has(ex.checkId)) {
@@ -5387,9 +5543,8 @@ function settleCoreBypasses(claim) {
 }
 
 /**
- * Claim User Bypass sends a notification to the core system (out of scope).
- * This prototype applies the approved bypass immediately so scoring can be demoed:
- * the use-case drops out and remaining stage weights are normalised to 100%.
+ * Request Bypass notifies the core system (out of scope). Scoring does not change
+ * until core approves; the use-case stays Failed with status In approval.
  */
 function requestCoreBypass(claimId, checkId, actor) {
   const claim = RAW_CLAIMS.find((c) => c.id === claimId);
@@ -5398,51 +5553,49 @@ function requestCoreBypass(claimId, checkId, actor) {
   if ((claim.bypassedCheckIds || []).includes(id)) {
     return { ok: false, message: 'This use-case is already bypassed.' };
   }
+  const existing = latestExceptionForCheck(claim, id);
+  if (existing?.type === 'bypass' && existing.status === 'pending') {
+    return { ok: false, message: 'A bypass request is already in approval with the core system.' };
+  }
 
   const stamp = nextAuditStamp();
   const exception = {
     id: `ex-${claim.id}-${(claim.exceptions || []).length + 1}`,
     checkId: id,
     type: 'bypass',
-    status: 'approved',
-    comment: 'Bypass notification sent to the core system.',
+    status: 'pending',
+    comment: 'Bypass requested — waiting for core system approval.',
     proposedFields: {},
     previousFields: {},
     hardFail: false,
     disposition: null,
     requestedBy: actorSnapshot(actor),
     requestedAt: stamp.date,
-    decidedBy: { userId: 'core', name: 'Core system', role: 'core' },
-    decidedAt: stamp.date,
-    decisionComment: 'Approved in the core system.',
+    decidedBy: null,
+    decidedAt: null,
+    decisionComment: '',
   };
   claim.exceptions = claim.exceptions || [];
   claim.exceptions.push(exception);
-  const ids = new Set(claim.bypassedCheckIds || []);
-  ids.add(id);
-  claim.bypassedCheckIds = [...ids];
   persistClaimRuntime(claim);
 
   appendClaimAudit(claimId, {
     user: actor?.name || 'Demo user',
-    action: 'Bypass approved',
-    changeType: 'Exception',
+    action: 'Bypass requested',
+    changeType: 'Bypass',
     entity: 'Use-case',
     field: checkCode(id),
     oldValue: 'Fail',
-    newValue: 'Bypassed',
-    summary: `${checkCode(id)} bypassed after core approval.`,
-    comments: 'Notification sent to core; use-case excluded from the stage.',
-    changes: [
-      { field: checkCode(id), oldValue: 'Fail', newValue: 'Notification sent to core' },
-      { field: checkCode(id), oldValue: 'Fail', newValue: 'Bypassed' },
-    ],
+    newValue: 'In approval',
+    summary: `${checkCode(id)} bypass requested; waiting for core approval.`,
+    comments: 'Sent to the core system. Scoring is unchanged until core approves.',
+    changes: [{ field: checkCode(id), oldValue: 'Fail', newValue: 'In approval' }],
   });
   persistClaimRuntime(claim);
   return {
     ok: true,
     message:
-      'A bypass notification was sent to the core system. This prototype shows the claim after core approval — that use-case is out of the stage score, and remaining weights in the stage are normalised to 100%.',
+      'Bypass requested. This use-case is In approval until the core system approves. Scoring stays unchanged until then.',
   };
 }
 
@@ -5623,6 +5776,56 @@ function decideCheckException(claimId, exceptionId, decision, comment, actor) {
 
 hydrateClaimRuntime();
 
+function seedDemoPendingBypasses() {
+  const seeds = [
+    { id: 'CLM-2026-08433', checkId: 11, user: 'Fatima Al-Najjar' },
+    { id: 'CLM-2026-08315', checkId: 10, user: 'Fatima Al-Najjar' },
+  ];
+  seeds.forEach((seed) => {
+    const claim = RAW_CLAIMS.find((c) => c.id === seed.id);
+    if (!claim || hasPendingBypass(claim)) return;
+    const existing = latestExceptionForCheck(claim, seed.checkId);
+    if (existing?.type === 'bypass') return;
+    claim.exceptions = claim.exceptions || [];
+    claim.exceptions.push({
+      id: `ex-${claim.id}-seed-bypass`,
+      checkId: seed.checkId,
+      type: 'bypass',
+      status: 'pending',
+      comment: 'Bypass requested — waiting for core system approval.',
+      proposedFields: {},
+      previousFields: {},
+      hardFail: false,
+      disposition: null,
+      requestedBy: { userId: 'u-fatima', name: seed.user, role: 'claim_user' },
+      requestedAt: '2026-08-10',
+      decidedBy: null,
+      decidedAt: null,
+      decisionComment: '',
+    });
+    const alreadyLogged = (claim.versions || claim.auditLog || []).some(
+      (v) => v.action === 'Bypass requested' && String(v.field) === checkCode(seed.checkId)
+    );
+    if (!alreadyLogged) {
+      appendClaimAudit(claim.id, {
+        user: seed.user,
+        date: '2026-08-10',
+        time: '11:20',
+        action: 'Bypass requested',
+        changeType: 'Bypass',
+        entity: 'Use-case',
+        field: checkCode(seed.checkId),
+        oldValue: 'Fail',
+        newValue: 'In approval',
+        comments: 'Sent to the core system. Scoring is unchanged until core approves.',
+      });
+    }
+    persistClaimRuntime(claim);
+  });
+}
+
+seedDemoPendingBypasses();
+
 const TREND_HISTORY = [
   { date: '2026-06-30', redPct: 18, yellowPct: 27, greenPct: 55, volume: 42 },
   { date: '2026-07-07', redPct: 21, yellowPct: 25, greenPct: 54, volume: 48 },
@@ -5631,6 +5834,7 @@ const TREND_HISTORY = [
   { date: '2026-07-28', redPct: 22, yellowPct: 28, greenPct: 50, volume: 49 },
   { date: '2026-08-04', redPct: 20, yellowPct: 30, greenPct: 50, volume: 53 },
 ];
+
 
 /* ===== js/state.js ===== */
 const SESSION_KEY = 'claim-intel-session';
@@ -5784,6 +5988,81 @@ function persistConfig(store) {
   return store;
 }
 
+const CONFIG_AUDIT_KEY = 'claim-intel-config-audit-v1';
+
+function configAuditStamp() {
+  const now = new Date();
+  return {
+    date: CONFIG_TODAY,
+    time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+  };
+}
+
+function appendConfigAudit(partial = {}) {
+  const session = getSession();
+  const stamp = configAuditStamp();
+  const entry = {
+    date: stamp.date,
+    time: stamp.time,
+    user: session?.name || 'Demo user',
+    action: 'Config change',
+    changeType: 'Config',
+    entity: 'Configuration',
+    field: 'Scoring version',
+    oldValue: '—',
+    newValue: 'Published',
+    comments: '',
+    claimId: '—',
+    registrationNo: '—',
+    fnolNumber: '—',
+    ...partial,
+  };
+  const rows = [entry, ...getConfigAuditLog()];
+  localStorage.setItem(CONFIG_AUDIT_KEY, JSON.stringify(rows.slice(0, 200)));
+  return entry;
+}
+
+function getConfigAuditLog() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONFIG_AUDIT_KEY) || '[]');
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return [
+    {
+      date: '2026-08-08',
+      time: '10:15',
+      user: 'Sara Al-Harbi',
+      action: 'Config change',
+      changeType: 'Config',
+      entity: 'Configuration',
+      field: 'FNOL pass mark',
+      oldValue: '65%',
+      newValue: '70%',
+      comments: 'Raised FNOL pass mark after Q2 leakage review.',
+      claimId: '—',
+      registrationNo: '—',
+      fnolNumber: '—',
+    },
+    {
+      date: '2026-08-04',
+      time: '16:40',
+      user: 'Noura Al-Qahtani',
+      action: 'Config change',
+      changeType: 'Config',
+      entity: 'Configuration',
+      field: 'Critical use-case #01',
+      oldValue: 'High',
+      newValue: 'Critical',
+      comments: 'Plate mismatch treated as a pass/fail gate.',
+      claimId: '—',
+      registrationNo: '—',
+      fnolNumber: '—',
+    },
+  ];
+}
+
 /** Inclusive coverage: startDate <= asOf and (no end or endDate >= asOf). */
 function versionCoversDate(version, asOf = CONFIG_TODAY) {
   if (!version?.startDate) return false;
@@ -5873,7 +6152,14 @@ function commitConfigChange(nextUseCases, dates = {}, extras = {}) {
 
   store.versions.push(newVersion);
   store.currentId = getVersionForDate(CONFIG_TODAY, store).id;
-  return persistConfig(store);
+  persistConfig(store);
+  appendConfigAudit({
+    field: extras.summary || 'Scoring configuration',
+    oldValue: `Version ${current.number}`,
+    newValue: `Version ${newNumber}`,
+    comments: extras.reason || `Published scoring version ${newNumber} (${startDate} – ${endDate || 'Present'}).`,
+  });
+  return store;
 }
 
 function resetConfigStore() {
@@ -5918,8 +6204,8 @@ function formatVersionLabel(version, { isCurrent = false } = {}) {
   return `Version ${version.number} (${start} – ${end})${scheduled}`;
 }
 
+
 /* ===== js/scoring.js ===== */
-const getStoreWeights = getWeights;
 function daysBetween(fromIso, toIso) {
   const a = new Date(`${fromIso}T12:00:00`);
   const b = new Date(`${toIso}T12:00:00`);
@@ -6219,7 +6505,7 @@ function scoreClaim(claim, weights = DEFAULT_WEIGHTS, activeUseCases = null, opt
 }
 
 function scoreAllClaims(weights, activeUseCases) {
-  const w = weights || getStoreWeights();
+  const w = weights || getWeights();
   const active = activeUseCases || getActiveUseCases();
   const stagePassPct = getStagePassPct();
   return RAW_CLAIMS.map((claim) => {
@@ -6344,6 +6630,7 @@ function canAccess(role, feature) {
     claim: ['claim_user', 'claim_head', 'admin', 'fiu', 'surveyor'],
     dashboard: ['claim_head', 'admin', 'fiu'],
     report: ['claim_head', 'admin', 'fiu'],
+    audit: ['claim_head', 'admin', 'fiu'],
     config: ['admin', 'fiu'],
   };
   return (matrix[feature] || []).includes(role);
@@ -6385,6 +6672,8 @@ function withVisibleStages(scored, stageIds) {
   };
 }
 
+
+
 /* ===== js/filters.js ===== */
 /** Prototype “today” for Dashboard and Report (not the config version date). */
 const PROTOTYPE_TODAY = '2026-08-11';
@@ -6415,7 +6704,18 @@ const CLAIM_TYPE_OPTIONS = [
   { id: 'total_loss', label: 'Total loss' },
 ];
 
-const LEDGER_CHANGE_TYPES = ['Score', 'Document', 'Exception', 'Stage', 'Assignment', 'Review'];
+const AUDIT_EVENT_TYPES = [
+  'all',
+  'Bypass',
+  'Config',
+  'Document',
+  'Disposition',
+  'Exception',
+  'Stage',
+  'Score',
+  'Assignment',
+  'Review',
+];
 
 const TX_MAX_DAYS = 31;
 const TX_LIST_CAP = 24;
@@ -6482,6 +6782,10 @@ function filterClaimUniverse(claims, filters = {}) {
     tier = 'all',
     from,
     to,
+    query = '',
+    garage = '',
+    assignedTo = '',
+    attention = '',
   } = filters;
   const range = resolvePeriodRange(period, { from, to });
   return claims.filter((c) => {
@@ -6491,6 +6795,27 @@ function filterClaimUniverse(claims, filters = {}) {
     if (stage && stage !== 'all' && getClaimWorkflowStage(c) !== stage) return false;
     if (tier === 'red' || tier === 'high') {
       if (c.tier !== 'red') return false;
+    }
+    if (tier === 'yellow' || tier === 'medium') {
+      if (c.tier !== 'yellow') return false;
+    }
+    if (tier === 'green' || tier === 'pass') {
+      if (c.tier !== 'green') return false;
+    }
+    if (garage && c.garage !== garage) return false;
+    if (assignedTo && c.assignedTo !== assignedTo && c.assignedName !== assignedTo) return false;
+    if (attention === 'aging') {
+      const high = c.tier === 'red' || c.forcedRed;
+      if (!high || c.dueInDays > 2) return false;
+    }
+    if (attention === 'bypass') {
+      const pending = (c.exceptions || []).some((e) => e.type === 'bypass' && e.status === 'pending');
+      if (!pending) return false;
+    }
+    if (query) {
+      const q = String(query).trim().toLowerCase();
+      const blob = `${c.id} ${c.fnolNumber || ''} ${c.claimant || ''} ${c.assignedName || ''} ${c.garage || ''} ${c.branch || ''}`.toLowerCase();
+      if (!blob.includes(q)) return false;
     }
     return true;
   });
@@ -6511,6 +6836,13 @@ function describeClaimScope(claims, filters = {}, { includeValue = false } = {})
     parts.push(name);
   }
   if (filters.tier === 'red' || filters.tier === 'high') parts.push('High risk');
+  if (filters.tier === 'yellow' || filters.tier === 'medium') parts.push('Medium risk');
+  if (filters.tier === 'green' || filters.tier === 'pass') parts.push('Pass');
+  if (filters.attention === 'aging') parts.push('Aging high-risk');
+  if (filters.attention === 'bypass') parts.push('Bypass in approval');
+  if (filters.garage) parts.push(filters.garage);
+  if (filters.assignedTo) parts.push(filters.assignedTo);
+  if (filters.query) parts.push(`“${filters.query}”`);
   return parts.join(' · ');
 }
 
@@ -6542,14 +6874,25 @@ function snapshotMetrics(claims) {
   };
 }
 
+function previousPeriodRange(range) {
+  if (!range?.from || !range?.to) return null;
+  const days = daysInclusive(range.from, range.to);
+  const to = addDays(range.from, -1);
+  const from = addDays(to, -(days - 1));
+  return { from, to };
+}
+
 function ledgerChangeType(row) {
   const raw = row.changeType || '';
   if (raw === 'Upload' || row.entity === 'Document') return 'Document';
   if (raw === 'Status' || row.entity === 'Stage') return 'Stage';
   if (raw === 'Score') return 'Score';
+  if (raw === 'Config' || row.entity === 'Configuration') return 'Config';
+  if (raw === 'Bypass' || /bypass/i.test(row.action || '')) return 'Bypass';
   if (raw === 'Exception') return 'Exception';
   if (raw === 'Assignment') return 'Assignment';
   if (raw === 'Review') return 'Review';
+  if (/disposition|refer|accept risk/i.test(`${row.action || ''} ${row.field || ''}`)) return 'Disposition';
   return raw || 'Update';
 }
 
@@ -6627,6 +6970,8 @@ function capLedgerRows(rows, cap = TX_LIST_CAP) {
   return { shown: rows.slice(0, cap), total: rows.length, cap };
 }
 
+
+
 /* ===== js/components.js ===== */
 function brandIcon(size = 22) {
   return `
@@ -6695,12 +7040,13 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
     { hash: '#/queue', label: 'Claims', feature: 'queue' },
     { hash: '#/dashboard', label: 'Dashboard', feature: 'dashboard' },
     { hash: '#/report', label: 'Report', feature: 'report' },
+    { hash: '#/audit', label: 'Audit', feature: 'audit' },
     { hash: '#/config', label: 'Configuration', feature: 'config' },
   ];
 
   const nav = links
     .filter((l) => {
-      if (l.feature === 'dashboard' || l.feature === 'report') {
+      if (l.feature === 'dashboard' || l.feature === 'report' || l.feature === 'audit') {
         return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
       if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';
@@ -6735,6 +7081,7 @@ function renderShell(session, active, content, { showMobileNav = true } = {}) {
     </div>
   `;
 }
+
 
 /* ===== js/claim-versions-ui.js ===== */
 function esc(value) {
@@ -6989,6 +7336,7 @@ function renderOpenVersionPopup(claims, versionKey) {
   return versionPopupHtml(claim, parsed.version);
 }
 
+
 /* ===== js/views/login.js ===== */
 function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   root.innerHTML = `
@@ -7103,6 +7451,7 @@ function renderLogin(root, { error = '', ssoOpen = false } = {}) {
   });
 }
 
+
 /* ===== js/views/queue.js ===== */
 function auditTableHtml(claim) {
   return versionTableHtml(claim);
@@ -7116,41 +7465,106 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
+const STAGE_ORDER = Object.fromEntries(WORKFLOW_STAGES.map((s, i) => [s.id, i]));
+const TIER_ORDER = { red: 0, yellow: 1, green: 2 };
+
+function sortArrows(active, dir) {
+  return `<span class="sort-arrows" aria-hidden="true"><span class="sort-up${
+    active && dir === 'asc' ? ' is-on' : ''
+  }">▲</span><span class="sort-down${active && dir === 'desc' ? ' is-on' : ''}">▼</span></span>`;
+}
+
+function sortHead(key, label, state, alignClass = '') {
+  const active = state.sortKey === key;
+  const dir = active ? state.sortDir : null;
+  return `<button type="button" class="col-sort ${alignClass} ${active ? `is-active is-${dir}` : ''}" data-sort-key="${key}">${label}${sortArrows(active, dir)}</button>`;
+}
+
+function compareClaims(a, b, key) {
+  if (key === 'score') {
+    if (a.forcedRed !== b.forcedRed) return Number(b.forcedRed) - Number(a.forcedRed);
+    return (a.score || 0) - (b.score || 0);
+  }
+  if (key === 'claim') return String(a.id).localeCompare(String(b.id));
+  if (key === 'amount') return (a.amount || 0) - (b.amount || 0);
+  if (key === 'risk') return (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9);
+  if (key === 'stage') {
+    return (STAGE_ORDER[getClaimWorkflowStage(a)] ?? 9) - (STAGE_ORDER[getClaimWorkflowStage(b)] ?? 9);
+  }
+  if (key === 'deadline') return (a.dueInDays || 0) - (b.dueInDays || 0);
+  return String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
+}
+
+let keepQueueSearchFocus = false;
+
 function renderQueue(root, session, claims, state, onChange) {
   const canAudit = canViewClaimAudit(session.role);
-  const { stage = 'all', period = '30', from, to, auditClaimId = null, versionKey = null } = state;
+  const {
+    stage = 'all',
+    period = '30',
+    from,
+    to,
+    query = '',
+    tier = 'all',
+    sortKey = 'filed',
+    sortDir = 'desc',
+    garage = '',
+    assignedTo = '',
+    attention = '',
+    branch = 'All branches',
+    auditClaimId = null,
+    versionKey = null,
+  } = state;
   const range = resolvePeriodRange(period, { from, to });
-  const list = filterClaimUniverse(claims, {
+  const sharedFilters = {
     period,
     from: range.from,
     to: range.to,
     stage,
-  });
+    query,
+    garage,
+    assignedTo,
+    attention,
+    branch,
+  };
+  const baseList = filterClaimUniverse(claims, { ...sharedFilters, tier: 'all' });
+  const list = filterClaimUniverse(claims, { ...sharedFilters, tier });
 
   const sorted = [...list].sort((a, b) => {
-    const byFiled = String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
-    if (byFiled) return byFiled;
-    return a.dueInDays - b.dueInDays;
+    const cmp = compareClaims(a, b, sortKey);
+    if (cmp) return sortDir === 'asc' ? cmp : -cmp;
+    return String(b.filedAt || '').localeCompare(String(a.filedAt || ''));
   });
 
   const counts = {
-    red: list.filter((c) => c.tier === 'red').length,
-    yellow: list.filter((c) => c.tier === 'yellow').length,
-    green: list.filter((c) => c.tier === 'green').length,
+    all: baseList.length,
+    red: baseList.filter((c) => c.tier === 'red').length,
+    yellow: baseList.filter((c) => c.tier === 'yellow').length,
+    green: baseList.filter((c) => c.tier === 'green').length,
   };
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Claims <span style="color:var(--text-muted);font-weight:500;font-size:1.1rem">(${list.length})</span></h1>
-        <p class="page-subtitle">${list.length} claim${list.length === 1 ? '' : 's'} in the selected date range</p>
+        <p class="page-subtitle">${list.length} claim${list.length === 1 ? '' : 's'} in this view</p>
       </div>
     </div>
 
-    <div class="tier-strip">
-      <div class="tier-stat"><span class="dot red"></span><strong>${counts.red}</strong> High risk</div>
-      <div class="tier-stat"><span class="dot yellow"></span><strong>${counts.yellow}</strong> Medium risk</div>
-      <div class="tier-stat"><span class="dot green"></span><strong>${counts.green}</strong> Pass</div>
+    <div class="queue-priority-filters">
+      <div class="filter-group queue-search-group">
+        <label for="queue-search">Search</label>
+        <input id="queue-search" type="search" placeholder="Claim, FNOL, claimant, garage…" value="${esc(query)}" />
+      </div>
+      <div class="filter-group">
+        <span class="toolbar-label" style="margin:0 0 6px;display:block">Risk band</span>
+        <div class="tier-strip is-filter" role="group" aria-label="Risk band">
+          <button type="button" class="tier-stat ${tier === 'all' ? 'is-active' : ''}" data-tier="all">All <strong>${counts.all}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'red' ? 'is-active' : ''}" data-tier="red"><span class="dot red"></span>High risk <strong>${counts.red}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'yellow' ? 'is-active' : ''}" data-tier="yellow"><span class="dot yellow"></span>Medium <strong>${counts.yellow}</strong></button>
+          <button type="button" class="tier-stat ${tier === 'green' ? 'is-active' : ''}" data-tier="green"><span class="dot green"></span>Pass <strong>${counts.green}</strong></button>
+        </div>
+      </div>
     </div>
 
     <div class="filters-bar queue-filters">
@@ -7181,16 +7595,29 @@ function renderQueue(root, session, claims, state, onChange) {
         </select>
       </div>
     </div>
+    ${
+      garage || assignedTo || attention || (branch && branch !== 'All branches')
+        ? `<p class="scope-line">${[
+            branch && branch !== 'All branches' ? esc(branch) : '',
+            garage ? esc(garage) : '',
+            assignedTo ? esc(assignedTo) : '',
+            attention === 'aging' ? 'Aging high-risk' : '',
+            attention === 'bypass' ? 'Bypass in approval' : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')} · <button type="button" class="linkish" data-clear-launch>Clear launch filter</button></p>`
+        : ''
+    }
 
     <div class="claims-list ${canAudit ? 'has-audit' : ''}">
-      <div class="claims-list-head" aria-hidden="true">
+      <div class="claims-list-head">
         ${canAudit ? '<span class="h-audit"></span>' : ''}
-        <span class="h-score"></span>
-        <span class="h-claim">Claim</span>
-        <span class="h-amount">Amount</span>
-        <span class="h-risk">Risk</span>
-        <span class="h-stage">Claim Stage</span>
-        <span class="h-due">Deadline</span>
+        <span class="h-score">${sortHead('score', 'Score', state)}</span>
+        <span class="h-claim">${sortHead('claim', 'Claim', state)}</span>
+        <span class="h-amount">${sortHead('amount', 'Amount', state, 'is-right')}</span>
+        <span class="h-risk">${sortHead('risk', 'Risk', state, 'is-center')}</span>
+        <span class="h-stage">${sortHead('stage', 'Claim Stage', state, 'is-center')}</span>
+        <span class="h-due">${sortHead('deadline', 'Deadline', state, 'is-right')}</span>
       </div>
       ${
         sorted.length === 0
@@ -7206,13 +7633,15 @@ function renderQueue(root, session, claims, state, onChange) {
                       : `due in ${c.dueInDays}d`;
                 const workflow = getClaimWorkflowStage(c);
                 const open = canAudit && auditClaimId === c.id;
+                const pending = hasPendingBypass(c);
                 const row = `
               <div class="score-circle sm ${c.tier}${c.forcedRed ? ' is-fail-text' : ''}">${formatClaimScore(c)}</div>
               <div class="claim-main">
                 <div class="claim-id-line">
                   <span class="claim-id">${formatClaimRef(c)}</span>
                   ${c.forcedRed ? `<span class="tag critical">Stage fail</span>` : ''}
-                  ${c.hasOverride ? `<span class="tag override">Bypassed</span>` : ''}
+                  ${pending ? `<span class="tag pending">In approval</span>` : ''}
+                  ${!pending && c.hasOverride ? `<span class="tag override">Bypassed</span>` : ''}
                 </div>
                 <div class="claim-name">${c.claimant}</div>
               </div>
@@ -7254,25 +7683,59 @@ function renderQueue(root, session, claims, state, onChange) {
   root.innerHTML = renderShell(session, '#/queue', content);
   root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
 
+  const patch = (partial) => onChange({ ...state, ...partial });
+  root.querySelector('#queue-search')?.addEventListener('input', (e) => {
+    keepQueueSearchFocus = true;
+    patch({ query: e.target.value });
+  });
+  if (keepQueueSearchFocus) {
+    keepQueueSearchFocus = false;
+    const search = root.querySelector('#queue-search');
+    if (search) {
+      search.focus();
+      const end = search.value.length;
+      try {
+        search.setSelectionRange(end, end);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  root.querySelectorAll('[data-tier]').forEach((btn) => {
+    btn.addEventListener('click', () => patch({ tier: btn.dataset.tier }));
+  });
+  root.querySelectorAll('[data-sort-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.sortKey;
+      if (state.sortKey === key) {
+        patch({ sortDir: state.sortDir === 'desc' ? 'asc' : 'desc' });
+      } else {
+        patch({ sortKey: key, sortDir: 'desc' });
+      }
+    });
+  });
   root.querySelector('#queue-period')?.addEventListener('change', (e) => {
     const nextPeriod = e.target.value;
     const nextRange = resolvePeriodRange(nextPeriod, { from: state.from, to: state.to });
-    onChange({ ...state, period: nextPeriod, from: nextRange.from, to: nextRange.to });
+    patch({ period: nextPeriod, from: nextRange.from, to: nextRange.to });
   });
   root.querySelector('#queue-from')?.addEventListener('change', (e) => {
-    onChange({ ...state, from: e.target.value, period: 'custom' });
+    patch({ from: e.target.value, period: 'custom' });
   });
   root.querySelector('#queue-to')?.addEventListener('change', (e) => {
-    onChange({ ...state, to: e.target.value, period: 'custom' });
+    patch({ to: e.target.value, period: 'custom' });
   });
   root.querySelector('#queue-stage-filter')?.addEventListener('change', (e) => {
-    onChange({ ...state, stage: e.target.value });
+    patch({ stage: e.target.value });
+  });
+  root.querySelector('[data-clear-launch]')?.addEventListener('click', () => {
+    patch({ garage: '', assignedTo: '', attention: '', branch: 'All branches' });
   });
   root.querySelectorAll('[data-audit-toggle]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.auditToggle;
-      onChange({ ...state, auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
+      patch({ auditClaimId: state.auditClaimId === id ? null : id, versionKey: null });
     });
   });
   root.querySelectorAll('[data-claim-id]').forEach((btn) => {
@@ -7281,9 +7744,10 @@ function renderQueue(root, session, claims, state, onChange) {
     });
   });
   if (canAudit) {
-    bindVersionPopup(root, claims, (partial) => onChange({ ...state, ...partial }), 'versionKey');
+    bindVersionPopup(root, claims, (partial) => patch(partial), 'versionKey');
   }
 }
+
 
 /* ===== js/views/claim.js ===== */
 function stateIcon(state) {
@@ -7318,9 +7782,11 @@ function weightCellHtml(r, stageHasExcluded) {
   return `${shown}%`;
 }
 
-function exceptionBlockHtml(result, session) {
+function exceptionBlockHtml(result, session, claim) {
   if (session.role === 'surveyor') return '';
   const bits = [];
+  const pending = latestExceptionForCheck(claim, result.checkId);
+  const awaitingCore = pending?.type === 'bypass' && pending.status === 'pending';
   if (result.state === 'bypassed') {
     bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
@@ -7328,11 +7794,16 @@ function exceptionBlockHtml(result, session) {
         ? `<p class="exception-note">Excluded from this stage.</p>`
         : `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
+  } else if (awaitingCore) {
+    bits.push(`<span class="tag pending">In approval</span>`);
+    bits.push(
+      `<p class="exception-note">Bypass requested. Waiting for the core system to approve. Scoring is unchanged until then.</p>`
+    );
   }
   const buttons = [];
-  if (result.state === 'fail') {
+  if (result.state === 'fail' && !awaitingCore) {
     buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Bypass</button>`
+      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Request Bypass</button>`
     );
   }
   if (!bits.length && !buttons.length) return '';
@@ -7609,7 +8080,7 @@ function renderClaimDetail(
 
     ${
       exceptionNotice
-        ? `<div class="surveyor-banner"><strong>Bypass sent to core</strong><p>${esc(exceptionNotice)}</p></div>`
+        ? `<div class="surveyor-banner"><strong>Bypass requested</strong><p>${esc(exceptionNotice)}</p></div>`
         : ''
     }
     ${
@@ -7756,7 +8227,7 @@ function renderClaimDetail(
                         ${r.hardFail ? `<span class="tag critical">Critical</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
-                      ${exceptionBlockHtml(r, session)}
+                      ${exceptionBlockHtml(r, session, claim)}
                     </div>
                     ${hideWeights ? '' : `<div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>`}
                   </div>
@@ -7839,6 +8310,7 @@ function renderClaimDetail(
   });
 }
 
+
 /* ===== js/views/dashboard.js ===== */
 let chartInstance = null;
 
@@ -7849,13 +8321,37 @@ function destroyChart() {
   }
 }
 
+function queueHref(spec = {}) {
+  const params = new URLSearchParams();
+  Object.entries(spec).forEach(([k, v]) => {
+    if (v == null || v === '' || v === 'all' || v === 'All branches') return;
+    params.set(k, String(v));
+  });
+  const q = params.toString();
+  return q ? `#/queue?${q}` : '#/queue';
+}
+
+function countBy(list, keyFn) {
+  const map = new Map();
+  list.forEach((c) => {
+    const key = keyFn(c) || '—';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(c);
+  });
+  return [...map.entries()]
+    .map(([name, rows]) => ({
+      name,
+      count: rows.length,
+      red: rows.filter((c) => c.tier === 'red' || c.forcedRed).length,
+      value: rows.reduce((s, c) => s + (c.amount || 0), 0),
+    }))
+    .sort((a, b) => b.red - a.red || b.count - a.count);
+}
+
 function drawChart(canvas, mode) {
   destroyChart();
   if (!window.Chart || !canvas) return;
-
-  if (!TREND_HISTORY.length) {
-    return;
-  }
+  if (!TREND_HISTORY.length) return;
 
   const labels = TREND_HISTORY.map((p) => formatDate(p.date));
 
@@ -7902,7 +8398,7 @@ function drawChart(canvas, mode) {
           y: {
             min: 0,
             max: 100,
-            ticks: { callback: (v) => v + '%' },
+            ticks: { callback: (v) => `${v}%` },
             grid: { color: '#eef2f6' },
           },
           x: { grid: { display: false } },
@@ -7933,16 +8429,24 @@ function drawChart(canvas, mode) {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'IBM Plex Sans', size: 12 } } },
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0 },
-            grid: { color: '#eef2f6' },
-          },
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#eef2f6' } },
           x: { grid: { display: false } },
         },
       },
     });
   }
+}
+
+function trendDelta(current, previous) {
+  const delta = current - previous;
+  if (!Number.isFinite(delta) || previous == null) return { delta: 0, label: 'No prior period', dir: 'flat' };
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+  return {
+    delta,
+    dir,
+    label: `${arrow} ${Math.abs(delta)} pt${Math.abs(delta) === 1 ? '' : 's'} vs last period`,
+  };
 }
 
 function renderDashboard(root, session, claims, state, onChange) {
@@ -7954,6 +8458,11 @@ function renderDashboard(root, session, claims, state, onChange) {
   const { period, branch, chartMode, claimType = 'all' } = state;
   const dashFilters = { period, branch, claimType };
   const filtered = filterClaimUniverse(claims, dashFilters);
+  const range = resolvePeriodRange(period);
+  const priorRange = previousPeriodRange(range);
+  const prior = priorRange
+    ? filterClaimUniverse(claims, { period: 'custom', from: priorRange.from, to: priorRange.to, branch, claimType })
+    : [];
   const scopeLine = describeClaimScope(filtered, dashFilters);
 
   const totalCount = filtered.length;
@@ -7962,40 +8471,41 @@ function renderDashboard(root, session, claims, state, onChange) {
   const yellow = filtered.filter((c) => c.tier === 'yellow');
   const green = filtered.filter((c) => c.tier === 'green');
   const criticalClaims = filtered.filter((c) => (c.hardFails?.length || 0) > 0);
-
   const redValue = red.reduce((s, c) => s + c.amount, 0);
-  const yellowValue = yellow.reduce((s, c) => s + c.amount, 0);
-  const greenValue = green.reduce((s, c) => s + c.amount, 0);
-
   const flaggedPct = totalCount ? Math.round((red.length / totalCount) * 100) : 0;
-  const criticalPct = totalCount ? Math.round((criticalClaims.length / totalCount) * 100) : 0;
+  const priorPct = prior.length ? Math.round((prior.filter((c) => c.tier === 'red').length / prior.length) * 100) : null;
+  const lastTrend = TREND_HISTORY[TREND_HISTORY.length - 1];
+  const prevTrend = TREND_HISTORY[TREND_HISTORY.length - 2];
+  const weekly = trendDelta(lastTrend?.redPct, prevTrend?.redPct);
+  const periodTrend = priorPct == null ? weekly : trendDelta(flaggedPct, priorPct);
 
-  const maxCount = Math.max(red.length, yellow.length, green.length, 1);
-  const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
+  const aging = filtered
+    .filter((c) => (c.tier === 'red' || c.forcedRed) && c.dueInDays <= 2)
+    .sort((a, b) => a.dueInDays - b.dueInDays);
+  const pendingBypass = filtered.filter((c) => hasPendingBypass(c));
 
-  const hasTrend = TREND_HISTORY.length >= 2;
-  const failStats = useCaseFailStats(filtered);
-  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 8);
-  const maxFails = Math.max(...topFails.map((s) => s.fail), 1);
-
-  const stageFailSummary = CLAIM_STAGES.map((stage) => {
-    const rows = failStats.filter((s) => s.stage === stage.id);
-    const fails = rows.reduce((n, r) => n + r.fail, 0);
-    const total = rows.reduce((n, r) => n + r.total, 0);
+  const byStage = CLAIM_STAGES.map((st) => {
+    const stageRows = filtered.filter((c) => c.workflowStage === st.id);
     return {
-      ...stage,
-      fails,
-      total,
-      rate: total ? Math.round((fails / total) * 100) : 0,
-      top: rows.slice().sort((a, b) => b.fail - a.fail)[0],
+      ...st,
+      count: stageRows.length,
+      red: stageRows.filter((c) => c.tier === 'red' || c.forcedRed).length,
     };
   });
+  const byGarage = countBy(filtered, (c) => c.garage).slice(0, 5);
+  const byRegion = countBy(filtered, (c) => c.branch);
+  const byAdjuster = countBy(filtered, (c) => c.assignedName).slice(0, 5);
+
+  const failStats = useCaseFailStats(filtered);
+  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 5);
+  const hasTrend = TREND_HISTORY.length >= 2;
+  const periodParam = period;
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Dashboard</h1>
-        <p class="page-subtitle">Portfolio risk overview · use-case fail insight</p>
+        <p class="page-subtitle">Where risk sits · whether it is moving · what needs you now</p>
       </div>
     </div>
 
@@ -8026,127 +8536,163 @@ function renderDashboard(root, session, claims, state, onChange) {
     <p class="scope-line">${scopeLine}</p>
 
     <div class="stat-tiles">
-      <div class="stat-tile">
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType })}">
         <div class="label">Claims scored</div>
         <div class="value">${totalCount}</div>
-        <div class="sub">In selected period</div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Total claim value</div>
-        <div class="value" style="font-size:1.2rem">${formatAED(totalValue)}</div>
-        <div class="sub">Sum of claim amounts</div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Flagged high-risk</div>
+        <div class="sub">Open the queue</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, tier: 'red' })}">
+        <div class="label">High-risk rate</div>
         <div class="value">${flaggedPct}%</div>
-        <div class="sub">${formatAED(redValue)} exposed</div>
+        <div class="sub">${formatAED(redValue)} · ${red.length} claims</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, attention: 'aging' })}">
+        <div class="label">Aging high-risk</div>
+        <div class="value">${aging.length}</div>
+        <div class="sub">Due in 2 days or overdue</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, attention: 'bypass' })}">
+        <div class="label">Bypass in approval</div>
+        <div class="value">${pendingBypass.length}</div>
+        <div class="sub">Waiting on the core system</div>
+      </a>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Where is risk concentrated?</h2>
       </div>
-      <div class="stat-tile">
-        <div class="label">Critical fails</div>
-        <div class="value">${criticalPct}%</div>
-        <div class="sub">${criticalClaims.length} claims with a failed critical</div>
+      <div class="dash-concentrate">
+        <div>
+          <h3 class="compose-title">By stage</h3>
+          ${byStage
+            .map(
+              (st) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, stage: st.id, tier: 'red' })}">
+              <span>${st.name}</span>
+              <strong>${st.red}</strong>
+              <span class="muted">${st.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By garage</h3>
+          ${byGarage
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, garage: g.name, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By region</h3>
+          ${byRegion
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch: g.name, claimType, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By adjuster</h3>
+          ${byAdjuster
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, assignedTo: g.name, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
       </div>
     </div>
 
     <div class="panel">
       <div class="panel-header">
-        <h2>Risk breakdown</h2>
-      </div>
-      <div class="risk-breakdown">
-        ${[
-          { key: 'red', label: 'High risk', count: red.length, value: redValue },
-          { key: 'yellow', label: 'Medium risk', count: yellow.length, value: yellowValue },
-          { key: 'green', label: 'Pass', count: green.length, value: greenValue },
-        ]
-          .map(
-            (row) => `
-          <div class="risk-row">
-            <div class="risk-row-label"><span class="dot ${row.key}"></span>${row.label}</div>
-            <div class="risk-metrics">
-              <div class="risk-numbers">
-                <span><strong>${row.count}</strong> claims</span>
-                <span><strong>${formatAED(row.value)}</strong></span>
-              </div>
-              <div class="bar-track"><div class="bar-fill ${row.key}" style="width:${Math.round((row.value / maxValue) * 100)}%"></div></div>
-              <div class="bar-track" style="height:5px;opacity:0.65"><div class="bar-fill ${row.key}" style="width:${Math.round((row.count / maxCount) * 100)}%;opacity:0.55"></div></div>
-            </div>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-      <p style="margin:12px 0 0;font-size:0.75rem;color:var(--text-muted)">Bars: claim value (primary) · count (secondary)</p>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Use-case fails by stage</h2>
-      </div>
-      <div class="stage-fail-grid">
-        ${stageFailSummary
-          .map(
-            (st) => `
-          <div class="stage-fail-card">
-            <div class="stage-fail-top">
-              <strong>${st.name}</strong>
-              <span>${st.fails} fails · ${st.rate}%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill red" style="width:${st.rate}%"></div></div>
-            <p class="stage-fail-top-uc">${
-              st.top && st.top.fail
-                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail} claims)`
-                : 'No fails in period'
-            }</p>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Top failing use-cases</h2>
-      </div>
-      ${
-        topFails.length === 0
-          ? `<div class="chart-empty">No failed use-cases in this filter.</div>`
-          : `<div class="usecase-fail-list">
-        ${topFails
-          .map(
-            (row) => `
-          <div class="usecase-fail-row">
-            <div class="usecase-fail-meta">
-              <span class="check-code">${row.code}</span>
-              <div>
-                <strong>${row.name}</strong>
-                <small>${row.stageName} · ${row.fail} of ${row.total} claims failed (${row.failRate}%)</small>
-              </div>
-            </div>
-            <div class="usecase-fail-bar-wrap">
-              <div class="bar-track"><div class="bar-fill red" style="width:${Math.round((row.fail / maxFails) * 100)}%"></div></div>
-              <strong>${row.fail} claims</strong>
-            </div>
-          </div>
-        `
-          )
-          .join('')}
-      </div>`
-      }
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Risk trend</h2>
+        <h2>Is risk trending up or down?</h2>
         <div class="segmented" role="group" aria-label="Chart mode">
           <button type="button" data-chart="share" class="${chartMode === 'share' ? 'active' : ''}">Risk share %</button>
           <button type="button" data-chart="volume" class="${chartMode === 'volume' ? 'active' : ''}">Claim volume</button>
         </div>
       </div>
+      <a class="trend-banner is-${periodTrend.dir}" href="${queueHref({ period: periodParam, branch, claimType, tier: 'red' })}">
+        <strong>High-risk share ${flaggedPct}%</strong>
+        <span>${periodTrend.label}. Weekly series ${weekly.label.toLowerCase()}.</span>
+      </a>
       ${
         hasTrend
           ? `<div class="chart-wrap"><canvas id="trend-chart"></canvas></div>`
           : `<div class="chart-empty">Not enough history yet to show a reliable trend.</div>`
+      }
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>What needs my attention now?</h2>
+      </div>
+      <div class="dash-attention">
+        <div>
+          <div class="panel-header" style="padding:0;margin-bottom:8px">
+            <h3 class="compose-title" style="margin:0">Aging high-risk</h3>
+            <a class="btn btn-sm btn-secondary" href="${queueHref({ period: periodParam, branch, claimType, attention: 'aging' })}">${aging.length} in queue</a>
+          </div>
+          ${
+            aging.length === 0
+              ? `<p class="muted">No high-risk claims due within 2 days.</p>`
+              : aging
+                  .slice(0, 6)
+                  .map(
+                    (c) => `
+            <a class="attention-row" href="#/claim/${c.id}">
+              <span class="mono">${c.id}</span>
+              <span>${c.claimant}</span>
+              <span class="due-badge ${c.dueInDays <= 0 ? 'urgent' : ''}">${
+                c.dueInDays < 0 ? `overdue ${Math.abs(c.dueInDays)}d` : c.dueInDays === 0 ? 'due today' : `due in ${c.dueInDays}d`
+              }</span>
+            </a>`
+                  )
+                  .join('')
+          }
+        </div>
+        <div>
+          <div class="panel-header" style="padding:0;margin-bottom:8px">
+            <h3 class="compose-title" style="margin:0">Bypass approvals pending</h3>
+            <a class="btn btn-sm btn-secondary" href="${queueHref({ period: periodParam, branch, claimType, attention: 'bypass' })}">${pendingBypass.length} in queue</a>
+          </div>
+          ${
+            pendingBypass.length === 0
+              ? `<p class="muted">No bypass requests waiting on core.</p>`
+              : pendingBypass
+                  .slice(0, 6)
+                  .map(
+                    (c) => `
+            <a class="attention-row" href="#/claim/${c.id}">
+              <span class="mono">${c.id}</span>
+              <span>${c.claimant}</span>
+              <span class="tag pending">In approval</span>
+            </a>`
+                  )
+                  .join('')
+          }
+        </div>
+      </div>
+      ${
+        topFails.length
+          ? `<p class="scope-line" style="margin-top:16px">Most fails this slice: ${topFails
+              .map((s) => `${s.code} ${s.name} (${s.fail})`)
+              .join(' · ')}</p>`
+          : ''
       }
     </div>
   `;
@@ -8176,6 +8722,8 @@ function renderDashboard(root, session, claims, state, onChange) {
     destroyChart();
   }
 }
+
+
 
 /* ===== js/views/config.js ===== */
 const SCORING_TABS = CLAIM_STAGES.map((s) => ({
@@ -9056,6 +9604,7 @@ function bindConfigEvents(root, session, currentUseCases) {
   );
 }
 
+
 /* ===== js/views/report.js ===== */
 function esc(value) {
   return String(value ?? '')
@@ -9071,14 +9620,39 @@ function csvEscape(value) {
 }
 
 function downloadCsv(filename, rows) {
-  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const csv = rows.map((r) => r.map(csvEscape).join(','));
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadPdf(title, bodyHtml) {
+  const w = window.open('', '_blank', 'noopener,noreferrer');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${esc(title)}</title>
+    <style>
+      body { font-family: "IBM Plex Sans", system-ui, sans-serif; color: #16303d; padding: 28px; }
+      h1 { font-size: 1.25rem; margin: 0 0 6px; }
+      p { color: #6b7f8a; font-size: 0.85rem; margin: 0 0 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #d5e8df; padding: 7px 8px; text-align: left; font-size: 12px; }
+      th { background: #e8fff6; }
+    </style>
+  </head><body>${bodyHtml}</body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+function popCell(delta) {
+  if (delta == null || !Number.isFinite(delta)) return `<span class="muted">n/a</span>`;
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+  return `<span class="pop is-${dir}">${arrow} ${Math.abs(delta)} pt${Math.abs(delta) === 1 ? '' : 's'}</span>`;
 }
 
 function versionChangeSummary(version) {
@@ -9155,6 +9729,16 @@ function renderReport(root, session, claims, state, onChange) {
   }
   if (state.ucHardFailOnly) failStats = failStats.filter((s) => s.hardFail);
   const ranked = failStats.filter((s) => s.fail > 0).slice(0, 15);
+  const prevRange = previousPeriodRange(range);
+  const prevUniverse = prevRange
+    ? filterClaimUniverse(claims, { ...barFilters, period: 'custom', from: prevRange.from, to: prevRange.to })
+    : [];
+  const prevById = Object.fromEntries(useCaseFailStats(prevUniverse).map((s) => [s.checkId, s]));
+  const rankedWithPop = ranked.map((row) => {
+    const prev = prevById[row.checkId];
+    const delta = prev && prev.total ? row.failRate - prev.failRate : null;
+    return { ...row, prevRate: prev ? prev.failRate : null, delta };
+  });
 
   const versionGroups = claimVersionGroups(universe);
   const versionQuery = String(state.versionQuery || '').trim().toLowerCase();
@@ -9176,7 +9760,10 @@ function renderReport(root, session, claims, state, onChange) {
         <h1>Report</h1>
         <p class="page-subtitle">Filtered management snapshot · prototype today ${formatDate('2026-08-11')}</p>
       </div>
-      <button type="button" class="btn btn-secondary" data-action="export-report">Export report</button>
+      <div class="header-actions">
+        <button type="button" class="btn btn-secondary" data-action="export-report">Export CSV</button>
+        <button type="button" class="btn btn-primary" data-action="export-report-pdf">Export PDF</button>
+      </div>
     </div>
 
     <div class="report-sticky-bar">
@@ -9313,7 +9900,11 @@ function renderReport(root, session, claims, state, onChange) {
     <div class="panel">
       <div class="panel-header">
         <h2>Use-case fail ranking</h2>
-        <button type="button" class="btn btn-sm btn-ghost" data-action="reset-uc">Reset section</button>
+        <div class="header-actions">
+          <button type="button" class="btn btn-sm btn-ghost" data-action="reset-uc">Reset section</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="export-ranking-csv" ${rankedWithPop.length ? '' : 'disabled'}>CSV</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="export-ranking-pdf" ${rankedWithPop.length ? '' : 'disabled'}>PDF</button>
+        </div>
       </div>
       <div class="section-chips">
         <button type="button" class="chip ${state.ucStage === 'all' ? 'active' : ''}" data-uc-stage="all">All stages</button>
@@ -9324,9 +9915,10 @@ function renderReport(root, session, claims, state, onChange) {
         <button type="button" class="chip ${state.ucHardFailOnly ? 'active' : ''}" data-uc-hard="1">Critical only</button>
       </div>
       ${
-        ranked.length === 0
+        rankedWithPop.length === 0
           ? `<div class="chart-empty">No failed use-cases in this slice.</div>`
-          : `<div class="sample-table-wrap">
+          : `<p class="scope-line">Fail rate vs ${prevRange ? formatRangeLabel(prevRange) : 'prior period'} (${prevUniverse.length} claims)</p>
+        <div class="sample-table-wrap">
         <table class="sample-table usecase-fail-table">
           <thead>
             <tr>
@@ -9335,11 +9927,12 @@ function renderReport(root, session, claims, state, onChange) {
               <th>Stage</th>
               <th>Failed claims</th>
               <th>Fail rate</th>
+              <th>vs last period</th>
               <th>Severity</th>
             </tr>
           </thead>
           <tbody>
-            ${ranked
+            ${rankedWithPop
               .map(
                 (row, i) => `
               <tr>
@@ -9351,6 +9944,7 @@ function renderReport(root, session, claims, state, onChange) {
                 <td>${esc(row.stageName)}</td>
                 <td class="mono">${row.fail} of ${row.total}</td>
                 <td class="mono">${row.failRate}%</td>
+                <td>${popCell(row.delta)}</td>
                 <td>${row.hardFail ? '<span class="tag critical">Critical</span>' : 'Standard'}</td>
               </tr>`
               )
@@ -9502,13 +10096,72 @@ function renderReport(root, session, claims, state, onChange) {
       ['Scorecard', 'Scope', scope],
       ...byStage.map((st) => ['By stage', st.name, `${st.count} · ${st.highRiskPct}% high risk`]),
       ...byType.map((t) => ['By type', t.label, `${t.count} · ${formatAED(t.value)}`]),
-      ...ranked.map((row) => [
+      ...rankedWithPop.map((row) => [
         'Use-case fail ranking',
         `${row.code} ${row.name}`,
-        `${row.fail} of ${row.total} claims failed (${row.failRate}%) · ${row.stageName}${row.hardFail ? ' · Critical' : ''}`,
+        `${row.fail} of ${row.total} claims failed (${row.failRate}%) · vs last period ${
+          row.delta == null ? 'n/a' : `${row.delta > 0 ? '+' : ''}${row.delta} pts`
+        } · ${row.stageName}${row.hardFail ? ' · Critical' : ''}`,
       ]),
     ];
     downloadCsv(`claim-intel-report-${range.from}-to-${range.to}.csv`, rows);
+  });
+
+  const rankingCsvRows = [
+    ['Rank', 'Use-case code', 'Use-case', 'Stage', 'Failed claims', 'Total', 'Fail rate %', 'vs last period (pts)', 'Severity'],
+    ...rankedWithPop.map((row, i) => [
+      i + 1,
+      row.code,
+      row.name,
+      row.stageName,
+      row.fail,
+      row.total,
+      row.failRate,
+      row.delta == null ? 'n/a' : row.delta,
+      row.hardFail ? 'Critical' : 'Standard',
+    ]),
+  ];
+
+  root.querySelector('[data-action="export-ranking-csv"]')?.addEventListener('click', () => {
+    downloadCsv(`claim-intel-fail-ranking-${range.from}-to-${range.to}.csv`, rankingCsvRows);
+  });
+
+  const rankingTableHtml = `
+    <h1>Use-case fail ranking</h1>
+    <p>${esc(scope)} · vs ${prevRange ? formatRangeLabel(prevRange) : 'prior period'}</p>
+    <table>
+      <thead><tr><th>Rank</th><th>Use-case</th><th>Stage</th><th>Failed</th><th>Fail rate</th><th>vs last period</th><th>Severity</th></tr></thead>
+      <tbody>
+        ${rankedWithPop
+          .map(
+            (row, i) => `<tr><td>${i + 1}</td><td>${row.code} ${esc(row.name)}</td><td>${esc(row.stageName)}</td>
+            <td>${row.fail} of ${row.total}</td><td>${row.failRate}%</td>
+            <td>${row.delta == null ? 'n/a' : `${row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '•'} ${Math.abs(row.delta)} pts`}</td>
+            <td>${row.hardFail ? 'Critical' : 'Standard'}</td></tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>`;
+
+  root.querySelector('[data-action="export-ranking-pdf"]')?.addEventListener('click', () => {
+    downloadPdf('Use-case fail ranking', rankingTableHtml);
+  });
+
+  root.querySelector('[data-action="export-report-pdf"]')?.addEventListener('click', () => {
+    downloadPdf(
+      'Claim Intel report',
+      `<h1>Claim Intel report</h1><p>${esc(scope)}</p>
+      <table>
+        <tbody>
+          <tr><th>Claims scored</th><td>${metrics.count}</td></tr>
+          <tr><th>Total value</th><td>${formatAED(metrics.value)}</td></tr>
+          <tr><th>High-risk rate</th><td>${metrics.highRiskRate}%</td></tr>
+          <tr><th>Critical fails</th><td>${metrics.hardFails}</td></tr>
+          <tr><th>Bypassed</th><td>${metrics.bypassed}</td></tr>
+        </tbody>
+      </table>
+      ${rankingTableHtml}`
+    );
   });
 
   root.querySelector('[data-action="export-tx"]')?.addEventListener('click', () => {
@@ -9543,15 +10196,232 @@ function renderReport(root, session, claims, state, onChange) {
   });
 }
 
+
+/* ===== js/views/audit.js ===== */
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function csvEscape(value) {
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv(filename, rows) {
+  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function isConsequential(row) {
+  if (row.ledgerType === 'Score' || row.user === 'Claim Intel') return false;
+  return true;
+}
+
+let keepAuditSearchFocus = false;
+
+function renderAudit(root, session, claims, state, onChange) {
+  if (!canAccess(session.role, 'audit')) {
+    location.hash = '#/queue';
+    return;
+  }
+
+  const { period = '30', from, to, changeType = 'all', user = 'all', query = '' } = state;
+  const range = resolvePeriodRange(period, { from, to });
+  const claimRows = flattenClaimLedger(claims);
+  const configRows = getConfigAuditLog().map((entry) => ({
+    ...entry,
+    claimId: entry.claimId || '—',
+    fnolNumber: entry.fnolNumber || '—',
+    registrationNo: entry.registrationNo || '—',
+    workflowStageName: '—',
+    ledgerType: 'Config',
+    userAction: entry.action,
+    delta: formatLedgerDelta(entry),
+  }));
+  const merged = [...claimRows, ...configRows];
+  const actors = [...new Set(merged.map((r) => r.user).filter(Boolean))].sort();
+
+  let list = merged.filter((r) => r.date && r.date >= range.from && r.date <= range.to);
+  if (changeType === 'all') list = list.filter(isConsequential);
+  else list = list.filter((r) => r.ledgerType === changeType);
+  if (user && user !== 'all') list = list.filter((r) => r.user === user);
+  if (query) {
+    const q = query.trim().toLowerCase();
+    list = list.filter((r) => {
+      const blob = `${r.claimId} ${r.fnolNumber} ${r.registrationNo} ${r.user} ${r.action} ${r.field} ${r.comments || ''} ${r.delta || ''}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }
+  list.sort((a, b) => `${b.date}T${b.time || '00:00'}`.localeCompare(`${a.date}T${a.time || '00:00'}`));
+
+  const content = `
+    <div class="page-header">
+      <div>
+        <h1>Audit trail</h1>
+        <p class="page-subtitle">Immutable log of bypass, config, disposition, and evidence actions · ${formatRangeLabel(range)}</p>
+      </div>
+      <button type="button" class="btn btn-secondary" data-action="export-audit" ${list.length ? '' : 'disabled'}>Export CSV</button>
+    </div>
+
+    <div class="filters-bar">
+      <div class="filter-group" style="min-width:220px;flex:1">
+        <label for="audit-search">Search</label>
+        <input id="audit-search" type="search" placeholder="Claim, actor, reason…" value="${esc(query)}" />
+      </div>
+      <div class="filter-group">
+        <label for="audit-type">Event type</label>
+        <select id="audit-type">
+          ${AUDIT_EVENT_TYPES.map(
+            (t) => `<option value="${t}" ${changeType === t ? 'selected' : ''}>${t === 'all' ? 'Consequential (default)' : t}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="audit-user">Actor</label>
+        <select id="audit-user">
+          <option value="all" ${user === 'all' ? 'selected' : ''}>All actors</option>
+          ${actors.map((name) => `<option value="${esc(name)}" ${user === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="audit-period">Date range</label>
+        <select id="audit-period">
+          ${DAY_RANGE_PRESETS.map(
+            (p) => `<option value="${p.id}" ${period === p.id ? 'selected' : ''}>${p.label}</option>`
+          ).join('')}
+          <option value="custom" ${period === 'custom' ? 'selected' : ''}>Custom</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="audit-from">Start date</label>
+        <input id="audit-from" type="date" value="${esc(from || range.from)}" />
+      </div>
+      <div class="filter-group">
+        <label for="audit-to">End date</label>
+        <input id="audit-to" type="date" value="${esc(to || range.to)}" />
+      </div>
+    </div>
+    <p class="scope-line">${list.length} event${list.length === 1 ? '' : 's'} · actor, timestamp, and reason on every row</p>
+
+    ${
+      list.length === 0
+        ? `<div class="chart-empty">No audit events in this filter.</div>`
+        : `<div class="sample-table-wrap audit-scroll">
+      <table class="sample-table audit-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Claim</th>
+            <th>Type</th>
+            <th>Change</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list
+            .map(
+              (row) => `
+            <tr>
+              <td class="mono">${formatDate(row.date)} ${esc(row.time || '')}</td>
+              <td>${esc(row.user || '—')}</td>
+              <td>${esc(row.userAction || row.action || '—')}</td>
+              <td>${
+                row.claimId && row.claimId !== '—'
+                  ? `<a href="#/claim/${esc(row.claimId)}">${formatClaimRef({ id: row.claimId, fnolNumber: row.fnolNumber })}</a>`
+                  : 'Configuration'
+              }</td>
+              <td><span class="tag">${esc(row.ledgerType)}</span></td>
+              <td>${esc(row.delta || '—')}</td>
+              <td>${esc(row.comments || row.summary || '—')}</td>
+            </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>`
+    }
+  `;
+
+  root.innerHTML = renderShell(session, '#/audit', content);
+  root.querySelector('[data-role-label]').textContent = ROLE_LABELS[session.role];
+
+  const patch = (partial) => onChange({ ...state, ...partial });
+  root.querySelector('#audit-search')?.addEventListener('input', (e) => {
+    keepAuditSearchFocus = true;
+    patch({ query: e.target.value });
+  });
+  if (keepAuditSearchFocus) {
+    keepAuditSearchFocus = false;
+    const search = root.querySelector('#audit-search');
+    if (search) {
+      search.focus();
+      const end = search.value.length;
+      try {
+        search.setSelectionRange(end, end);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  root.querySelector('#audit-type')?.addEventListener('change', (e) => patch({ changeType: e.target.value }));
+  root.querySelector('#audit-user')?.addEventListener('change', (e) => patch({ user: e.target.value }));
+  root.querySelector('#audit-period')?.addEventListener('change', (e) => {
+    const nextPeriod = e.target.value;
+    const nextRange = resolvePeriodRange(nextPeriod, { from: state.from, to: state.to });
+    patch({ period: nextPeriod, from: nextRange.from, to: nextRange.to });
+  });
+  root.querySelector('#audit-from')?.addEventListener('change', (e) => patch({ from: e.target.value, period: 'custom' }));
+  root.querySelector('#audit-to')?.addEventListener('change', (e) => patch({ to: e.target.value, period: 'custom' }));
+  root.querySelector('[data-action="export-audit"]')?.addEventListener('click', () => {
+    const rows = [
+      ['When', 'Actor', 'Action', 'Claim', 'FNOL', 'Type', 'Field', 'Old value', 'New value', 'Reason'],
+      ...list.map((row) => [
+        `${row.date} ${row.time || ''}`.trim(),
+        row.user || '',
+        row.userAction || row.action || '',
+        row.claimId || '',
+        row.fnolNumber || '',
+        row.ledgerType || '',
+        row.field || '',
+        row.oldValue || '',
+        row.newValue || '',
+        row.comments || row.summary || '',
+      ]),
+    ];
+    downloadCsv(`claim-intel-audit-${range.from}-to-${range.to}.csv`, rows);
+  });
+}
+
+
 /* ===== js/app.js ===== */
 const root = document.getElementById('app');
 
-/** @type {{ period: string, from: string, to: string, stage: string }} */
+/** @type {object} */
 let queueState = {
   period: '30',
   from: '2026-07-13',
   to: '2026-08-11',
   stage: 'all',
+  query: '',
+  tier: 'all',
+  sortKey: 'filed',
+  sortDir: 'desc',
+  garage: '',
+  assignedTo: '',
+  attention: '',
+  branch: 'All branches',
   auditClaimId: null,
   versionKey: null,
 };
@@ -9579,6 +10449,15 @@ let reportState = {
   versionQuery: '',
 };
 
+let auditState = {
+  period: '30',
+  from: '2026-07-13',
+  to: '2026-08-11',
+  changeType: 'all',
+  user: 'all',
+  query: '',
+};
+
 let claimFilter = 'all';
 let claimDrawerOpen = false;
 let claimStageTab = null;
@@ -9591,9 +10470,27 @@ let configFeedback = null;
 
 function parseRoute() {
   const hash = location.hash || '#/login';
-  const path = hash.replace(/^#/, '') || '/login';
-  const parts = path.split('/').filter(Boolean);
-  return { parts, path };
+  const raw = hash.replace(/^#/, '') || '/login';
+  const [pathPart, queryString] = raw.split('?');
+  const parts = (pathPart || '/login').split('/').filter(Boolean);
+  const params = new URLSearchParams(queryString || '');
+  return { parts, path: pathPart, params };
+}
+
+function applyQueueLaunch(params) {
+  if (![...params.keys()].length) return false;
+  queueState = {
+    ...queueState,
+    tier: params.get('tier') || 'all',
+    stage: params.get('stage') || queueState.stage,
+    query: params.get('q') || '',
+    branch: params.get('branch') || 'All branches',
+    garage: params.get('garage') || '',
+    assignedTo: params.get('assignedTo') || '',
+    attention: params.get('attention') || '',
+    period: params.get('period') || queueState.period,
+  };
+  return true;
 }
 
 function bindGlobalActions() {
@@ -9609,7 +10506,7 @@ function bindGlobalActions() {
 
 function render() {
   const session = getSession();
-  const { parts } = parseRoute();
+  const { parts, params } = parseRoute();
   const route = parts[0] || 'login';
 
   if (!session && route !== 'login') {
@@ -9632,6 +10529,9 @@ function render() {
 
   if (route === 'queue') {
     destroyChart();
+    if (applyQueueLaunch(params)) {
+      history.replaceState(null, '', `${location.pathname}${location.search}#/queue`);
+    }
     renderQueue(root, session, claims, queueState, (next) => {
       queueState = next;
       render();
@@ -9685,6 +10585,16 @@ function render() {
     }
     renderReport(root, session, claims, reportState, (next) => {
       reportState = next;
+      render();
+    });
+  } else if (route === 'audit') {
+    destroyChart();
+    if (!canAccess(session.role, 'audit')) {
+      location.hash = '#/queue';
+      return;
+    }
+    renderAudit(root, session, claims, auditState, (next) => {
+      auditState = next;
       render();
     });
   } else if (route === 'config') {

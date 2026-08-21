@@ -159,6 +159,81 @@ function persistConfig(store) {
   return store;
 }
 
+const CONFIG_AUDIT_KEY = 'claim-intel-config-audit-v1';
+
+function configAuditStamp() {
+  const now = new Date();
+  return {
+    date: CONFIG_TODAY,
+    time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+  };
+}
+
+export function appendConfigAudit(partial = {}) {
+  const session = getSession();
+  const stamp = configAuditStamp();
+  const entry = {
+    date: stamp.date,
+    time: stamp.time,
+    user: session?.name || 'Demo user',
+    action: 'Config change',
+    changeType: 'Config',
+    entity: 'Configuration',
+    field: 'Scoring version',
+    oldValue: '—',
+    newValue: 'Published',
+    comments: '',
+    claimId: '—',
+    registrationNo: '—',
+    fnolNumber: '—',
+    ...partial,
+  };
+  const rows = [entry, ...getConfigAuditLog()];
+  localStorage.setItem(CONFIG_AUDIT_KEY, JSON.stringify(rows.slice(0, 200)));
+  return entry;
+}
+
+export function getConfigAuditLog() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONFIG_AUDIT_KEY) || '[]');
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return [
+    {
+      date: '2026-08-08',
+      time: '10:15',
+      user: 'Sara Al-Harbi',
+      action: 'Config change',
+      changeType: 'Config',
+      entity: 'Configuration',
+      field: 'FNOL pass mark',
+      oldValue: '65%',
+      newValue: '70%',
+      comments: 'Raised FNOL pass mark after Q2 leakage review.',
+      claimId: '—',
+      registrationNo: '—',
+      fnolNumber: '—',
+    },
+    {
+      date: '2026-08-04',
+      time: '16:40',
+      user: 'Noura Al-Qahtani',
+      action: 'Config change',
+      changeType: 'Config',
+      entity: 'Configuration',
+      field: 'Critical use-case #01',
+      oldValue: 'High',
+      newValue: 'Critical',
+      comments: 'Plate mismatch treated as a pass/fail gate.',
+      claimId: '—',
+      registrationNo: '—',
+      fnolNumber: '—',
+    },
+  ];
+}
+
 /** Inclusive coverage: startDate <= asOf and (no end or endDate >= asOf). */
 export function versionCoversDate(version, asOf = CONFIG_TODAY) {
   if (!version?.startDate) return false;
@@ -248,7 +323,14 @@ export function commitConfigChange(nextUseCases, dates = {}, extras = {}) {
 
   store.versions.push(newVersion);
   store.currentId = getVersionForDate(CONFIG_TODAY, store).id;
-  return persistConfig(store);
+  persistConfig(store);
+  appendConfigAudit({
+    field: extras.summary || 'Scoring configuration',
+    oldValue: `Version ${current.number}`,
+    newValue: `Version ${newNumber}`,
+    comments: extras.reason || `Published scoring version ${newNumber} (${startDate} – ${endDate || 'Present'}).`,
+  });
+  return store;
 }
 
 export function resetConfigStore() {

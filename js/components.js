@@ -65,12 +65,13 @@ export function renderShell(session, active, content, { showMobileNav = true } =
     { hash: '#/queue', label: 'Claims', feature: 'queue' },
     { hash: '#/dashboard', label: 'Dashboard', feature: 'dashboard' },
     { hash: '#/report', label: 'Report', feature: 'report' },
+    { hash: '#/audit', label: 'Audit', feature: 'audit' },
     { hash: '#/config', label: 'Configuration', feature: 'config' },
   ];
 
   const nav = links
     .filter((l) => {
-      if (l.feature === 'dashboard' || l.feature === 'report') {
+      if (l.feature === 'dashboard' || l.feature === 'report' || l.feature === 'audit') {
         return session.role === 'claim_head' || session.role === 'admin' || session.role === 'fiu';
       }
       if (l.feature === 'config') return session.role === 'admin' || session.role === 'fiu';

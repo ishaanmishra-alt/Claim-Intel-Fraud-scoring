@@ -1,11 +1,13 @@
 import { renderShell } from '../components.js';
-import { ROLE_LABELS, BRANCHES, TREND_HISTORY, CLAIM_STAGES } from '../data.js';
+import { ROLE_LABELS, BRANCHES, TREND_HISTORY, CLAIM_STAGES, hasPendingBypass } from '../data.js';
 import { formatAED, formatDate, canAccess, useCaseFailStats } from '../scoring.js';
 import {
   PERIOD_PRESETS,
   CLAIM_TYPE_OPTIONS,
   filterClaimUniverse,
   describeClaimScope,
+  resolvePeriodRange,
+  previousPeriodRange,
 } from '../filters.js';
 
 let chartInstance = null;
@@ -17,13 +19,37 @@ function destroyChart() {
   }
 }
 
+function queueHref(spec = {}) {
+  const params = new URLSearchParams();
+  Object.entries(spec).forEach(([k, v]) => {
+    if (v == null || v === '' || v === 'all' || v === 'All branches') return;
+    params.set(k, String(v));
+  });
+  const q = params.toString();
+  return q ? `#/queue?${q}` : '#/queue';
+}
+
+function countBy(list, keyFn) {
+  const map = new Map();
+  list.forEach((c) => {
+    const key = keyFn(c) || '—';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(c);
+  });
+  return [...map.entries()]
+    .map(([name, rows]) => ({
+      name,
+      count: rows.length,
+      red: rows.filter((c) => c.tier === 'red' || c.forcedRed).length,
+      value: rows.reduce((s, c) => s + (c.amount || 0), 0),
+    }))
+    .sort((a, b) => b.red - a.red || b.count - a.count);
+}
+
 function drawChart(canvas, mode) {
   destroyChart();
   if (!window.Chart || !canvas) return;
-
-  if (!TREND_HISTORY.length) {
-    return;
-  }
+  if (!TREND_HISTORY.length) return;
 
   const labels = TREND_HISTORY.map((p) => formatDate(p.date));
 
@@ -70,7 +96,7 @@ function drawChart(canvas, mode) {
           y: {
             min: 0,
             max: 100,
-            ticks: { callback: (v) => v + '%' },
+            ticks: { callback: (v) => `${v}%` },
             grid: { color: '#eef2f6' },
           },
           x: { grid: { display: false } },
@@ -101,16 +127,24 @@ function drawChart(canvas, mode) {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'IBM Plex Sans', size: 12 } } },
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0 },
-            grid: { color: '#eef2f6' },
-          },
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#eef2f6' } },
           x: { grid: { display: false } },
         },
       },
     });
   }
+}
+
+function trendDelta(current, previous) {
+  const delta = current - previous;
+  if (!Number.isFinite(delta) || previous == null) return { delta: 0, label: 'No prior period', dir: 'flat' };
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+  return {
+    delta,
+    dir,
+    label: `${arrow} ${Math.abs(delta)} pt${Math.abs(delta) === 1 ? '' : 's'} vs last period`,
+  };
 }
 
 export function renderDashboard(root, session, claims, state, onChange) {
@@ -122,6 +156,11 @@ export function renderDashboard(root, session, claims, state, onChange) {
   const { period, branch, chartMode, claimType = 'all' } = state;
   const dashFilters = { period, branch, claimType };
   const filtered = filterClaimUniverse(claims, dashFilters);
+  const range = resolvePeriodRange(period);
+  const priorRange = previousPeriodRange(range);
+  const prior = priorRange
+    ? filterClaimUniverse(claims, { period: 'custom', from: priorRange.from, to: priorRange.to, branch, claimType })
+    : [];
   const scopeLine = describeClaimScope(filtered, dashFilters);
 
   const totalCount = filtered.length;
@@ -130,40 +169,41 @@ export function renderDashboard(root, session, claims, state, onChange) {
   const yellow = filtered.filter((c) => c.tier === 'yellow');
   const green = filtered.filter((c) => c.tier === 'green');
   const criticalClaims = filtered.filter((c) => (c.hardFails?.length || 0) > 0);
-
   const redValue = red.reduce((s, c) => s + c.amount, 0);
-  const yellowValue = yellow.reduce((s, c) => s + c.amount, 0);
-  const greenValue = green.reduce((s, c) => s + c.amount, 0);
-
   const flaggedPct = totalCount ? Math.round((red.length / totalCount) * 100) : 0;
-  const criticalPct = totalCount ? Math.round((criticalClaims.length / totalCount) * 100) : 0;
+  const priorPct = prior.length ? Math.round((prior.filter((c) => c.tier === 'red').length / prior.length) * 100) : null;
+  const lastTrend = TREND_HISTORY[TREND_HISTORY.length - 1];
+  const prevTrend = TREND_HISTORY[TREND_HISTORY.length - 2];
+  const weekly = trendDelta(lastTrend?.redPct, prevTrend?.redPct);
+  const periodTrend = priorPct == null ? weekly : trendDelta(flaggedPct, priorPct);
 
-  const maxCount = Math.max(red.length, yellow.length, green.length, 1);
-  const maxValue = Math.max(redValue, yellowValue, greenValue, 1);
+  const aging = filtered
+    .filter((c) => (c.tier === 'red' || c.forcedRed) && c.dueInDays <= 2)
+    .sort((a, b) => a.dueInDays - b.dueInDays);
+  const pendingBypass = filtered.filter((c) => hasPendingBypass(c));
 
-  const hasTrend = TREND_HISTORY.length >= 2;
-  const failStats = useCaseFailStats(filtered);
-  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 8);
-  const maxFails = Math.max(...topFails.map((s) => s.fail), 1);
-
-  const stageFailSummary = CLAIM_STAGES.map((stage) => {
-    const rows = failStats.filter((s) => s.stage === stage.id);
-    const fails = rows.reduce((n, r) => n + r.fail, 0);
-    const total = rows.reduce((n, r) => n + r.total, 0);
+  const byStage = CLAIM_STAGES.map((st) => {
+    const stageRows = filtered.filter((c) => c.workflowStage === st.id);
     return {
-      ...stage,
-      fails,
-      total,
-      rate: total ? Math.round((fails / total) * 100) : 0,
-      top: rows.slice().sort((a, b) => b.fail - a.fail)[0],
+      ...st,
+      count: stageRows.length,
+      red: stageRows.filter((c) => c.tier === 'red' || c.forcedRed).length,
     };
   });
+  const byGarage = countBy(filtered, (c) => c.garage).slice(0, 5);
+  const byRegion = countBy(filtered, (c) => c.branch);
+  const byAdjuster = countBy(filtered, (c) => c.assignedName).slice(0, 5);
+
+  const failStats = useCaseFailStats(filtered);
+  const topFails = failStats.filter((s) => s.fail > 0).slice(0, 5);
+  const hasTrend = TREND_HISTORY.length >= 2;
+  const periodParam = period;
 
   const content = `
     <div class="page-header">
       <div>
         <h1>Dashboard</h1>
-        <p class="page-subtitle">Portfolio risk overview · use-case fail insight</p>
+        <p class="page-subtitle">Where risk sits · whether it is moving · what needs you now</p>
       </div>
     </div>
 
@@ -194,127 +234,163 @@ export function renderDashboard(root, session, claims, state, onChange) {
     <p class="scope-line">${scopeLine}</p>
 
     <div class="stat-tiles">
-      <div class="stat-tile">
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType })}">
         <div class="label">Claims scored</div>
         <div class="value">${totalCount}</div>
-        <div class="sub">In selected period</div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Total claim value</div>
-        <div class="value" style="font-size:1.2rem">${formatAED(totalValue)}</div>
-        <div class="sub">Sum of claim amounts</div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Flagged high-risk</div>
+        <div class="sub">Open the queue</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, tier: 'red' })}">
+        <div class="label">High-risk rate</div>
         <div class="value">${flaggedPct}%</div>
-        <div class="sub">${formatAED(redValue)} exposed</div>
+        <div class="sub">${formatAED(redValue)} · ${red.length} claims</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, attention: 'aging' })}">
+        <div class="label">Aging high-risk</div>
+        <div class="value">${aging.length}</div>
+        <div class="sub">Due in 2 days or overdue</div>
+      </a>
+      <a class="stat-tile is-link" href="${queueHref({ period: periodParam, branch, claimType, attention: 'bypass' })}">
+        <div class="label">Bypass in approval</div>
+        <div class="value">${pendingBypass.length}</div>
+        <div class="sub">Waiting on the core system</div>
+      </a>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Where is risk concentrated?</h2>
       </div>
-      <div class="stat-tile">
-        <div class="label">Critical fails</div>
-        <div class="value">${criticalPct}%</div>
-        <div class="sub">${criticalClaims.length} claims with a failed critical</div>
+      <div class="dash-concentrate">
+        <div>
+          <h3 class="compose-title">By stage</h3>
+          ${byStage
+            .map(
+              (st) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, stage: st.id, tier: 'red' })}">
+              <span>${st.name}</span>
+              <strong>${st.red}</strong>
+              <span class="muted">${st.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By garage</h3>
+          ${byGarage
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, garage: g.name, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By region</h3>
+          ${byRegion
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch: g.name, claimType, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
+        <div>
+          <h3 class="compose-title">By adjuster</h3>
+          ${byAdjuster
+            .map(
+              (g) => `
+            <a class="compose-row is-link" href="${queueHref({ period: periodParam, branch, claimType, assignedTo: g.name, tier: 'red' })}">
+              <span>${g.name}</span>
+              <strong>${g.red}</strong>
+              <span class="muted">${g.count} claims · high risk</span>
+            </a>`
+            )
+            .join('')}
+        </div>
       </div>
     </div>
 
     <div class="panel">
       <div class="panel-header">
-        <h2>Risk breakdown</h2>
-      </div>
-      <div class="risk-breakdown">
-        ${[
-          { key: 'red', label: 'High risk', count: red.length, value: redValue },
-          { key: 'yellow', label: 'Medium risk', count: yellow.length, value: yellowValue },
-          { key: 'green', label: 'Pass', count: green.length, value: greenValue },
-        ]
-          .map(
-            (row) => `
-          <div class="risk-row">
-            <div class="risk-row-label"><span class="dot ${row.key}"></span>${row.label}</div>
-            <div class="risk-metrics">
-              <div class="risk-numbers">
-                <span><strong>${row.count}</strong> claims</span>
-                <span><strong>${formatAED(row.value)}</strong></span>
-              </div>
-              <div class="bar-track"><div class="bar-fill ${row.key}" style="width:${Math.round((row.value / maxValue) * 100)}%"></div></div>
-              <div class="bar-track" style="height:5px;opacity:0.65"><div class="bar-fill ${row.key}" style="width:${Math.round((row.count / maxCount) * 100)}%;opacity:0.55"></div></div>
-            </div>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-      <p style="margin:12px 0 0;font-size:0.75rem;color:var(--text-muted)">Bars: claim value (primary) · count (secondary)</p>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Use-case fails by stage</h2>
-      </div>
-      <div class="stage-fail-grid">
-        ${stageFailSummary
-          .map(
-            (st) => `
-          <div class="stage-fail-card">
-            <div class="stage-fail-top">
-              <strong>${st.name}</strong>
-              <span>${st.fails} fails · ${st.rate}%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill red" style="width:${st.rate}%"></div></div>
-            <p class="stage-fail-top-uc">${
-              st.top && st.top.fail
-                ? `Most fails: ${st.top.code} ${st.top.name} (${st.top.fail} claims)`
-                : 'No fails in period'
-            }</p>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Top failing use-cases</h2>
-      </div>
-      ${
-        topFails.length === 0
-          ? `<div class="chart-empty">No failed use-cases in this filter.</div>`
-          : `<div class="usecase-fail-list">
-        ${topFails
-          .map(
-            (row) => `
-          <div class="usecase-fail-row">
-            <div class="usecase-fail-meta">
-              <span class="check-code">${row.code}</span>
-              <div>
-                <strong>${row.name}</strong>
-                <small>${row.stageName} · ${row.fail} of ${row.total} claims failed (${row.failRate}%)</small>
-              </div>
-            </div>
-            <div class="usecase-fail-bar-wrap">
-              <div class="bar-track"><div class="bar-fill red" style="width:${Math.round((row.fail / maxFails) * 100)}%"></div></div>
-              <strong>${row.fail} claims</strong>
-            </div>
-          </div>
-        `
-          )
-          .join('')}
-      </div>`
-      }
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h2>Risk trend</h2>
+        <h2>Is risk trending up or down?</h2>
         <div class="segmented" role="group" aria-label="Chart mode">
           <button type="button" data-chart="share" class="${chartMode === 'share' ? 'active' : ''}">Risk share %</button>
           <button type="button" data-chart="volume" class="${chartMode === 'volume' ? 'active' : ''}">Claim volume</button>
         </div>
       </div>
+      <a class="trend-banner is-${periodTrend.dir}" href="${queueHref({ period: periodParam, branch, claimType, tier: 'red' })}">
+        <strong>High-risk share ${flaggedPct}%</strong>
+        <span>${periodTrend.label}. Weekly series ${weekly.label.toLowerCase()}.</span>
+      </a>
       ${
         hasTrend
           ? `<div class="chart-wrap"><canvas id="trend-chart"></canvas></div>`
           : `<div class="chart-empty">Not enough history yet to show a reliable trend.</div>`
+      }
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>What needs my attention now?</h2>
+      </div>
+      <div class="dash-attention">
+        <div>
+          <div class="panel-header" style="padding:0;margin-bottom:8px">
+            <h3 class="compose-title" style="margin:0">Aging high-risk</h3>
+            <a class="btn btn-sm btn-secondary" href="${queueHref({ period: periodParam, branch, claimType, attention: 'aging' })}">${aging.length} in queue</a>
+          </div>
+          ${
+            aging.length === 0
+              ? `<p class="muted">No high-risk claims due within 2 days.</p>`
+              : aging
+                  .slice(0, 6)
+                  .map(
+                    (c) => `
+            <a class="attention-row" href="#/claim/${c.id}">
+              <span class="mono">${c.id}</span>
+              <span>${c.claimant}</span>
+              <span class="due-badge ${c.dueInDays <= 0 ? 'urgent' : ''}">${
+                c.dueInDays < 0 ? `overdue ${Math.abs(c.dueInDays)}d` : c.dueInDays === 0 ? 'due today' : `due in ${c.dueInDays}d`
+              }</span>
+            </a>`
+                  )
+                  .join('')
+          }
+        </div>
+        <div>
+          <div class="panel-header" style="padding:0;margin-bottom:8px">
+            <h3 class="compose-title" style="margin:0">Bypass approvals pending</h3>
+            <a class="btn btn-sm btn-secondary" href="${queueHref({ period: periodParam, branch, claimType, attention: 'bypass' })}">${pendingBypass.length} in queue</a>
+          </div>
+          ${
+            pendingBypass.length === 0
+              ? `<p class="muted">No bypass requests waiting on core.</p>`
+              : pendingBypass
+                  .slice(0, 6)
+                  .map(
+                    (c) => `
+            <a class="attention-row" href="#/claim/${c.id}">
+              <span class="mono">${c.id}</span>
+              <span>${c.claimant}</span>
+              <span class="tag pending">In approval</span>
+            </a>`
+                  )
+                  .join('')
+          }
+        </div>
+      </div>
+      ${
+        topFails.length
+          ? `<p class="scope-line" style="margin-top:16px">Most fails this slice: ${topFails
+              .map((s) => `${s.code} ${s.name} (${s.fail})`)
+              .join(' · ')}</p>`
+          : ''
       }
     </div>
   `;

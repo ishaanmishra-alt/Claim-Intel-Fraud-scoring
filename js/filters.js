@@ -30,7 +30,18 @@ export const CLAIM_TYPE_OPTIONS = [
   { id: 'total_loss', label: 'Total loss' },
 ];
 
-export const LEDGER_CHANGE_TYPES = ['Score', 'Document', 'Exception', 'Stage', 'Assignment', 'Review'];
+export const AUDIT_EVENT_TYPES = [
+  'all',
+  'Bypass',
+  'Config',
+  'Document',
+  'Disposition',
+  'Exception',
+  'Stage',
+  'Score',
+  'Assignment',
+  'Review',
+];
 
 const TX_MAX_DAYS = 31;
 const TX_LIST_CAP = 24;
@@ -97,6 +108,10 @@ export function filterClaimUniverse(claims, filters = {}) {
     tier = 'all',
     from,
     to,
+    query = '',
+    garage = '',
+    assignedTo = '',
+    attention = '',
   } = filters;
   const range = resolvePeriodRange(period, { from, to });
   return claims.filter((c) => {
@@ -106,6 +121,27 @@ export function filterClaimUniverse(claims, filters = {}) {
     if (stage && stage !== 'all' && getClaimWorkflowStage(c) !== stage) return false;
     if (tier === 'red' || tier === 'high') {
       if (c.tier !== 'red') return false;
+    }
+    if (tier === 'yellow' || tier === 'medium') {
+      if (c.tier !== 'yellow') return false;
+    }
+    if (tier === 'green' || tier === 'pass') {
+      if (c.tier !== 'green') return false;
+    }
+    if (garage && c.garage !== garage) return false;
+    if (assignedTo && c.assignedTo !== assignedTo && c.assignedName !== assignedTo) return false;
+    if (attention === 'aging') {
+      const high = c.tier === 'red' || c.forcedRed;
+      if (!high || c.dueInDays > 2) return false;
+    }
+    if (attention === 'bypass') {
+      const pending = (c.exceptions || []).some((e) => e.type === 'bypass' && e.status === 'pending');
+      if (!pending) return false;
+    }
+    if (query) {
+      const q = String(query).trim().toLowerCase();
+      const blob = `${c.id} ${c.fnolNumber || ''} ${c.claimant || ''} ${c.assignedName || ''} ${c.garage || ''} ${c.branch || ''}`.toLowerCase();
+      if (!blob.includes(q)) return false;
     }
     return true;
   });
@@ -126,6 +162,13 @@ export function describeClaimScope(claims, filters = {}, { includeValue = false 
     parts.push(name);
   }
   if (filters.tier === 'red' || filters.tier === 'high') parts.push('High risk');
+  if (filters.tier === 'yellow' || filters.tier === 'medium') parts.push('Medium risk');
+  if (filters.tier === 'green' || filters.tier === 'pass') parts.push('Pass');
+  if (filters.attention === 'aging') parts.push('Aging high-risk');
+  if (filters.attention === 'bypass') parts.push('Bypass in approval');
+  if (filters.garage) parts.push(filters.garage);
+  if (filters.assignedTo) parts.push(filters.assignedTo);
+  if (filters.query) parts.push(`“${filters.query}”`);
   return parts.join(' · ');
 }
 
@@ -157,14 +200,25 @@ export function snapshotMetrics(claims) {
   };
 }
 
+export function previousPeriodRange(range) {
+  if (!range?.from || !range?.to) return null;
+  const days = daysInclusive(range.from, range.to);
+  const to = addDays(range.from, -1);
+  const from = addDays(to, -(days - 1));
+  return { from, to };
+}
+
 export function ledgerChangeType(row) {
   const raw = row.changeType || '';
   if (raw === 'Upload' || row.entity === 'Document') return 'Document';
   if (raw === 'Status' || row.entity === 'Stage') return 'Stage';
   if (raw === 'Score') return 'Score';
+  if (raw === 'Config' || row.entity === 'Configuration') return 'Config';
+  if (raw === 'Bypass' || /bypass/i.test(row.action || '')) return 'Bypass';
   if (raw === 'Exception') return 'Exception';
   if (raw === 'Assignment') return 'Assignment';
   if (raw === 'Review') return 'Review';
+  if (/disposition|refer|accept risk/i.test(`${row.action || ''} ${row.field || ''}`)) return 'Disposition';
   return raw || 'Update';
 }
 

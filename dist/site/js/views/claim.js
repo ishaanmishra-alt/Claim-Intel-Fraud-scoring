@@ -13,6 +13,7 @@ import {
   submitSurveyorAssessment,
   requestCoreBypass,
   formatClaimRef,
+  latestExceptionForCheck,
 } from '../data.js';
 import { formatAED, formatClaimAmount, formatDate, formatClaimScore, formatStageScore, tierLabel, sortChecksForDisplay } from '../scoring.js';
 
@@ -48,9 +49,11 @@ function weightCellHtml(r, stageHasExcluded) {
   return `${shown}%`;
 }
 
-function exceptionBlockHtml(result, session) {
+function exceptionBlockHtml(result, session, claim) {
   if (session.role === 'surveyor') return '';
   const bits = [];
+  const pending = latestExceptionForCheck(claim, result.checkId);
+  const awaitingCore = pending?.type === 'bypass' && pending.status === 'pending';
   if (result.state === 'bypassed') {
     bits.push(`<span class="tag override">Bypassed</span>`);
     bits.push(
@@ -58,11 +61,16 @@ function exceptionBlockHtml(result, session) {
         ? `<p class="exception-note">Excluded from this stage.</p>`
         : `<p class="exception-note">Excluded from this stage. Remaining use-case weights are normalised to 100%.</p>`
     );
+  } else if (awaitingCore) {
+    bits.push(`<span class="tag pending">In approval</span>`);
+    bits.push(
+      `<p class="exception-note">Bypass requested. Waiting for the core system to approve. Scoring is unchanged until then.</p>`
+    );
   }
   const buttons = [];
-  if (result.state === 'fail') {
+  if (result.state === 'fail' && !awaitingCore) {
     buttons.push(
-      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Bypass</button>`
+      `<button type="button" class="btn btn-sm btn-primary" data-action="request-bypass" data-check-id="${result.checkId}">Request Bypass</button>`
     );
   }
   if (!bits.length && !buttons.length) return '';
@@ -339,7 +347,7 @@ export function renderClaimDetail(
 
     ${
       exceptionNotice
-        ? `<div class="surveyor-banner"><strong>Bypass sent to core</strong><p>${esc(exceptionNotice)}</p></div>`
+        ? `<div class="surveyor-banner"><strong>Bypass requested</strong><p>${esc(exceptionNotice)}</p></div>`
         : ''
     }
     ${
@@ -486,7 +494,7 @@ export function renderClaimDetail(
                         ${r.hardFail ? `<span class="tag critical">Critical</span>` : ''}
                       </div>
                       <p class="evidence">${r.evidence}</p>
-                      ${exceptionBlockHtml(r, session)}
+                      ${exceptionBlockHtml(r, session, claim)}
                     </div>
                     ${hideWeights ? '' : `<div class="check-weight">${weightCellHtml(r, stageHasExcluded)}</div>`}
                   </div>
